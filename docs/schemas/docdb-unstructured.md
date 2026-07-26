@@ -1,0 +1,1 @@
+# JSON structures for custom fields/logs

@@ -1,0 +1,1 @@
+ALTER SEQUENCE work_orders_id_seq RESTART WITH 10001;

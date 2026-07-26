@@ -1,0 +1,160 @@
+generator client {
+provider = "prisma-client-js"
+}
+
+//generator erd {
+//provider = "prisma-erd-generator"
+//output   = "./ERD.svg"
+//}
+
+datasource db {
+provider = "postgresql"
+url      = env("DATABASE_URL")
+}
+
+// --- ENUMS ---
+enum Priority {
+LOW
+MEDIUM
+HIGH
+CRITICAL
+}
+
+enum assetStatus {
+OPERATIONAL
+DAMAGED
+}
+
+enum WorkOrderStatus {
+OPEN
+IN_PROGRESS
+onHOLD
+COMPLETE
+REVIEW
+CLOSED
+}
+
+enum Category {
+ANNUAL_PREVENTIVE_MAINTENANCE
+ASSETS
+LARGE_DAMAGE
+PARTS_REQUEST
+PROJECT_UPGRADE
+SIX_MONTH_PREVENTIVE_MAINTENANCE
+SUPPORT_REQUEST
+WEEKLY_MONTHLY_CHECKLISTS
+}
+
+// User model 
+model User {
+id             String        @id @default(uuid())
+email          String        @unique
+passwordHash   String
+firstName      String
+lastName       String
+createdAt      DateTime      @default(now())
+comments      Comment[]
+activityLogs  ActivityLog[]
+
+organizationId String?
+organization   Organization? @relation(fields: [organizationId], references: [id])
+
+assignedWorkOrders WorkOrder[] @relation("AssignedTo")
+createdWorkOrders  WorkOrder[] @relation("CreatedBy")
+}
+
+model Organization {
+id         String      @id @default(uuid())
+name       String
+users      User[]
+workOrders WorkOrder[]
+}
+
+//  model for comments 
+model Comment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  text        String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  workOrderId Int      @map("work_order_id")
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  
+  authorId    String   @map("author_id")
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+// model for activitylog 
+model ActivityLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  action      String   @db.VarChar(255) // e.g., "updated the priority to HIGH"
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workOrderId Int      @map("work_order_id")
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  actorId     String   @map("actor_id")
+  actor       User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+// model for asset
+model Asset {
+id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+name       String            @db.VarChar(100)
+status     assetStatus       @default(OPERATIONAL) // Added a default here so it doesn't crash on creation
+createdAt  DateTime          @default(now()) @map("created_at")
+workOrders WorkOrder[]
+parents    AssetDependency[] @relation("ChildAsset")
+children   AssetDependency[] @relation("ParentAsset")
+
+@@map("assets")
+}
+
+model AssetDependency {
+parentAssetId  String @map("parent_asset_id") @db.Uuid
+childAssetId   String @map("child_asset_id") @db.Uuid
+dependencyType String @map("dependency_type") @db.VarChar(50)
+
+parentAsset    Asset  @relation("ParentAsset", fields: [parentAssetId], references: [id], onDelete: Cascade)
+childAsset     Asset  @relation("ChildAsset", fields: [childAssetId], references: [id], onDelete: Cascade)
+
+@@id([parentAssetId, childAssetId])
+@@map("asset_dependencies")
+}
+
+// Work order model
+model WorkOrder {
+id          Int             @id @default(autoincrement())
+title       String          @db.VarChar(150)
+description String?
+priority    Priority        @default(MEDIUM)
+status      WorkOrderStatus @default(OPEN)
+
+category    Category?
+
+// date fields
+dueDate     DateTime?       @map("due_date")
+createdAt   DateTime        @default(now()) @map("created_at")
+closedAt    DateTime?       @map("closed_at")
+
+// Use String to match Organization.id
+organizationId String       @map("organization_id")
+organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+assetId    String? @map("asset_id") @db.Uuid
+assignedTo String? @map("assigned_to")
+createdBy  String? @map("created_by")
+
+asset    Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+assignee User?  @relation("AssignedTo", fields: [assignedTo], references: [id], onDelete: SetNull)
+creator  User?  @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+comments      Comment[]
+activityLogs  ActivityLog[]
+estimatedHours Int?      @map("estimated_hours")
+
+
+@@map("work_orders")
+}
