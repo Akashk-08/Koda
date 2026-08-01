@@ -1,76 +1,123 @@
 generator client {
-provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
-//generator erd {
-//provider = "prisma-erd-generator"
-//output   = "./ERD.svg"
-//}
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "./ERD.svg"
+}
 
 datasource db {
-provider = "postgresql"
-url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // --- ENUMS ---
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum Priority {
-LOW
-MEDIUM
-HIGH
-CRITICAL
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
 enum assetStatus {
-OPERATIONAL
-DAMAGED
+  OPERATIONAL
+  DAMAGED
 }
 
 enum WorkOrderStatus {
-OPEN
-IN_PROGRESS
-onHOLD
-COMPLETE
-REVIEW
-CLOSED
+  OPEN
+  IN_PROGRESS
+  onHOLD
+  COMPLETE
+  REVIEW
+  CLOSED
+}
+
+enum ScheduleType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
 }
 
 enum Category {
-ANNUAL_PREVENTIVE_MAINTENANCE
-ASSETS
-LARGE_DAMAGE
-PARTS_REQUEST
-PROJECT_UPGRADE
-SIX_MONTH_PREVENTIVE_MAINTENANCE
-SUPPORT_REQUEST
-WEEKLY_MONTHLY_CHECKLISTS
+  ANNUAL_PREVENTIVE_MAINTENANCE
+  ASSETS
+  LARGE_DAMAGE
+  PARTS_REQUEST
+  PROJECT_UPGRADE
+  SIX_MONTH_PREVENTIVE_MAINTENANCE
+  SUPPORT_REQUEST
+  WEEKLY_MONTHLY_CHECKLISTS
 }
 
-// User model 
+// model  user
 model User {
-id             String        @id @default(uuid())
-email          String        @unique
-passwordHash   String
-firstName      String
-lastName       String
-createdAt      DateTime      @default(now())
-comments      Comment[]
-activityLogs  ActivityLog[]
+  id               String   @id @default(uuid())
+  firstName        String   @map("first_name") @db.VarChar(50)
+  lastName         String   @map("last_name") @db.VarChar(50)
+  email            String   @unique @db.VarChar(100)
+  password         String   @db.VarChar(255)
+  
+  // New Profile Fields
+  phoneNumber      String?  @map("phone_number") @db.VarChar(20)
+  profilePicUrl    String?  @map("profile_pic_url") @db.Text
+  siteLocation     String?  @map("site_location") @db.VarChar(100)
+  designation      String?  @db.VarChar(100)
+  teams            Team[]
 
-organizationId String?
-organization   Organization? @relation(fields: [organizationId], references: [id])
+  // Access & Role Fields
+  role             UserRole       @default(USER)
+  approvalStatus   ApprovalStatus @default(PENDING) @map("approval_status")
 
-assignedWorkOrders WorkOrder[] @relation("AssignedTo")
-createdWorkOrders  WorkOrder[] @relation("CreatedBy")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organizationId   String   @map("organization_id")
+  // FIXED: references [orgId]
+  organization     Organization @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
+  assignedWorkOrders WorkOrder[]     @relation("AssignedTo")
+  createdWorkOrders  WorkOrder[]     @relation("CreatedBy")
+
+  //  Project Relationships 
+  ownedProjects        Project[]        @relation("ProjectOwner")
+  contributedProjects  Project[]        @relation("ProjectContributors")
+  projectComments      ProjectComment[]
+  assignedPms          PreventiveMaintenance[] @relation("PMAssignee")
+
+  //  Missing Opposite Relations
+  comments           Comment[]
+  activityLogs       ActivityLog[]
+
+  @@map("users")
 }
 
-model Organization {
-id         String      @id @default(uuid())
-name       String
-users      User[]
-workOrders WorkOrder[]
+model  Organization {
+  orgId      String      @id @default(uuid())
+  orgName    String
+  users      User[]
+  workOrders WorkOrder[]
+  teams      Team[]
+  locations  Location[]
+  
+  //  Project Relationships 
+  projects   Project[]
+  preventiveMaintenances PreventiveMaintenance[]
 }
 
-//  model for comments 
+//  model  comments 
 model Comment {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   text        String   @db.Text
@@ -85,7 +132,7 @@ model Comment {
   @@map("comments")
 }
 
-// model for activitylog 
+// model  activitylog 
 model ActivityLog {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   action      String   @db.VarChar(255) // e.g., "updated the priority to HIGH"
@@ -100,61 +147,165 @@ model ActivityLog {
   @@map("activity_logs")
 }
 
-// model for asset
+// model  asset
 model Asset {
-id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-name       String            @db.VarChar(100)
-status     assetStatus       @default(OPERATIONAL) // Added a default here so it doesn't crash on creation
-createdAt  DateTime          @default(now()) @map("created_at")
-workOrders WorkOrder[]
-parents    AssetDependency[] @relation("ChildAsset")
-children   AssetDependency[] @relation("ParentAsset")
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String            @db.VarChar(100)
+  status     assetStatus       @default(OPERATIONAL)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  workOrders WorkOrder[]
+  parents    AssetDependency[] @relation("ChildAsset")
+  children   AssetDependency[] @relation("ParentAsset")
 
-@@map("assets")
+  @@map("assets")
 }
 
 model AssetDependency {
-parentAssetId  String @map("parent_asset_id") @db.Uuid
-childAssetId   String @map("child_asset_id") @db.Uuid
-dependencyType String @map("dependency_type") @db.VarChar(50)
+  parentAssetId  String @map("parent_asset_id") @db.Uuid
+  childAssetId   String @map("child_asset_id") @db.Uuid
+  dependencyType String @map("dependency_type") @db.VarChar(50)
 
-parentAsset    Asset  @relation("ParentAsset", fields: [parentAssetId], references: [id], onDelete: Cascade)
-childAsset     Asset  @relation("ChildAsset", fields: [childAssetId], references: [id], onDelete: Cascade)
+  parentAsset    Asset  @relation("ParentAsset", fields: [parentAssetId], references: [id], onDelete: Cascade)
+  childAsset     Asset  @relation("ChildAsset", fields: [childAssetId], references: [id], onDelete: Cascade)
 
-@@id([parentAssetId, childAssetId])
-@@map("asset_dependencies")
+  @@id([parentAssetId, childAssetId])
+  @@map("asset_dependencies")
 }
 
-// Work order model
+// model  workorder
 model WorkOrder {
-id          Int             @id @default(autoincrement())
-title       String          @db.VarChar(150)
-description String?
-priority    Priority        @default(MEDIUM)
-status      WorkOrderStatus @default(OPEN)
+  id             Int             @id @default(autoincrement())
+  title          String          @db.VarChar(150)
+  description    String?
+  priority       Priority        @default(MEDIUM)
+  status         WorkOrderStatus @default(OPEN)
+  category       Category?
 
-category    Category?
+  // date fields
+  dueDate        DateTime?       @map("due_date")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  closedAt       DateTime?       @map("closed_at")
 
-// date fields
-dueDate     DateTime?       @map("due_date")
-createdAt   DateTime        @default(now()) @map("created_at")
-closedAt    DateTime?       @map("closed_at")
+  organizationId String          @map("organization_id")
+  // FIXED: references [orgId]
+  organization   Organization    @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
 
-// Use String to match Organization.id
-organizationId String       @map("organization_id")
-organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assetId        String?         @map("asset_id") @db.Uuid
+  assignedTo     String?         @map("assigned_to")
+  createdBy      String?         @map("created_by")
 
-assetId    String? @map("asset_id") @db.Uuid
-assignedTo String? @map("assigned_to")
-createdBy  String? @map("created_by")
+  asset          Asset?          @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  assignee       User?           @relation("AssignedTo", fields: [assignedTo], references: [id], onDelete: SetNull)
+  creator        User?           @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  
+  comments       Comment[]
+  activityLogs   ActivityLog[]
+  estimatedHours Int?            @map("estimated_hours")
+  pmId           String?         @map("pm_id")
+  preventiveMaintenance PreventiveMaintenance? @relation(fields: [pmId], references: [id], onDelete: SetNull)
+  @@map("work_orders")
+}
 
-asset    Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
-assignee User?  @relation("AssignedTo", fields: [assignedTo], references: [id], onDelete: SetNull)
-creator  User?  @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-comments      Comment[]
-activityLogs  ActivityLog[]
-estimatedHours Int?      @map("estimated_hours")
+// model  Project 
+model Project {
+  id             String           @id @default(uuid())
+  projectNumber  Int              @default(autoincrement()) @map("project_number")
+  title          String           @db.VarChar(150)
+  description    String?          @db.Text
+  status         String           @default("ACTIVE")
+  startDate      DateTime?        @map("start_date")
+  endDate        DateTime?        @map("end_date")
+  risks          String[]         @default([])
+  decisions      String[]         @default([])
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  organizationId String           @map("organization_id")
+  // FIXED: references [orgId]
+  organization   Organization     @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
+
+  ownerId        String           @map("owner_id")
+  owner          User             @relation("ProjectOwner", fields: [ownerId], references: [id])
+
+  contributors   User[]           @relation("ProjectContributors")
+  comments       ProjectComment[]
+
+  @@map("projects")
+}
+
+// model  ProjectComment
+model ProjectComment {
+  id        String   @id @default(uuid())
+  text      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  projectId String   @map("project_id")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  authorId  String   @map("author_id")
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("project_comments")
+}
 
 
-@@map("work_orders")
+
+// model  Preventive Maintenance 
+model PreventiveMaintenance {
+  id             String       @id @default(uuid())
+  title          String       @db.VarChar(150)
+  description    String?      @db.Text
+  scheduleType   ScheduleType @default(MONTHLY)
+  nextDueDate    DateTime     @map("next_due_date")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  organizationId String       @map("organization_id")
+  // FIXED: references [orgId]
+  organization   Organization @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
+
+  assigneeId     String?      @map("assignee_id")
+  assignee       User?        @relation("PMAssignee", fields: [assigneeId], references: [id])
+
+  workOrders     WorkOrder[]
+
+  @@map("preventive_maintenances")
+}
+
+// model  Location
+model Location {
+  id                    String   @id @default(uuid())
+  name                  String
+  address               String?
+  longitude             String?
+  latitude              String?
+  parentLocationName    String?
+  parentLocationId      String?
+  assignedToEmails      String?
+  teamAssignedNames     String?
+  customerAssignedNames String?
+  vendorAssignedNames   String?
+  createdAt             DateTime @default(now())
+
+  // Add these two lines to link it to an Organization:
+  organizationId        String?
+  // FIXED: references [orgId]
+  organization          Organization? @relation(fields: [organizationId], references: [orgId])
+  
+  teams                 Team[]
+}
+
+model Team {
+  id             String       @id @default(uuid())
+  name           String
+  description    String?
+  
+  organizationId String
+  // FIXED: references [orgId]
+  organization   Organization @relation(fields: [organizationId], references: [orgId])
+  
+  locationId     String?
+  location       Location?    @relation(fields: [locationId], references: [id])
+  
+  users          User[]       // Establishes a many-to-many relationship with Users
+  
+  createdAt      DateTime     @default(now())
 }

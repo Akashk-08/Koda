@@ -3,3 +3,4 @@ echo "dist/" >> .gitignore
 echo "build/" >> .gitignore
 echo "node_modules/" >> .gitignore
 echo ".DS_Store" >> .gitignore
+echo "import_locations.py" >> .gitignore
