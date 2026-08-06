@@ -1,6 +1,5 @@
-echo ".env" >> .gitignore
-echo "dist/" >> .gitignore
-echo "build/" >> .gitignore
-echo "node_modules/" >> .gitignore
-echo ".DS_Store" >> .gitignore
-echo "import_locations.py" >> .gitignore
+.env
+dist/
+build/
+node_modules/
+.DS_Store
