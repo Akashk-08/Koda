@@ -13,9 +13,9 @@ const WorkOrders = ({ user, onOpenModal }) => {
   const fetchWorkOrders = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/workorders?orgId=${user?.organizationId}`);
-      if (response.ok) {
-        setWorkOrders(await response.json());
+      const res = await fetch(`http://localhost:8080/api/workorders?orgId=${user?.organizationId}&userId=${user?.id}`);
+      if (res.ok) {
+        setWorkOrders(await res.json());
       }
     } catch (error) {
       console.error("Failed to fetch work orders:", error);
@@ -77,7 +77,6 @@ const WorkOrders = ({ user, onOpenModal }) => {
         </div>
 
         {/* Create Button */}
-        {/* Note: You can trigger your existing modal from App.tsx here by passing a prop, or move the modal component into this file */}
         <button
           onClick={onOpenModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
@@ -85,7 +84,6 @@ const WorkOrders = ({ user, onOpenModal }) => {
           <Plus className="w-4 h-4" /> Create Work Order
         </button>
       </div>
-
       {/* Search and Filter Bar */}
       <div className="bg-white p-4 rounded-t-lg border border-gray-200 border-b-0 flex gap-4 items-center shadow-sm">
         <div className="relative flex-1 max-w-md">
@@ -157,7 +155,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
                   </td>
                   <td className="px-6 py-4">
                     <Link
-                      to={`/workorder/${wo.id}`}
+                      to={`/dashboard/workorder/${wo.id}`}
                       className="text-sm font-bold text-gray-900 group-hover:text-blue-600 group-hover:underline block mb-1"
                     >
                       {wo.title}

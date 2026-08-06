@@ -100,6 +100,7 @@ model User {
   //  Missing Opposite Relations
   comments           Comment[]
   activityLogs       ActivityLog[]
+  uploadedDocs       Document[]
 
   @@map("users")
 }
@@ -203,6 +204,7 @@ model WorkOrder {
   estimatedHours Int?            @map("estimated_hours")
   pmId           String?         @map("pm_id")
   preventiveMaintenance PreventiveMaintenance? @relation(fields: [pmId], references: [id], onDelete: SetNull)
+  documents          Document[]
   @@map("work_orders")
 }
 
@@ -308,4 +310,19 @@ model Team {
   users          User[]       // Establishes a many-to-many relationship with Users
   
   createdAt      DateTime     @default(now())
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  fileName    String
+  fileUrl     String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workOrderId Int      @map("work_order_id")
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  uploaderId  String   @map("uploader_id")
+  uploader    User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
 }

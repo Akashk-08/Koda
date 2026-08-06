@@ -9,6 +9,11 @@ import pmRoutes from './Routes/pm.js';
 import userRoutes from './Routes/users.js';
 import locationRoutes from './Routes/locations.js';
 import teamRoutes from './Routes/teams.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
 const app = express();
@@ -16,7 +21,8 @@ const PORT = 8080;
 
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json());
-
+// Add this line to serve your images!
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // --- AUTH ROUTES ---
 
 // CREATE ACCOUNT (First Seat Rule Applied & Transaction Safe)
@@ -32,7 +38,7 @@ app.post("/api/auth/signup", async (req, res) => {
 
     let org = await prisma.organization.findFirst({
       where: { 
-        orgName: { // FIXED: changed 'name' to 'orgName'
+        orgName: { 
           equals: normalizedOrgName,
           mode: 'insensitive' 
         }
@@ -42,7 +48,7 @@ app.post("/api/auth/signup", async (req, res) => {
     if (!org) {
       const result = await prisma.$transaction(async (tx) => {
         const newOrg = await tx.organization.create({
-          data: { orgName: normalizedOrgName } // FIXED: changed 'name' to 'orgName'
+          data: { orgName: normalizedOrgName } 
         });
 
         const newUser = await tx.user.create({
@@ -51,7 +57,7 @@ app.post("/api/auth/signup", async (req, res) => {
             lastName,
             email,
             password: hashedPassword,
-            organizationId: newOrg.orgId, // FIXED: changed 'newOrg.id' to 'newOrg.orgId'
+            organizationId: newOrg.orgId, 
             role: 'ADMIN',
             approvalStatus: 'APPROVED'
           }
@@ -68,7 +74,7 @@ app.post("/api/auth/signup", async (req, res) => {
         lastName,
         email,
         password: hashedPassword,
-        organizationId: org.orgId, // FIXED: changed 'organization.id' to 'org.orgId'
+        organizationId: org.orgId,
         role: 'USER',
         approvalStatus: 'PENDING'
       }

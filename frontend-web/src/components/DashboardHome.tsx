@@ -88,12 +88,6 @@ const DashboardHome = ({
           >
             List View
           </a>
-          <a
-            href="#"
-            className="border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap pb-3 border-b-2 font-medium text-sm"
-          >
-            AI Search
-          </a>
         </nav>
       </div>
 
@@ -137,7 +131,7 @@ const DashboardHome = ({
                   </td>
                   <td className="px-6 py-4">
                     <Link
-                      to={`/workorder/${wo.id}`}
+                      to={`/dashboard/workorder/${wo.id}`}
                       className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline cursor-pointer block"
                     >
                       {wo.title}

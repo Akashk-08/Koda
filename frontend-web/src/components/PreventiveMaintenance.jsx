@@ -8,7 +8,7 @@ const PreventiveMaintenance = ({ user }) => {
 
   const fetchPMs = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/pm?orgId=${user?.organizationId}`);
+      const res = await fetch(`http://localhost:8080/api/pm?orgId=${user.organizationId}&userId=${user.id}`);
       if (res.ok) setPms(await res.json());
     } catch (err) {
       console.error(err);

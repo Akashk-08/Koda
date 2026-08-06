@@ -28,7 +28,7 @@ interface User {
   email: string;
   organizationId: string;
   role?: string;
-  approvalStatus?: string; // Added to enforce strict routing checks
+  approvalStatus?: string;
 }
 
 interface AuthCardProps {
@@ -42,7 +42,7 @@ const IconList = () => <svg className="w-5 h-5" fill="none" stroke="currentColor
 const IconBox = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const IconUsers = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
 
-// --- AUTH COMPONENT (REDESIGNED & FIXED) ---
+// --- AUTH COMPONENT ---
 const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
   const isLogin = initialMode === "login"; 
   const [errorMsg, setErrorMsg] = useState("");
@@ -66,13 +66,10 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
   const inputClasses = "w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm font-medium text-gray-800 placeholder-gray-400";
 
   return (
-    // Make the auth screen a flex column to hold the footer at the bottom
     <div className="min-h-screen flex flex-col bg-white font-sans">
-      
-      {/* Container for the left/right content which will grow and push the footer down */}
       <div className="flex-1 flex font-sans bg-white">
         
-        {/* LEFT SIDE - BRANDING (Hidden on mobile) */}
+        {/* LEFT SIDE - BRANDING */}
         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-700 via-blue-600 to-purple-700 p-12 text-white flex-col justify-between relative overflow-hidden">
           <div className="relative z-10">
             <div className="w-14 h-14 bg-white text-blue-700 rounded-2xl flex items-center justify-center font-black text-2xl mb-10 shadow-xl">
@@ -159,8 +156,6 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
           </div>
         </div>
       </div>
-
-      {/* Add the Footer here at the bottom of the auth screen */}
       <Footer />
     </div>
   );
@@ -169,17 +164,15 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
 // --- DASHBOARD COMPONENT ---
 const Dashboard = ({ user, onSignOut }: { user: User; onSignOut: () => void; }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // DROPDOWN MENU STATE
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
-  
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
 
-  const fetchWorkOrders = async () => {
+const fetchWorkOrders = async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/workorders?orgId=${user?.organizationId}`);
+      // Added &userId=${user?.id} so the backend filters the dashboard items too
+      const response = await fetch(`http://localhost:8080/api/workorders?orgId=${user?.organizationId}&userId=${user?.id}`);
       if (response.ok) setWorkOrders(await response.json());
     } catch (error) { console.error(error); } finally { setIsLoading(false); }
   };
@@ -191,7 +184,7 @@ const Dashboard = ({ user, onSignOut }: { user: User; onSignOut: () => void; }) 
   return (
     <div className="flex h-screen w-full bg-white text-gray-800 font-sans">
       
-      {/* RESTORED FULL SIDEBAR */}
+      {/* SIDEBAR */}
       <aside className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col h-full shrink-0">
         <div className="h-14 flex items-center px-4 border-b border-gray-200 font-bold text-lg">
           <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white mr-3">K</div> Koda CMMS
@@ -209,16 +202,13 @@ const Dashboard = ({ user, onSignOut }: { user: User; onSignOut: () => void; }) 
               <Link to="/dashboard/workorders" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
                 <span className="mr-3 text-gray-400"><IconList /></span>Work Orders
               </Link>
-              <a href="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
-                <span className="mr-3 text-gray-400"><IconList /></span>AI Search
-              </a>
             </li>
             <li>
               <Link to="/dashboard/pm" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
                 <span className="mr-3 text-gray-400"><IconBox /></span>Preventive Maintenance
               </Link>
             </li>
-              <li>
+            <li>
               <Link to="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
                 <span className="mr-3 text-gray-400"><IconBox /></span>Schedular
               </Link>
@@ -231,6 +221,8 @@ const Dashboard = ({ user, onSignOut }: { user: User; onSignOut: () => void; }) 
               <Link to="/dashboard/myteam" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
                 <span className="mr-3 text-gray-400"><IconUsers /></span>My Team
               </Link>
+            </li>
+            <li>
               <Link to="/dashboard/locations" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
                 <span className="mr-3 text-gray-400"><IconUsers /></span>Locations
               </Link>
@@ -244,37 +236,46 @@ const Dashboard = ({ user, onSignOut }: { user: User; onSignOut: () => void; }) 
                 <span className="mr-3 text-gray-400"><IconList /></span>Projects
               </Link>
             </li>
+            {user.role === 'ADMIN' && (
+              <li>
+                <Link to="/dashboard/accessrequests" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
+                  <span className="mr-3 text-gray-400"><IconUsers /></span>Access Requests
+                </Link>
+              </li>
+            )}
             <li>
-              {user.role === 'ADMIN' && (
-                <li>
-                  <Link to="/dashboard/accessrequests" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
-                    <span className="mr-3 text-gray-400"><IconUsers /></span>Access Requests
-                  </Link>
-                </li>
-              )}
               <Link to="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
                 <span className="mr-3 text-gray-400"><IconBox /></span>Requests
               </Link>
-              <Link to="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
-                <span className="mr-3 text-gray-400"><IconList /></span>Plans
-              </Link>
+            </li>
+            <li>
               <a href="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
                 <span className="mr-3 text-gray-400"><IconUsers /></span>Calendar
               </a>
             </li>
-            
-            <div className="px-3 mt-8 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Procurement</div>
-            <a href="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
-              <span className="mr-3 text-gray-400"><IconUsers /></span>Parts Inventory
-            </a>
-            <a href="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
-              <span className="mr-3 text-gray-400"><IconUsers /></span>Inventory
-            </a>
+          </ul>
 
-            <div className="px-3 mt-8 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Analytics</div>
-            <a href="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
-              <span className="mr-3 text-gray-400"><IconUsers /></span>Metrics
-            </a>
+          <div className="px-3 mt-8 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Procurement</div>
+          <ul className="space-y-0.5 px-2">
+            <li>
+              <a href="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
+                <span className="mr-3 text-gray-400"><IconUsers /></span>Parts Inventory
+              </a>
+            </li>
+            <li>
+              <a href="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
+                <span className="mr-3 text-gray-400"><IconUsers /></span>Inventory
+              </a>
+            </li>
+          </ul>
+
+          <div className="px-3 mt-8 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Analytics</div>
+          <ul className="space-y-0.5 px-2">
+            <li>
+              <a href="#" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100">
+                <span className="mr-3 text-gray-400"><IconUsers /></span>Metrics
+              </a>
+            </li>
           </ul>
         </nav>
         
@@ -294,8 +295,6 @@ const Dashboard = ({ user, onSignOut }: { user: User; onSignOut: () => void; }) 
           <input type="text" placeholder="Search..." className="pl-4 pr-4 py-1.5 border rounded-md text-sm w-64 outline-none" />
           
           <div className="flex items-center space-x-4">
-            
-            {/* NEW DROPDOWN CONTAINER */}
             <div className="relative">
               <button 
                 onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)} 
@@ -304,50 +303,31 @@ const Dashboard = ({ user, onSignOut }: { user: User; onSignOut: () => void; }) 
                 + Create
               </button>
 
-              {/* DROPDOWN MENU */}
               {isCreateMenuOpen && (
                 <>
-                  {/* Invisible overlay to close menu when clicking outside */}
-                  <div 
-                    className="fixed inset-0 z-30" 
-                    onClick={() => setIsCreateMenuOpen(false)} 
-                  />
-                  
+                  <div className="fixed inset-0 z-30" onClick={() => setIsCreateMenuOpen(false)} />
                   <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-xl shadow-xl z-40 overflow-hidden py-1">
                     <button 
-                      onClick={() => {
-                        setIsCreateMenuOpen(false);
-                        setIsModalOpen(true); 
-                      }} 
+                      onClick={() => { setIsCreateMenuOpen(false); setIsModalOpen(true); }} 
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors"
                     >
                       Work Order
                     </button>
                     <button 
-                      onClick={() => {
-                        setIsCreateMenuOpen(false);
-                        // Future implementation: Open PM Modal
-                      }} 
+                      onClick={() => setIsCreateMenuOpen(false)} 
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors border-t border-gray-50"
                     >
                       Preventive Maintenance
                     </button>
                     <button 
-                      onClick={() => {
-                        setIsCreateMenuOpen(false);
-                        // Future implementation: Open Request Modal
-                      }} 
+                      onClick={() => setIsCreateMenuOpen(false)} 
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors border-t border-gray-50"
                     >
                       General Request
                     </button>
-                    
                     {user.role === 'ADMIN' && (
                       <button 
-                        onClick={() => {
-                          setIsCreateMenuOpen(false);
-                          // Future implementation: Open Access Request
-                        }} 
+                        onClick={() => setIsCreateMenuOpen(false)} 
                         className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors border-t border-gray-50"
                       >
                         Access Request
@@ -362,7 +342,7 @@ const Dashboard = ({ user, onSignOut }: { user: User; onSignOut: () => void; }) 
           </div>
         </header>
 
-        {/* The main scrollable content area. Flex column holds routes at top, footer at bottom */}
+        {/* MAIN ROUTED CONTENT */}
         <main className="flex-1 flex flex-col overflow-y-auto">
           <div className="flex-1">
             <Routes>
@@ -377,15 +357,12 @@ const Dashboard = ({ user, onSignOut }: { user: User; onSignOut: () => void; }) 
               <Route path="/profile" element={<MyProfile user={user} />} />
             </Routes>
           </div>
-          
-          {/* Dashboard Footer sits at the bottom of the scrollable content */}
           <Footer />
         </main>
 
         <CreateWorkOrderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} user={user} onCreated={fetchWorkOrders} />
       </div>
     </div>
-    
   );
 };
 
@@ -401,10 +378,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Landing Page */}
         <Route path="/" element={<LandingPage />} />
-        
-        {/* Auth Routes */}
         <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <AuthCard initialMode="login" onAuthSuccess={handleLogin} />} />
         <Route path="/signup" element={user ? <Navigate to="/userprofile" /> : <AuthCard initialMode="signup" onAuthSuccess={handleLogin} />} />
         <Route path="/userprofile" element={user ? <UserProfile user={user} onUpdateUser={handleLogin} onSignOut={handleSignOut} /> : <Navigate to="/login" />} />
@@ -413,8 +387,6 @@ export default function App() {
             ? (user.approvalStatus === 'PENDING' ? <Navigate to="/userprofile" /> : <Dashboard user={user} onSignOut={handleSignOut} />) 
             : <Navigate to="/login" />
         } />
-        
-        {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>

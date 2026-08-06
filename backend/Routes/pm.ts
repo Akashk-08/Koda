@@ -4,65 +4,84 @@ import { PrismaClient } from "@prisma/client";
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// 1. GET ALL PMs FOR ORG
+// GET all PM schedules with proper global HQ and site permissions
 router.get("/", async (req, res) => {
-  const { orgId } = req.query;
+  const { orgId, userId } = req.query;
+
+  if (!orgId || typeof orgId !== "string") {
+    return res.status(400).json({ error: "Organization ID is required" });
+  }
+
   try {
+    let whereClause: any = {
+      organizationId: orgId,
+    };
+
+    if (userId && typeof userId === "string") {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (currentUser) {
+        const globalHeadquarters = ["Pulseworks Shop", "Pulseworks Warehouse"];
+        const userLocation = currentUser.siteLocation || "";
+        
+        // Check if user is an ADMIN or belongs to global headquarters
+        const isGlobalUser = 
+          currentUser.role === "ADMIN" || 
+          globalHeadquarters.some(hq => userLocation.toLowerCase().includes(hq.toLowerCase()));
+
+        // If NOT a global user, restrict PMs based on assignee or creator match
+        if (!isGlobalUser) {
+          if (userLocation !== "") {
+            whereClause.OR = [
+              { assigneeId: userId },
+              { creatorId: userId }
+            ];
+          } else {
+            whereClause.id = -99999; // Lock down if no location
+          }
+        }
+      }
+    }
+
     const pms = await prisma.preventiveMaintenance.findMany({
-      where: { organizationId: orgId as string },
-      include: { assignee: true },
+      where: whereClause,
+      include: {
+        assignee: true,
+        creator: true,
+      },
       orderBy: { createdAt: "desc" },
     });
+
     res.status(200).json(pms);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch PMs" });
+    console.error("Error fetching PM schedules:", error);
+    res.status(500).json({ error: "Failed to fetch PM schedules" });
   }
 });
 
-// 2. CREATE PM AND SPAWN FIRST WORK ORDER
+// POST to create a new PM schedule
 router.post("/", async (req, res) => {
-  const {
-    title,
-    description,
-    scheduleType,
-    firstDueDate,
-    organizationId,
-    assigneeId,
-    creatorId,
-  } = req.body;
+  const { title, description, scheduleType, firstDueDate, assigneeId, organizationId, creatorId } = req.body;
 
   try {
-    // Create the PM schedule
-    const newPM = await prisma.preventiveMaintenance.create({
+    const newPm = await prisma.preventiveMaintenance.create({
       data: {
         title,
         description,
         scheduleType,
         nextDueDate: new Date(firstDueDate),
-        organizationId,
         assigneeId: assigneeId || null,
-      },
-    });
-
-    // Immediately create the first Work Order linked to this PM
-    await prisma.workOrder.create({
-      data: {
-        title: `[PM] ${title}`,
-        description: description,
-        priority: "MEDIUM",
-        status: "OPEN",
-        dueDate: new Date(firstDueDate),
         organizationId,
-        assignedTo: assigneeId || null,
-        createdBy: creatorId,
-        pmId: newPM.id, // Link it to the PM
+        creatorId,
       },
     });
 
-    res.status(201).json(newPM);
+    res.status(201).json(newPm);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to create PM" });
+    console.error("Error creating PM schedule:", error);
+    res.status(500).json({ error: "Failed to create PM schedule" });
   }
 });
 

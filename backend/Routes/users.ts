@@ -53,10 +53,14 @@ router.get("/:orgId", async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { organizationId: req.params.orgId },
-      select: { id: true, firstName: true, lastName: true },
+      // Remove the restrictive select block so it returns approvalStatus, siteLocation, role, email, etc.
     });
-    res.json(users);
+    
+    // Strip out passwords for security
+    const usersWithoutPasswords = users.map(({ password, ...rest }) => rest);
+    res.json(usersWithoutPasswords);
   } catch (error) {
+    console.error("Failed to fetch users:", error);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
@@ -112,6 +116,29 @@ router.put("/:id/approve", async (req, res) => {
     res.status(200).json({ success: true, status: updatedUser.approvalStatus });
   } catch (error) {
     res.status(500).json({ error: "Failed to update user status" });
+  }
+});
+
+// 5. Add permissions for users
+router.put('/:id/permissions', async (req, res) => {
+  const { id } = req.params;
+  const { role, locationId } = req.body;
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        role: role,
+        // Map the locationId from the frontend to your actual database column "siteLocation"
+        siteLocation: locationId || null, 
+      },
+    });
+    
+    const { password, ...userWithoutPassword } = updatedUser;
+    res.status(200).json(userWithoutPassword);
+  } catch (error) {
+    console.error("Failed to update user permissions:", error);
+    res.status(500).json({ error: "Failed to update permissions" });
   }
 });
 
