@@ -49,7 +49,6 @@ router.get("/", async (req, res) => {
       where: whereClause,
       include: {
         assignee: true,
-        creator: true,
       },
       orderBy: { createdAt: "desc" },
     });

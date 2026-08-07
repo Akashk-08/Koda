@@ -57,7 +57,7 @@ router.post('/:id/documents', upload.single('file'), async (req: any, res: any) 
   }
 });
 
-// 1. GET ALL work orders for an organization
+// 4. GET ALL work orders for an organization
 router.get("/", async (req, res) => {
   const { orgId, userId } = req.query;
 
@@ -77,12 +77,10 @@ router.get("/", async (req, res) => {
         const globalHeadquarters = ["Pulseworks Shop", "Pulseworks Warehouse"];
         const userLocation = currentUser.siteLocation || "";
         
-        // Check if user belongs to Pulseworks Shop or Warehouse, or is ADMIN
         const isGlobalUser = 
           currentUser.role === "ADMIN" || 
           globalHeadquarters.some(hq => userLocation.toLowerCase().includes(hq.toLowerCase()));
 
-        // If NOT a global user, restrict strictly to their site location name matching creators, assignees, or location strings
         if (!isGlobalUser) {
           if (userLocation !== "") {
             const allowedLocations = userLocation.split(',').map(s => s.trim().toLowerCase());
@@ -91,7 +89,7 @@ router.get("/", async (req, res) => {
               { assignee: { siteLocation: { in: allowedLocations, mode: 'insensitive' } } }
             ];
           } else {
-            whereClause.id = -99999; // No location assigned = block view
+            whereClause.id = -99999; 
           }
         }
       }
@@ -118,10 +116,55 @@ router.get("/", async (req, res) => {
   }
 });
 
-// 3. POST to create a new work order
+// 5. GET A SINGLE WORK ORDER (Fixes the blank page/404 error!)
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const numericId = parseInt(id);
+
+    if (isNaN(numericId)) {
+      return res.status(400).json({ error: "Invalid work order ID format" });
+    }
+
+    const workOrder = await prisma.workOrder.findUnique({
+      where: { 
+        id: numericId 
+      },
+      include: {
+        assignee: true,
+        creator: true,
+        asset: true,
+        comments: {
+          include: { author: true },
+          orderBy: { createdAt: 'desc' }
+        },
+        activityLogs: {
+          include: { actor: true }, 
+          orderBy: { createdAt: 'desc' }
+        },
+        preventiveMaintenance: true,
+        documents: {
+          include: { uploader: true }
+        },
+      },
+    });
+
+    if (!workOrder) {
+      return res.status(404).json({ error: "Work order not found" });
+    }
+
+    res.status(200).json(workOrder);
+  } catch (error) {
+    console.error("Error fetching single work order:", error);
+    res.status(500).json({ error: "Failed to fetch work order details" });
+  }
+});
+
+// 6. POST to create a new work order (UPDATED to properly save the assignee)
 router.post("/", async (req, res) => {
-  const { title, description, category, priority, organizationId, createdBy } =
-    req.body;
+  // Destructure assignedTo from the incoming request body
+  const { title, description, category, priority, organizationId, createdBy, assignedTo } = req.body;
 
   try {
     const newWorkOrder = await prisma.workOrder.create({
@@ -133,9 +176,11 @@ router.post("/", async (req, res) => {
         status: "OPEN",
         organizationId,
         createdBy,
+        assignedTo: assignedTo || null, // Saves the active user you selected!
       },
       include: {
         creator: true,
+        assignee: true,
       },
     });
 
@@ -154,7 +199,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// 4. PUT to update a work order (AND TRIGGER PM AUTO-SPAWN)
+// 7. PUT to update a work order
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { actorId, actionLog, ...updateData } = req.body;
@@ -214,7 +259,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// 5. POST to add a comment to a work order
+// 8. POST to add a comment to a work order
 router.post("/:id/comments", async (req, res) => {
   const { text, authorId } = req.body;
   try {
@@ -233,7 +278,7 @@ router.post("/:id/comments", async (req, res) => {
   }
 });
 
-// 6. PUT to update the comment to a work order
+// 9. PUT to update the comment to a work order
 router.put('/:id/comments/:commentId', async (req, res) => {
   try {
     const { text } = req.body;
@@ -247,7 +292,7 @@ router.put('/:id/comments/:commentId', async (req, res) => {
   }
 });
 
-// 7. Delete the comments on the work order
+// 10. Delete the comments on the work order
 router.delete('/:id/comments/:commentId', async (req, res) => {
   try {
     await prisma.comment.delete({

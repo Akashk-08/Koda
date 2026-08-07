@@ -289,7 +289,7 @@ const WorkOrderDetail = ({ user }: any) => {
               <>
                 <div className="flex items-start space-x-3 mb-8">
                   <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                    {user.firstName.charAt(0)}{user.lastName?.charAt(0)}
+                    {user?.firstName?.charAt(0) || 'U'}{user?.lastName?.charAt(0) || ''}
                   </div>
                   <div className="flex-1 relative">
                     <input
@@ -313,7 +313,8 @@ const WorkOrderDetail = ({ user }: any) => {
                       </div>
                       <div className="pt-1.5">
                         <p className="text-sm text-gray-800 leading-snug">
-                          <span className="font-bold text-gray-900">{log.actor.firstName} {log.actor.lastName}</span> {log.action}
+                          {/* OPTIONAL CHAINING ADDED HERE */}
+                          <span className="font-bold text-gray-900">{log.actor?.firstName || 'System'} {log.actor?.lastName || ''}</span> {log.action}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5 font-medium">{new Date(log.createdAt).toLocaleString()}</p>
                       </div>
@@ -324,17 +325,19 @@ const WorkOrderDetail = ({ user }: any) => {
                   {(wo.comments || []).map((comment: any) => (
                     <div key={comment.id} className="flex items-start space-x-4 group">
                       <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm shrink-0">
-                        {comment.author.firstName.charAt(0)}
+                        {/* OPTIONAL CHAINING ADDED HERE */}
+                        {comment.author?.firstName?.charAt(0) || 'U'}
                       </div>
                       <div className="flex-1">
                         <div className="flex justify-between items-center mb-1">
                           <div>
-                            <span className="font-bold text-sm text-gray-900">{comment.author.firstName} {comment.author.lastName}</span>
+                            {/* OPTIONAL CHAINING ADDED HERE */}
+                            <span className="font-bold text-sm text-gray-900">{comment.author?.firstName || 'Unknown'} {comment.author?.lastName || 'User'}</span>
                             <span className="text-xs text-gray-400 ml-2 font-medium">{new Date(comment.createdAt).toLocaleString()}</span>
                           </div>
                           
                           {/* EDIT / DELETE COMMENT CONTROLS */}
-                          {comment.author.id === user.id && (
+                          {comment.author?.id === user?.id && (
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button onClick={() => { setEditingCommentId(comment.id); setEditCommentText(comment.text); }} className="text-gray-400 hover:text-blue-600 p-1">
                                 <Pencil className="w-3.5 h-3.5" />

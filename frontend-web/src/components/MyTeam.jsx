@@ -1,429 +1,498 @@
 import React, { useState, useEffect } from 'react';
-import { Users, MapPin, Plus, X, UserPlus, Edit2, Trash2, Mail, Phone } from 'lucide-react';
+import { Plus, Mail, Phone, MapPin, Users, Shield, UserPlus, Building, X, Trash2, Check, User } from 'lucide-react';
 
 const MyTeam = ({ user }) => {
+  const [activeTab, setActiveTab] = useState('directory'); 
+  const [orgUsers, setOrgUsers] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [availableUsers, setAvailableUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Modal State
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
 
-  // Modals State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [activeTeam, setActiveTeam] = useState(null);
-
-  // Form State
-  const [teamName, setTeamName] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState([]);
+  // Security Check
+  const isAdmin = user?.role === 'ADMIN';
 
   const fetchData = async () => {
+    setIsLoading(true);
     try {
-      const [teamsRes, locRes, usersRes] = await Promise.all([
-        fetch(`http://localhost:8080/api/teams?orgId=${user.organizationId}`),
-        fetch('http://localhost:8080/api/locations'),
-        fetch(`http://localhost:8080/api/users/${user.organizationId}`)
-      ]);
-
-      if (teamsRes.ok) setTeams(await teamsRes.json());
-      if (locRes.ok) setLocations(await locRes.json());
-      if (usersRes.ok) setAvailableUsers(await usersRes.json());
+      if (user?.organizationId) {
+        const usersRes = await fetch(`http://localhost:8080/api/users/${user.organizationId}`);
+        if (usersRes.ok) setOrgUsers(await usersRes.json());
+        
+        const teamsRes = await fetch(`http://localhost:8080/api/teams?orgId=${user.organizationId}`);
+        if (teamsRes.ok) setTeams(await teamsRes.json());
+      }
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Failed to fetch organization data:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [user]);
 
-  const handleUserToggle = (userId) => {
-    setSelectedUsers(prev =>
+  const handleOpenTeamModal = (team) => {
+    setSelectedTeam(team);
+    setIsTeamModalOpen(true);
+  };
+
+  // 1. DIRECTORY FILTER: Admins see everyone (including pending). Regular users only see approved.
+  const visibleUsers = orgUsers.filter(member => {
+    if (member.approvalStatus === 'PENDING') {
+      return isAdmin;
+    }
+    return true;
+  });
+
+  // 2. ASSIGNMENT FILTER: Strictly ONLY approved users.
+  const approvedUsers = orgUsers.filter(member => member.approvalStatus !== 'PENDING');
+
+  // 3. MY TEAMS FILTER: Filter teams to only show ones where the current user is a member
+  const myTeams = teams.filter(team => team.users?.some(u => u.id === user?.id));
+  
+  // Determine which list of teams to display based on the active tab
+  const displayTeams = activeTab === 'my_teams' ? myTeams : teams;
+
+  return (
+    <main className="flex-1 flex flex-col h-full bg-gray-50 p-8 overflow-y-auto">
+      {/* Header & Tabs */}
+      <div className="flex flex-col mb-6">
+        <div className="flex items-center text-sm text-gray-500 mb-2">
+          <span>Organization</span>
+          <span className="mx-2">/</span>
+          <span>My Team</span>
+        </div>
+        
+        <div className="flex justify-between items-end">
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Organization Directory</h1>
+          
+          {/* ONLY ADMINS SEE THE CREATION BUTTONS */}
+          {isAdmin && (
+            activeTab === 'directory' ? (
+              <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95">
+                <UserPlus className="w-4 h-4" /> Invite User
+              </button>
+            ) : (
+              <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95">
+                <Plus className="w-4 h-4" /> Create Team
+              </button>
+            )
+          )}
+        </div>
+
+        {/* Tabs Navigation */}
+        <div className="flex gap-8 mt-8 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('directory')}
+            className={`pb-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === 'directory' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Users className="w-4 h-4" /> People Directory
+            </div>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('my_teams')}
+            className={`pb-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === 'my_teams' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <User className="w-4 h-4" /> My Teams
+              <span className="bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-[10px] ml-1">
+                {myTeams.length}
+              </span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('teams')}
+            className={`pb-4 text-sm font-bold border-b-2 transition-all ${
+              activeTab === 'teams' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Building className="w-4 h-4" /> Operational Teams
+              <span className="bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-[10px] ml-1">
+                {teams.length}
+              </span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* CONTENT AREA */}
+      {isLoading ? (
+        <div className="flex justify-center py-32 text-gray-400">
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : activeTab === 'directory' ? (
+        /* DIRECTORY VIEW */
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Member</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Site Location</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {visibleUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="px-6 py-16 text-center text-gray-500">
+                    <div className="flex flex-col items-center justify-center">
+                      <Users className="w-12 h-12 text-gray-300 mb-3" />
+                      <p className="text-lg font-medium text-gray-900">No users found</p>
+                      <p className="text-sm mt-1">Invite members to your organization to see them here.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                visibleUsers.map((member) => (
+                  <tr key={member.id} className="hover:bg-blue-50/40 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-11 w-11 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm border-2 border-white shadow-sm">
+                          {member.firstName?.charAt(0)}{member.lastName?.charAt(0)}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-bold text-gray-900">{member.firstName} {member.lastName}</div>
+                          <div className="flex items-center mt-1">
+                            {member.role === 'ADMIN' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 uppercase tracking-wide">
+                                <Shield className="w-3 h-3" /> Admin
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 uppercase tracking-wide">
+                                User
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center text-sm text-gray-600 font-medium">
+                          <Mail className="w-4 h-4 mr-2 text-gray-400" />
+                          {member.email}
+                        </div>
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Phone className="w-4 h-4 mr-2 text-gray-400" />
+                          {member.phoneNumber || <span className="italic">No phone provided</span>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center text-sm text-gray-700 font-medium">
+                        <MapPin className="w-4 h-4 mr-2 text-blue-500" />
+                        {member.siteLocation || <span className="text-gray-400 italic font-normal">Unassigned</span>}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm border ${
+                        member.approvalStatus === 'PENDING' 
+                          ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
+                        {member.approvalStatus || 'APPROVED'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* SHARED TEAMS GRID VIEW */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-12">
+          {displayTeams.length === 0 ? (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center bg-white rounded-2xl border border-dashed border-gray-300">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                {activeTab === 'my_teams' ? <User className="w-8 h-8 text-gray-400" /> : <Building className="w-8 h-8 text-gray-400" />}
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-1">
+                {activeTab === 'my_teams' ? "Not in any teams" : "No operational teams"}
+              </h3>
+              <p className="text-sm text-gray-500 max-w-sm text-center">
+                {activeTab === 'my_teams' 
+                  ? "You haven't been assigned to any operational teams yet." 
+                  : "Create your first team to group members together."}
+              </p>
+              
+              {isAdmin && activeTab === 'teams' && (
+                <button className="mt-6 bg-white border border-gray-200 text-blue-600 hover:bg-blue-50 px-5 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                  <Plus className="w-4 h-4" /> Create Team
+                </button>
+              )}
+            </div>
+          ) : (
+            displayTeams.map((team) => (
+              <div 
+                key={team.id} 
+                onClick={() => handleOpenTeamModal(team)}
+                className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative overflow-hidden group cursor-pointer"
+              >
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-blue-700 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
+                
+                <div className="flex justify-between items-start gap-4 mb-5 w-full">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 shadow-inner">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 flex justify-end min-w-0">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200/60 shadow-sm max-w-full">
+                      <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                      <span className="truncate">{team.location?.name || "Global"}</span>
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex-1">
+                  <h3 className="text-xl font-extrabold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">{team.name}</h3>
+                  <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">{team.description || "Operational team."}</p>
+                </div>
+                
+                <div className="flex justify-between items-end pt-6 mt-6 border-t border-gray-100">
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{team.users?.length || 0} Members</span>
+                    <div className="flex -space-x-2.5">
+                      {(!team.users || team.users.length === 0) ? (
+                        <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center z-10">
+                          <Users className="w-3.5 h-3.5 text-gray-400" />
+                        </div>
+                      ) : (
+                        team.users.slice(0, 4).map((_, i) => (
+                          <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-1 ring-black/5 z-10">
+                            U{i + 1}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  
+                  {isAdmin && (
+                    <button className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
+                      <UserPlus className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Edit/Manage Team Modal */}
+      {isTeamModalOpen && selectedTeam && (
+        <TeamManagementModal 
+          team={selectedTeam} 
+          orgUsers={approvedUsers} 
+          onClose={() => setIsTeamModalOpen(false)} 
+          onRefresh={fetchData} 
+          isAdmin={isAdmin}
+        />
+      )}
+    </main>
+  );
+};
+
+// --- TEAM MANAGEMENT MODAL COMPONENT ---
+const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) => {
+  const [name, setName] = useState(team.name);
+  const [description, setDescription] = useState(team.description || '');
+  const [memberIds, setMemberIds] = useState(team.users?.map(u => u.id) || []);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const toggleMember = (userId) => {
+    if (!isAdmin) return;
+    setMemberIds((prev) => 
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
   };
 
-  // OPEN MODALS & RESET FORMS
-  const openCreateModal = () => {
-    setTeamName('');
-    setDescription('');
-    setSelectedLocation('');
-    setSelectedUsers([]);
-    setIsCreateModalOpen(true);
-  };
-
-  const openEditModal = (team) => {
-    setActiveTeam(team);
-    setTeamName(team.name);
-    setDescription(team.description || '');
-    setIsEditModalOpen(true);
-  };
-
-  const openAddMemberModal = (team) => {
-    setActiveTeam(team);
-    setSelectedUsers([]);
-    setIsAddMemberModalOpen(true);
-  };
-
-  // 1. CREATE NEW TEAM
-  const handleCreateTeam = async (e) => {
-    e.preventDefault();
+  const handleSave = async () => {
+    setIsSaving(true);
     try {
-      const response = await fetch('http://localhost:8080/api/teams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: teamName,
-          description,
-          locationId: selectedLocation,
-          organizationId: user.organizationId,
-          userIds: selectedUsers,
-          requesterId: user.id
-        })
-      });
-
-      if (response.ok) {
-        setIsCreateModalOpen(false);
-        fetchData();
-      }
-    } catch (error) {
-      console.error("Failed to create team:", error);
-    }
-  };
-
-  // 2. EDIT TEAM DETAILS
-  const handleEditTeam = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`http://localhost:8080/api/teams/${activeTeam.id}`, {
+      const res = await fetch(`http://localhost:8080/api/teams/${team.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: teamName,
-          description,
-          requesterId: user.id
-        })
+        body: JSON.stringify({ name, description, memberIds })
       });
-
-      if (response.ok) {
-        setIsEditModalOpen(false);
-        setActiveTeam(null);
-        fetchData();
+      if (res.ok) {
+        onRefresh();
+        onClose();
+      } else {
+        alert("Failed to update team");
       }
     } catch (error) {
-      console.error("Failed to update team:", error);
+      console.error(error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // 3. DELETE TEAM
-  const handleDeleteTeam = async (teamId) => {
-    if (!window.confirm("Are you sure you want to delete this team? This action cannot be undone.")) return;
-
+  const handleDelete = async () => {
+    if(!window.confirm(`Are you sure you want to delete ${team.name}? This action cannot be undone.`)) return;
     try {
-      const response = await fetch(`http://localhost:8080/api/teams/${teamId}?requesterId=${user.id}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        fetchData();
+      const res = await fetch(`http://localhost:8080/api/teams/${team.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        onRefresh();
+        onClose();
       }
     } catch (error) {
-      console.error("Failed to delete team:", error);
-    }
-  };
-
-  // 4. ADD NEW MEMBERS TO EXISTING TEAM
-  const handleAddMembers = async (e) => {
-    e.preventDefault();
-    if (selectedUsers.length === 0) return;
-
-    try {
-      const response = await fetch(`http://localhost:8080/api/teams/${activeTeam.id}/users`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userIds: selectedUsers,
-          requesterId: user.id
-        })
-      });
-
-      if (response.ok) {
-        setIsAddMemberModalOpen(false);
-        setActiveTeam(null);
-        fetchData();
-      }
-    } catch (error) {
-      console.error("Failed to add members:", error);
+      console.error(error);
     }
   };
 
   return (
-    <div className="flex h-full bg-white overflow-hidden font-sans">
-      
-      {/* LEFT SIDE: MAIN TEAMS AREA */}
-      <div className="flex-1 bg-gray-50 p-8 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-end mb-8">
-            <div>
-              <h1 className="text-3xl font-extrabold text-gray-900">My Teams</h1>
-              <p className="text-gray-500 mt-1">Manage operational teams across different site locations.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h2 className="text-xl font-bold text-gray-900">
+            {isAdmin ? 'Manage Team' : 'Team Details'}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-gray-200/50 hover:bg-gray-200 p-2 rounded-full transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto max-h-[70vh] flex flex-col gap-5">
+          
+          {/* Team Name - Full Width */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1.5">Team Name</label>
+            {isAdmin ? (
+              <input 
+                type="text" 
+                value={name} 
+                onChange={(e) => setName(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              />
+            ) : (
+              <div className="w-full bg-gray-50 text-gray-900 font-medium rounded-lg p-3 text-sm border border-transparent">
+                {name}
+              </div>
+            )}
+          </div>
+          
+          {/* Site Location - Full Width */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1.5">Site Location</label>
+            <div className="relative flex items-center w-full bg-gray-50 border border-gray-200 rounded-lg py-2.5 pl-9 pr-3 text-sm cursor-default">
+              <div className="absolute left-3 flex items-center pointer-events-none">
+                <MapPin className="h-4 w-4 text-gray-400" />
+              </div>
+              <span className="text-gray-700 font-medium break-words w-full">
+                {team.location?.name || "Global / Unassigned"}
+              </span>
             </div>
-            {user.role === 'ADMIN' && (
-              <button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-sm">
-                <Plus className="w-5 h-5" /> Create Team
-              </button>
+          </div>
+
+          {/* Description - Auto-resizes based on content or Admin edit state */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1.5">Description</label>
+            {isAdmin ? (
+              <textarea 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Add a description for this team..."
+                className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all min-h-[80px] resize-y"
+              />
+            ) : (
+              <div className="w-full bg-gray-50 text-gray-900 rounded-lg p-3 text-sm whitespace-pre-wrap border border-transparent min-h-[44px]">
+                {description ? description : <span className="text-gray-400 italic">No description provided.</span>}
+              </div>
             )}
           </div>
 
-          {/* TEAMS GRID */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {teams.map(team => (
-              <div key={team.id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+          {/* Team Members List */}
+          <div className="pt-2">
+            <div className="flex justify-between items-center mb-3">
+              <label className="block text-sm font-bold text-gray-700">Team Members</label>
+              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{memberIds.length} Selected</span>
+            </div>
+            
+            <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100 max-h-60 overflow-y-auto">
+              {orgUsers.map(user => {
+                const isSelected = memberIds.includes(user.id);
+                if (!isAdmin && !isSelected) return null;
 
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                      <Users className="w-6 h-6" />
-                    </div>
-                    {team.location && (
-                      <span className="flex items-center gap-1 text-xs font-semibold bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full truncate max-w-[150px]">
-                        <MapPin className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{team.location.name}</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* ADMIN EDIT/DELETE CONTROLS */}
-                  {user.role === 'ADMIN' && (
-                    <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1">
-                      <button onClick={() => openEditModal(team)} className="text-gray-400 hover:text-blue-600 p-1.5 rounded-md transition-colors" title="Edit Team">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDeleteTeam(team.id)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-md transition-colors" title="Delete Team">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <h3 className="text-xl font-bold text-gray-900 mb-1">{team.name}</h3>
-                <p className="text-sm text-gray-500 mb-6 h-10 line-clamp-2">{team.description}</p>
-
-                <div className="border-t border-gray-100 pt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Team Members ({team.users.length})</div>
-                    {user.role === 'ADMIN' && (
-                      <button onClick={() => openAddMemberModal(team)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-md transition-colors" title="Add members">
-                        <UserPlus className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {team.users.map(member => (
-                      <div key={member.id} className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
-                          {member.firstName.charAt(0)}{member.lastName.charAt(0)}
-                        </div>
-                        <div className="text-sm font-medium text-gray-800">
-                          {member.firstName} {member.lastName}
-                          <div className="text-xs text-gray-400 font-normal">{member.designation || 'Member'}</div>
-                        </div>
+                return (
+                  <div 
+                    key={user.id} 
+                    onClick={() => toggleMember(user.id)}
+                    className={`flex items-center justify-between p-3 transition-colors ${
+                      isAdmin 
+                        ? `cursor-pointer ${isSelected ? 'bg-blue-50/50 hover:bg-blue-50' : 'hover:bg-gray-50'}` 
+                        : 'bg-white cursor-default'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
+                        {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
                       </div>
-                    ))}
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{user.firstName} {user.lastName}</p>
+                        <p className="text-xs text-gray-500">{user.email}</p>
+                      </div>
+                    </div>
+                    {isAdmin && (
+                      <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 bg-white'}`}>
+                        {isSelected && <Check className="w-3 h-3" />}
+                      </div>
+                    )}
                   </div>
-                </div>
-              </div>
-            ))}
-            {teams.length === 0 && (
-              <div className="col-span-full py-12 text-center text-gray-500">No teams have been created yet.</div>
-            )}
+                );
+              })}
+              {!isAdmin && memberIds.length === 0 && (
+                <div className="p-4 text-center text-sm text-gray-500 italic">No members assigned to this team yet.</div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* RIGHT SIDE: MY PEOPLE DIRECTORY */}
-      <div className="w-[400px] bg-gray-50/50 border-l border-gray-200 flex flex-col shrink-0">
-        <div className="p-6 border-b border-gray-200 bg-white shadow-sm z-10">
-          <h2 className="text-xl font-bold text-gray-900">Directory</h2>
-          <p className="text-sm text-gray-500 mt-1">All members in your organization</p>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {availableUsers.map((person) => (
-            <div key={person.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-              
-              {/* Header: Avatar & Name */}
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-lg shrink-0">
-                  {person.firstName?.charAt(0)}{person.lastName?.charAt(0)}
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-gray-900">{person.firstName} {person.lastName}</h3>
-                  <span className="text-xs font-bold px-2.5 py-1 bg-gray-100 text-gray-600 rounded-md mt-1 inline-block uppercase tracking-wider">
-                    {person.role || 'MEMBER'}
-                  </span>
-                </div>
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
+          {isAdmin ? (
+            <>
+              <button 
+                onClick={handleDelete}
+                className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-bold transition-colors"
+              >
+                <Trash2 className="w-4 h-4" /> Delete Team
+              </button>
+              <div className="flex gap-3">
+                <button onClick={onClose} className="px-5 py-2 text-sm text-gray-600 hover:bg-gray-200 font-bold rounded-lg transition-colors">
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSave} 
+                  disabled={isSaving}
+                  className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
-
-              {/* Body: Contact Info & Location */}
-              <div className="space-y-2.5 pt-4 border-t border-gray-100">
-                <div className="flex items-center text-sm text-gray-600">
-                  <Mail className="w-4 h-4 mr-3 text-gray-400 shrink-0" />
-                  <a href={`mailto:${person.email}`} className="truncate hover:text-blue-600 hover:underline">
-                    {person.email}
-                  </a>
-                </div>
-                
-                <div className="flex items-center text-sm text-gray-600">
-                  <Phone className="w-4 h-4 mr-3 text-gray-400 shrink-0" />
-                  <span>{person.phone || 'No phone provided'}</span>
-                </div>
-                
-                <div className="flex items-center text-sm text-gray-600">
-                  <MapPin className="w-4 h-4 mr-3 text-gray-400 shrink-0" />
-                  <span className="truncate">{person.location?.name || 'No assigned location'}</span>
-                </div>
-              </div>
-              
-            </div>
-          ))}
-
-          {availableUsers.length === 0 && (
-            <div className="text-center p-8 text-gray-500 text-sm italic">
-              No team members found.
+            </>
+          ) : (
+            <div className="w-full flex justify-end">
+               <button onClick={onClose} className="px-5 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-lg transition-colors">
+                  Close
+                </button>
             </div>
           )}
         </div>
+
       </div>
-
-      {/* CREATE TEAM MODAL */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">Create New Team</h2>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-6 h-6" /></button>
-            </div>
-
-            <form onSubmit={handleCreateTeam} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Team Name</label>
-                <input required type="text" value={teamName} onChange={e => setTeamName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none" rows="2"></textarea>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Site Location</label>
-                <select required value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
-                  <option value="">Select a location...</option>
-                  {locations.map(loc => (
-                    <option key={loc.id} value={loc.id}>{loc.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Assign Initial Users</label>
-                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-xl p-2 space-y-1">
-                  {availableUsers.map(u => (
-                    <label key={u.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedUsers.includes(u.id)}
-                        onChange={() => handleUserToggle(u.id)}
-                        className="w-4 h-4 text-blue-600 rounded"
-                      />
-                      <span className="text-sm font-medium text-gray-800">{u.firstName} {u.lastName}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsCreateModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors">Create Team</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* EDIT TEAM MODAL */}
-      {isEditModalOpen && activeTeam && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">Edit Team Details</h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-6 h-6" /></button>
-            </div>
-
-            <form onSubmit={handleEditTeam} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Team Name</label>
-                <input required type="text" value={teamName} onChange={e => setTeamName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none" rows="3"></textarea>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors">Save Changes</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ADD MEMBER MODAL */}
-      {isAddMemberModalOpen && activeTeam && (
-        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Add to Team</h2>
-                <p className="text-xs text-gray-500 mt-1">{activeTeam.name}</p>
-              </div>
-              <button onClick={() => setIsAddMemberModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="w-6 h-6" /></button>
-            </div>
-
-            <form onSubmit={handleAddMembers} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Select Employees</label>
-                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-xl p-2 space-y-1">
-                  {availableUsers
-                    .filter(u => !activeTeam.users.some(tu => tu.id === u.id))
-                    .map(u => (
-                      <label key={u.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedUsers.includes(u.id)}
-                          onChange={() => handleUserToggle(u.id)}
-                          className="w-4 h-4 text-blue-600 rounded"
-                        />
-                        <span className="text-sm font-medium text-gray-800">{u.firstName} {u.lastName}</span>
-                      </label>
-                    ))}
-                  {availableUsers.filter(u => !activeTeam.users.some(tu => tu.id === u.id)).length === 0 && (
-                    <div className="text-sm text-gray-500 p-2 text-center">All available employees are already in this team.</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsAddMemberModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Cancel</button>
-                <button type="submit" disabled={selectedUsers.length === 0} className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 rounded-xl transition-colors">Add Selected</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
