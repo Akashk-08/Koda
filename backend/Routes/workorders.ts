@@ -1,12 +1,12 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
-import multer from 'multer';
-import fs from 'fs';
+import multer from "multer";
+import fs from "fs";
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Helper function to calculate the next PM date
+// Helper Functions
 const calculateNextDate = (currentDate: Date, scheduleType: string): Date => {
   const nextDate = new Date(currentDate);
   if (scheduleType === "DAILY") nextDate.setDate(nextDate.getDate() + 1);
@@ -18,193 +18,199 @@ const calculateNextDate = (currentDate: Date, scheduleType: string): Date => {
   return nextDate;
 };
 
-// 1. Ensure the uploads directory exists on your computer
-const uploadDir = 'uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
+// Multer Storage Configuration
+const uploadDir = "uploads";
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
-// 2. Configure Multer to save files with unique names
 const storage = multer.diskStorage({
-  destination: function (_req: any, _file: any, cb: (arg0: null, arg1: string) => void) {
-    cb(null, 'uploads/');
+  destination: (_req, _file, cb) => {
+    cb(null, "uploads/");
   },
-  filename: function (req: any, file: { originalname: string; }, cb: (arg0: null, arg1: string) => void) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + "-" + file.originalname);
+  },
 });
 const upload = multer({ storage: storage });
 
-// 3. Create the endpoint to receive the file
-router.post('/:id/documents', upload.single('file'), async (req: any, res: any) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+// 1. Upload Document
+router.post(
+  "/:id/documents",
+  upload.single("file"),
+  async (req: any, res: any) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-    const document = await prisma.document.create({
-      data: {
-        fileName: req.file.originalname,
-        fileUrl: `/uploads/${req.file.filename}`,
-        workOrderId: parseInt(req.params.id),
-        uploaderId: req.body.uploaderId
-      }
-    });
+      const document = await prisma.document.create({
+        data: {
+          fileName: req.file.originalname,
+          fileUrl: `/uploads/${req.file.filename}`,
+          workOrderId: parseInt(req.params.id),
+          uploaderId: req.body.uploaderId,
+        },
+      });
 
-    res.status(201).json(document);
-  } catch (error) {
-    console.error("Upload error:", error);
-    res.status(500).json({ error: "Failed to upload document" });
-  }
-});
+      res.status(201).json(document);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  },
+);
 
-// 4. GET ALL work orders for an organization
+// 2. Get All Work Orders (Unlimited Search Support)
 router.get("/", async (req, res) => {
   const { orgId, userId } = req.query;
 
-  if (!orgId || typeof orgId !== "string") {
-    return res.status(400).json({ error: "Organization ID is required" });
+  if (!orgId || !userId) {
+    return res
+      .status(400)
+      .json({ error: "Organization ID and User ID are required" });
   }
 
   try {
-    let whereClause: any = { organizationId: orgId };
-
-    if (userId && typeof userId === "string") {
-      const currentUser = await prisma.user.findUnique({
-        where: { id: userId },
-      });
-
-      if (currentUser) {
-        const globalHeadquarters = ["Pulseworks Shop", "Pulseworks Warehouse"];
-        const userLocation = currentUser.siteLocation || "";
-        
-        const isGlobalUser = 
-          currentUser.role === "ADMIN" || 
-          globalHeadquarters.some(hq => userLocation.toLowerCase().includes(hq.toLowerCase()));
-
-        if (!isGlobalUser) {
-          if (userLocation !== "") {
-            const allowedLocations = userLocation.split(',').map(s => s.trim().toLowerCase());
-            whereClause.OR = [
-              { creator: { siteLocation: { in: allowedLocations, mode: 'insensitive' } } },
-              { assignee: { siteLocation: { in: allowedLocations, mode: 'insensitive' } } }
-            ];
-          } else {
-            whereClause.id = -99999; 
-          }
-        }
-      }
-    }
-
-    const workOrders = await prisma.workOrder.findMany({
-      where: whereClause,
-      include: {
-        assignee: true,
-        creator: true,
-        asset: true,
-        comments: true,
-        activityLogs: true,
-        preventiveMaintenance: true,
-        documents: true,
-      },
-      orderBy: { createdAt: "desc" },
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: String(userId) },
     });
 
-    res.status(200).json(workOrders);
-  } catch (error) {
-    console.error("Error fetching work orders:", error);
+    if (!requestingUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const queryConditions: any = {
+      organizationId: String(orgId),
+    };
+
+    if (requestingUser.role === "USER" && requestingUser.siteLocation) {
+      queryConditions.locationName = {
+        contains: requestingUser.siteLocation,
+        mode: "insensitive",
+      };
+    }
+
+    // Fetch ALL work orders without any 'take' or 'skip' limits for smooth searching
+    const workOrders = await prisma.workOrder.findMany({
+      where: queryConditions,
+      orderBy: { id: "desc" },
+      include: { assignee: true },
+    });
+
+    res.json(workOrders);
+  } catch (error: any) {
     res.status(500).json({ error: "Failed to fetch work orders" });
   }
 });
 
-// 5. GET A SINGLE WORK ORDER (Fixes the blank page/404 error!)
+// 3. Get Single Work Order
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
-
   try {
     const numericId = parseInt(id);
-
-    if (isNaN(numericId)) {
-      return res.status(400).json({ error: "Invalid work order ID format" });
-    }
+    if (isNaN(numericId))
+      return res.status(400).json({ error: "Invalid ID format" });
 
     const workOrder = await prisma.workOrder.findUnique({
-      where: { 
-        id: numericId 
-      },
+      where: { id: numericId },
       include: {
         assignee: true,
         creator: true,
         asset: true,
-        comments: {
-          include: { author: true },
-          orderBy: { createdAt: 'desc' }
-        },
+        comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
         activityLogs: {
-          include: { actor: true }, 
-          orderBy: { createdAt: 'desc' }
+          include: { actor: true },
+          orderBy: { createdAt: "asc" },
         },
         preventiveMaintenance: true,
-        documents: {
-          include: { uploader: true }
-        },
+        documents: { include: { uploader: true } },
       },
     });
 
-    if (!workOrder) {
+    if (!workOrder)
       return res.status(404).json({ error: "Work order not found" });
-    }
-
     res.status(200).json(workOrder);
   } catch (error) {
-    console.error("Error fetching single work order:", error);
     res.status(500).json({ error: "Failed to fetch work order details" });
   }
 });
 
-// 6. POST to create a new work order (UPDATED to properly save the assignee)
+// 4. Create Work Order
 router.post("/", async (req, res) => {
-  // Destructure assignedTo from the incoming request body
-  const { title, description, category, priority, organizationId, createdBy, assignedTo } = req.body;
+  const {
+    title,
+    description,
+    category,
+    priority,
+    organizationId,
+    createdBy,
+    assignedTo,
+    assetId,
+    dueDate,
+    durationHours,
+    estimatedHours,
+    siteLocation,
+    parentWorkOrderId,
+  } = req.body;
 
   try {
+    let parsedHours = null;
+    if (durationHours && !isNaN(parseFloat(durationHours))) {
+      parsedHours = parseFloat(durationHours);
+    } else if (estimatedHours && !isNaN(parseFloat(estimatedHours))) {
+      parsedHours = parseFloat(estimatedHours);
+    }
+
     const newWorkOrder = await prisma.workOrder.create({
       data: {
         title,
         description,
-        category,
+        category: category && category !== "None" ? category : null,
         priority: priority || "MEDIUM",
         status: "OPEN",
         organizationId,
-        createdBy,
-        assignedTo: assignedTo || null, // Saves the active user you selected!
+        createdBy: createdBy || null,
+        assignedTo: assignedTo || null,
+        assetId: assetId || null,
+        locationName: siteLocation || null,
+        parentWorkOrderId: parentWorkOrderId
+          ? parseInt(parentWorkOrderId)
+          : null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        estimatedHours: parsedHours,
       },
-      include: {
-        creator: true,
-        assignee: true,
-      },
+      include: { creator: true, assignee: true },
     });
 
-    await prisma.activityLog.create({
-      data: {
-        action: "created the work order",
-        workOrderId: newWorkOrder.id,
-        actorId: createdBy,
-      },
-    });
+    if (createdBy) {
+      await prisma.activityLog.create({
+        data: {
+          action: "created the work order",
+          workOrderId: newWorkOrder.id,
+          actorId: createdBy,
+        },
+      });
+    }
 
     res.status(201).json(newWorkOrder);
   } catch (error) {
-    console.error("Error creating work order:", error);
+    console.error("\n=== WORK ORDER CREATION ERROR ===");
+    console.error(error);
+    console.error("Payload received:", req.body);
     res.status(500).json({ error: "Failed to create work order" });
   }
 });
 
-// 7. PUT to update a work order
+// 5. Update Work Order
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { actorId, actionLog, ...updateData } = req.body;
 
   try {
+    if (updateData.dueDate) updateData.dueDate = new Date(updateData.dueDate);
+    if (updateData.estimatedHours !== undefined) {
+      updateData.estimatedHours = updateData.estimatedHours
+        ? parseFloat(updateData.estimatedHours)
+        : null;
+    }
+
     const updatedWorkOrder = await prisma.workOrder.update({
       where: { id: parseInt(id) },
       data: updateData,
@@ -212,11 +218,7 @@ router.put("/:id", async (req, res) => {
 
     if (actorId && actionLog) {
       await prisma.activityLog.create({
-        data: {
-          action: actionLog,
-          workOrderId: parseInt(id),
-          actorId,
-        },
+        data: { action: actionLog, workOrderId: parseInt(id), actorId },
       });
     }
 
@@ -227,15 +229,12 @@ router.put("/:id", async (req, res) => {
       const pm = await prisma.preventiveMaintenance.findUnique({
         where: { id: updatedWorkOrder.pmId },
       });
-
       if (pm) {
         const nextDate = calculateNextDate(pm.nextDueDate, pm.scheduleType);
-
         await prisma.preventiveMaintenance.update({
           where: { id: pm.id },
           data: { nextDueDate: nextDate },
         });
-
         await prisma.workOrder.create({
           data: {
             title: `[PM] ${pm.title}`,
@@ -251,55 +250,76 @@ router.put("/:id", async (req, res) => {
         });
       }
     }
-
     res.status(200).json(updatedWorkOrder);
   } catch (error) {
-    console.error("Error updating work order:", error);
     res.status(500).json({ error: "Failed to update work order" });
   }
 });
 
-// 8. POST to add a comment to a work order
+// 6. Delete Work Order
+router.delete("/:id", async (req, res) => {
+  try {
+    const numericId = parseInt(req.params.id);
+    if (isNaN(numericId))
+      return res.status(400).json({ error: "Invalid ID format" });
+
+    await prisma.workOrder.delete({
+      where: { id: numericId },
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting work order:", error);
+    res.status(500).json({ error: "Failed to delete work order" });
+  }
+});
+
+// 7. Post a Comment
 router.post("/:id/comments", async (req, res) => {
   const { text, authorId } = req.body;
   try {
     const comment = await prisma.comment.create({
-      data: {
-        text,
-        authorId,
-        workOrderId: parseInt(req.params.id),
-      },
+      data: { text, authorId, workOrderId: parseInt(req.params.id) },
       include: { author: true },
     });
     res.status(201).json(comment);
   } catch (err) {
-    console.error("Error adding comment:", err);
     res.status(500).json({ error: "Failed to add comment" });
   }
 });
 
-// 9. PUT to update the comment to a work order
-router.put('/:id/comments/:commentId', async (req, res) => {
+// 8. Update a Comment
+router.put("/:id/comments/:commentId", async (req, res) => {
   try {
     const { text } = req.body;
+    const commentIdParam = isNaN(parseInt(req.params.commentId))
+      ? req.params.commentId
+      : parseInt(req.params.commentId);
+
     const comment = await prisma.comment.update({
-      where: { id: req.params.commentId },
-      data: { text }
+      where: { id: commentIdParam as any },
+      data: { text },
     });
     res.json(comment);
   } catch (error) {
+    console.error("Error updating comment:", error);
     res.status(500).json({ error: "Failed to update comment" });
   }
 });
 
-// 10. Delete the comments on the work order
-router.delete('/:id/comments/:commentId', async (req, res) => {
+// 9. Delete a Comment
+router.delete("/:id/comments/:commentId", async (req, res) => {
   try {
+    const commentIdParam = isNaN(parseInt(req.params.commentId))
+      ? req.params.commentId
+      : parseInt(req.params.commentId);
+
     await prisma.comment.delete({
-      where: { id: req.params.commentId }
+      where: { id: commentIdParam as any },
     });
     res.status(204).send();
   } catch (error) {
+    console.error("Error deleting comment:", error);
     res.status(500).json({ error: "Failed to delete comment" });
   }
 });

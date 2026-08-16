@@ -1,1 +1,0 @@
-# How Hugging Face API routes work

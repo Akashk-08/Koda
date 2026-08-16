@@ -6,7 +6,7 @@ const AccessRequests = ({ user }) => {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
   const [locations, setLocations] = useState([]);
-  
+
   // Permissions Modal State
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,7 +17,7 @@ const AccessRequests = ({ user }) => {
     try {
       const usersRes = await fetch(`http://localhost:8080/api/users/${user.organizationId}`);
       const locationsRes = await fetch('http://localhost:8080/api/locations');
-      
+
       if (usersRes.ok) {
         const allUsers = await usersRes.json();
         setPendingUsers(allUsers.filter(u => u.approvalStatus === 'PENDING'));
@@ -51,11 +51,11 @@ const AccessRequests = ({ user }) => {
   const openPermissionsModal = (targetUser) => {
     setSelectedUser(targetUser);
     setEditRole(targetUser.role || 'USER');
-    
+
     let initialLocs = [];
     if (targetUser.siteLocation) {
-      initialLocs = targetUser.siteLocation.includes(',') 
-        ? targetUser.siteLocation.split(',').map(s => s.trim()) 
+      initialLocs = targetUser.siteLocation.includes(',')
+        ? targetUser.siteLocation.split(',').map(s => s.trim())
         : [targetUser.siteLocation];
     }
     setEditSiteLocations(initialLocs);
@@ -76,9 +76,9 @@ const AccessRequests = ({ user }) => {
       const res = await fetch(`http://localhost:8080/api/users/${selectedUser.id}/permissions`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          role: editRole, 
-          locationId: locationString 
+        body: JSON.stringify({
+          role: editRole,
+          locationId: locationString
         })
       });
       if (res.ok) {
@@ -98,7 +98,7 @@ const AccessRequests = ({ user }) => {
   return (
     <div className="flex-1 bg-gray-50 p-8 h-full overflow-y-auto font-sans">
       <div className="max-w-6xl mx-auto">
-        
+
         <div className="mb-8">
           <div className="flex items-center text-sm text-gray-500 mb-2">
             <span>Organization</span>
@@ -140,7 +140,7 @@ const AccessRequests = ({ user }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              
+
               {activeTab === 'PENDING' && (
                 pendingUsers.length === 0 ? (
                   <tr>
@@ -216,7 +216,7 @@ const AccessRequests = ({ user }) => {
                             {u.role === 'ADMIN' && <Shield className="w-3 h-3" />}
                             {u.role === 'ADMIN' ? 'ADMIN' : 'MEMBER'}
                           </span>
-                          
+
                           {u.siteLocation ? (
                             <span className="flex items-center text-xs font-medium text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">
                               <MapPin className="w-3.5 h-3.5 mr-1 text-gray-400" /> {u.siteLocation}
@@ -230,7 +230,7 @@ const AccessRequests = ({ user }) => {
                         {u.email}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button 
+                        <button
                           onClick={() => openPermissionsModal(u)}
                           className="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 border border-transparent hover:border-blue-100"
                         >
@@ -258,7 +258,7 @@ const AccessRequests = ({ user }) => {
             </div>
 
             <form onSubmit={handleSavePermissions} className="p-6 space-y-6 overflow-y-auto flex-1">
-              
+
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">System Role</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -286,8 +286,8 @@ const AccessRequests = ({ user }) => {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-bold text-gray-700">Permitted Site Locations</label>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setEditSiteLocations([])}
                     className="text-xs text-blue-600 hover:underline font-semibold"
                   >
@@ -299,8 +299,8 @@ const AccessRequests = ({ user }) => {
                   {locations.map(loc => {
                     const isChecked = editSiteLocations.includes(loc.name);
                     return (
-                      <label 
-                        key={loc.id} 
+                      <label
+                        key={loc.id}
                         className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-blue-50 border border-blue-200' : 'hover:bg-white border border-transparent'}`}
                       >
                         <input
@@ -315,7 +315,7 @@ const AccessRequests = ({ user }) => {
                   })}
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  Select one or multiple locations. If none are selected, the user will have access to all locations.
+                  Select one or multiple locations. If locations selected to Pulseworks shop and warehouse, then the user will have access to all locations.
                 </p>
               </div>
 

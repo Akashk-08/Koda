@@ -12,9 +12,9 @@ const LandingPage = () => {
                     {/* Logo */}
                     <div className="flex items-center gap-2">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-md">
-                            K
+                            PW
                         </div>
-                        <span className="text-xl font-extrabold text-gray-900 tracking-tight">Koda CMMS</span>
+                        <span className="text-xl font-extrabold text-gray-900 tracking-tight"> CMMS</span>
                     </div>
 
                     {/* Desktop Navigation Links */}
@@ -55,7 +55,7 @@ const LandingPage = () => {
                                 One Platform for CMMS, Safety, and Asset Operations
                             </h1>
                             <p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-lg">
-                                Koda is the modern CMMS platform built to bring work orders, compliance, and preventive maintenance together. Extend asset life, reduce downtime, and empower your maintenance teams to work safer and faster.
+                                Pulseworks CMMS is the modern CMMS platform built to bring work orders, compliance, and preventive maintenance together. Extend asset life, reduce downtime, and empower your maintenance teams to work safer and faster.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Link to="/signup" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-base font-bold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
@@ -134,7 +134,7 @@ const LandingPage = () => {
                     <div className="max-w-7xl mx-auto px-6">
                         <div className="text-center max-w-3xl mx-auto mb-20">
                             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-6">Everything your maintenance team needs to succeed.</h2>
-                            <p className="text-lg text-gray-600">Eliminate paperwork, streamline communication, and gain deep insights into your operations with Koda's comprehensive toolkit.</p>
+                            <p className="text-lg text-gray-600">Eliminate paperwork, streamline communication, and gain deep insights into your operations with Pulseworks CMMS comprehensive toolkit.</p>
                         </div>
 
                         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -235,7 +235,7 @@ const LandingPage = () => {
                     <div className="absolute inset-0 bg-blue-600/5 -skew-y-3 origin-top-left transform scale-110 -z-10"></div>
                     <div className="max-w-4xl mx-auto px-6 text-center">
                         <h2 className="text-4xl font-extrabold text-gray-900 mb-6">Ready to transform your operations?</h2>
-                        <p className="text-xl text-gray-600 mb-10">Join the forward-thinking organizations using Koda to power their maintenance teams.</p>
+                        <p className="text-xl text-gray-600 mb-10">Join the forward-thinking organizations using Pulseworks CMMS to power their maintenance teams.</p>
                         <Link to="/signup" className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-full text-lg font-bold transition-all shadow-xl hover:shadow-2xl">
                             Get Started for Free
                         </Link>

@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Mail, Phone, MapPin, Users, Shield, UserPlus, Building, X, Trash2, Check, User } from 'lucide-react';
 
 const MyTeam = ({ user }) => {
-  const [activeTab, setActiveTab] = useState('directory'); 
+  const [activeTab, setActiveTab] = useState('directory');
   const [orgUsers, setOrgUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Modal State
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
@@ -20,7 +20,7 @@ const MyTeam = ({ user }) => {
       if (user?.organizationId) {
         const usersRes = await fetch(`http://localhost:8080/api/users/${user.organizationId}`);
         if (usersRes.ok) setOrgUsers(await usersRes.json());
-        
+
         const teamsRes = await fetch(`http://localhost:8080/api/teams?orgId=${user.organizationId}`);
         if (teamsRes.ok) setTeams(await teamsRes.json());
       }
@@ -53,7 +53,7 @@ const MyTeam = ({ user }) => {
 
   // 3. MY TEAMS FILTER: Filter teams to only show ones where the current user is a member
   const myTeams = teams.filter(team => team.users?.some(u => u.id === user?.id));
-  
+
   // Determine which list of teams to display based on the active tab
   const displayTeams = activeTab === 'my_teams' ? myTeams : teams;
 
@@ -66,10 +66,10 @@ const MyTeam = ({ user }) => {
           <span className="mx-2">/</span>
           <span>My Team</span>
         </div>
-        
+
         <div className="flex justify-between items-end">
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Organization Directory</h1>
-          
+
           {/* ONLY ADMINS SEE THE CREATION BUTTONS */}
           {isAdmin && (
             activeTab === 'directory' ? (
@@ -88,20 +88,18 @@ const MyTeam = ({ user }) => {
         <div className="flex gap-8 mt-8 border-b border-gray-200">
           <button
             onClick={() => setActiveTab('directory')}
-            className={`pb-4 text-sm font-bold border-b-2 transition-all ${
-              activeTab === 'directory' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
+            className={`pb-4 text-sm font-bold border-b-2 transition-all ${activeTab === 'directory' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
           >
             <div className="flex items-center gap-2.5">
               <Users className="w-4 h-4" /> People Directory
             </div>
           </button>
-          
+
           <button
             onClick={() => setActiveTab('my_teams')}
-            className={`pb-4 text-sm font-bold border-b-2 transition-all ${
-              activeTab === 'my_teams' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
+            className={`pb-4 text-sm font-bold border-b-2 transition-all ${activeTab === 'my_teams' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
           >
             <div className="flex items-center gap-2.5">
               <User className="w-4 h-4" /> My Teams
@@ -113,9 +111,8 @@ const MyTeam = ({ user }) => {
 
           <button
             onClick={() => setActiveTab('teams')}
-            className={`pb-4 text-sm font-bold border-b-2 transition-all ${
-              activeTab === 'teams' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
+            className={`pb-4 text-sm font-bold border-b-2 transition-all ${activeTab === 'teams' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
           >
             <div className="flex items-center gap-2.5">
               <Building className="w-4 h-4" /> Operational Teams
@@ -198,11 +195,10 @@ const MyTeam = ({ user }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm border ${
-                        member.approvalStatus === 'PENDING' 
-                          ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm border ${member.approvalStatus === 'PENDING'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
                           : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      }`}>
+                        }`}>
                         {member.approvalStatus || 'APPROVED'}
                       </span>
                     </td>
@@ -224,11 +220,11 @@ const MyTeam = ({ user }) => {
                 {activeTab === 'my_teams' ? "Not in any teams" : "No operational teams"}
               </h3>
               <p className="text-sm text-gray-500 max-w-sm text-center">
-                {activeTab === 'my_teams' 
-                  ? "You haven't been assigned to any operational teams yet." 
+                {activeTab === 'my_teams'
+                  ? "You haven't been assigned to any operational teams yet."
                   : "Create your first team to group members together."}
               </p>
-              
+
               {isAdmin && activeTab === 'teams' && (
                 <button className="mt-6 bg-white border border-gray-200 text-blue-600 hover:bg-blue-50 px-5 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
                   <Plus className="w-4 h-4" /> Create Team
@@ -237,13 +233,13 @@ const MyTeam = ({ user }) => {
             </div>
           ) : (
             displayTeams.map((team) => (
-              <div 
-                key={team.id} 
+              <div
+                key={team.id}
                 onClick={() => handleOpenTeamModal(team)}
                 className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full relative overflow-hidden group cursor-pointer"
               >
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-blue-700 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out"></div>
-                
+
                 <div className="flex justify-between items-start gap-4 mb-5 w-full">
                   <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 shadow-inner">
                     <Users className="w-6 h-6" />
@@ -255,12 +251,12 @@ const MyTeam = ({ user }) => {
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="flex-1">
                   <h3 className="text-xl font-extrabold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">{team.name}</h3>
                   <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">{team.description || "Operational team."}</p>
                 </div>
-                
+
                 <div className="flex justify-between items-end pt-6 mt-6 border-t border-gray-100">
                   <div className="flex flex-col gap-2">
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{team.users?.length || 0} Members</span>
@@ -278,7 +274,7 @@ const MyTeam = ({ user }) => {
                       )}
                     </div>
                   </div>
-                  
+
                   {isAdmin && (
                     <button className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
                       <UserPlus className="w-4 h-4" />
@@ -293,11 +289,11 @@ const MyTeam = ({ user }) => {
 
       {/* Edit/Manage Team Modal */}
       {isTeamModalOpen && selectedTeam && (
-        <TeamManagementModal 
-          team={selectedTeam} 
-          orgUsers={approvedUsers} 
-          onClose={() => setIsTeamModalOpen(false)} 
-          onRefresh={fetchData} 
+        <TeamManagementModal
+          team={selectedTeam}
+          orgUsers={approvedUsers}
+          onClose={() => setIsTeamModalOpen(false)}
+          onRefresh={fetchData}
           isAdmin={isAdmin}
         />
       )}
@@ -305,7 +301,7 @@ const MyTeam = ({ user }) => {
   );
 };
 
-// --- TEAM MANAGEMENT MODAL COMPONENT ---
+//  TEAM MANAGEMENT MODAL COMPONENT 
 const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) => {
   const [name, setName] = useState(team.name);
   const [description, setDescription] = useState(team.description || '');
@@ -314,7 +310,7 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
 
   const toggleMember = (userId) => {
     if (!isAdmin) return;
-    setMemberIds((prev) => 
+    setMemberIds((prev) =>
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
   };
@@ -341,7 +337,7 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
   };
 
   const handleDelete = async () => {
-    if(!window.confirm(`Are you sure you want to delete ${team.name}? This action cannot be undone.`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${team.name}? This action cannot be undone.`)) return;
     try {
       const res = await fetch(`http://localhost:8080/api/teams/${team.id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -356,7 +352,7 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
       <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-        
+
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
           <h2 className="text-xl font-bold text-gray-900">
             {isAdmin ? 'Manage Team' : 'Team Details'}
@@ -367,14 +363,14 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[70vh] flex flex-col gap-5">
-          
+
           {/* Team Name - Full Width */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1.5">Team Name</label>
             {isAdmin ? (
-              <input 
-                type="text" 
-                value={name} 
+              <input
+                type="text"
+                value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
               />
@@ -384,7 +380,7 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
               </div>
             )}
           </div>
-          
+
           {/* Site Location - Full Width */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1.5">Site Location</label>
@@ -402,8 +398,8 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1.5">Description</label>
             {isAdmin ? (
-              <textarea 
-                value={description} 
+              <textarea
+                value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Add a description for this team..."
                 className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all min-h-[80px] resize-y"
@@ -421,21 +417,20 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
               <label className="block text-sm font-bold text-gray-700">Team Members</label>
               <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{memberIds.length} Selected</span>
             </div>
-            
+
             <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100 max-h-60 overflow-y-auto">
               {orgUsers.map(user => {
                 const isSelected = memberIds.includes(user.id);
                 if (!isAdmin && !isSelected) return null;
 
                 return (
-                  <div 
-                    key={user.id} 
+                  <div
+                    key={user.id}
                     onClick={() => toggleMember(user.id)}
-                    className={`flex items-center justify-between p-3 transition-colors ${
-                      isAdmin 
-                        ? `cursor-pointer ${isSelected ? 'bg-blue-50/50 hover:bg-blue-50' : 'hover:bg-gray-50'}` 
+                    className={`flex items-center justify-between p-3 transition-colors ${isAdmin
+                        ? `cursor-pointer ${isSelected ? 'bg-blue-50/50 hover:bg-blue-50' : 'hover:bg-gray-50'}`
                         : 'bg-white cursor-default'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
@@ -464,7 +459,7 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
           {isAdmin ? (
             <>
-              <button 
+              <button
                 onClick={handleDelete}
                 className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-bold transition-colors"
               >
@@ -474,8 +469,8 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
                 <button onClick={onClose} className="px-5 py-2 text-sm text-gray-600 hover:bg-gray-200 font-bold rounded-lg transition-colors">
                   Cancel
                 </button>
-                <button 
-                  onClick={handleSave} 
+                <button
+                  onClick={handleSave}
                   disabled={isSaving}
                   className="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50"
                 >
@@ -485,9 +480,9 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
             </>
           ) : (
             <div className="w-full flex justify-end">
-               <button onClick={onClose} className="px-5 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-lg transition-colors">
-                  Close
-                </button>
+              <button onClick={onClose} className="px-5 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-lg transition-colors">
+                Close
+              </button>
             </div>
           )}
         </div>

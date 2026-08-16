@@ -1,7 +1,7 @@
 import csv
 import psycopg2
 
-# --- CONFIGURATION ---
+# CONFIGURATION
 DB_CONFIG = {
     "dbname": "koda_db",
     "user": "koda_user",      
@@ -10,10 +10,11 @@ DB_CONFIG = {
     "port": "5434"
 }
 
+YOUR_ORG_ID = "5df74865-c2e6-43e9-a270-41dca24f32dc"
+
 CSV_FILE_PATH = "upkeep-locations.csv" 
 TABLE_NAME = "Location"         
 
-# THIS IS THE MAGIC FIX: It translates your CSV headers into Prisma's exact column names
 COLUMN_MAPPING = {
     "ID": "id",
     "Name": "name",
@@ -34,27 +35,43 @@ def import_csv_to_postgres():
         cur = conn.cursor()
         print("Successfully connected to the database.")
 
-        with open(CSV_FILE_PATH, 'r', encoding='utf-8-sig') as file: # utf-8-sig safely ignores hidden characters
+        with open(CSV_FILE_PATH, 'r', encoding='utf-8-sig') as file:
             reader = csv.reader(file)
             csv_headers = next(reader) 
 
-            # Map the CSV headers to our Prisma database columns using the dictionary above
+            # Map the CSV headers
             db_columns = [f'"{COLUMN_MAPPING.get(header.strip(), header.strip())}"' for header in csv_headers]
-            columns_string = ', '.join(db_columns)
-            placeholders = ', '.join(['%s'] * len(csv_headers))
+            db_columns.append('"organizationId"') 
             
-            insert_query = f'INSERT INTO "{TABLE_NAME}" ({columns_string}) VALUES ({placeholders})'
-            print(f"Preparing to execute: {insert_query}")
+            columns_string = ', '.join(db_columns)
+            placeholders = ', '.join(['%s'] * len(db_columns))
+            
+            # Added ON CONFLICT ("id") DO NOTHING so it gracefully skips duplicates
+            insert_query = f'''
+                INSERT INTO "{TABLE_NAME}" ({columns_string}) 
+                VALUES ({placeholders})
+                ON CONFLICT ("id") DO NOTHING;
+            '''
+            
+            print("Processing rows and skipping any existing duplicates...")
 
-            row_count = 0
+            inserted_count = 0
+            skipped_count = 0
+            
             for row in reader:
-                # Convert empty strings from the CSV into proper NULL values for the database
                 processed_row = [None if val.strip() == "" else val.strip() for val in row]
+                processed_row.append(YOUR_ORG_ID)
+                
                 cur.execute(insert_query, processed_row)
-                row_count += 1
+                
+                # cur.rowcount is 1 if inserted, 0 if skipped due to conflict
+                if cur.rowcount == 1:
+                    inserted_count += 1
+                else:
+                    skipped_count += 1
 
         conn.commit()
-        print(f"Success! Imported {row_count} rows into the '{TABLE_NAME}' table.")
+        print(f"Success! Imported {inserted_count} new locations. (Skipped {skipped_count} existing duplicates).")
 
     except Exception as e:
         print(f"An error occurred: {e}")

@@ -25,21 +25,22 @@ router.get("/", async (req, res) => {
       if (currentUser) {
         const globalHeadquarters = ["Pulseworks Shop", "Pulseworks Warehouse"];
         const userLocation = currentUser.siteLocation || "";
-        
-        // Check if user is an ADMIN or belongs to global headquarters
-        const isGlobalUser = 
-          currentUser.role === "ADMIN" || 
-          globalHeadquarters.some(hq => userLocation.toLowerCase().includes(hq.toLowerCase()));
 
-        // If NOT a global user, restrict PMs based on assignee or creator match
+        // Check if user is an ADMIN or belongs to global headquarters
+        const isGlobalUser =
+          currentUser.role === "ADMIN" ||
+          globalHeadquarters.some((hq) =>
+            userLocation.toLowerCase().includes(hq.toLowerCase()),
+          );
+
+        // If NOT a global user, restrict PMs based on assignee match
         if (!isGlobalUser) {
           if (userLocation !== "") {
-            whereClause.OR = [
-              { assigneeId: userId },
-              { creatorId: userId }
-            ];
+            // Removed creatorId since it does not exist in the PM schema
+            whereClause.assigneeId = userId;
           } else {
-            whereClause.id = -99999; // Lock down if no location
+            // Must be a string because PM IDs are UUIDs, not integers
+            whereClause.id = "LOCKED_OUT_USER";
           }
         }
       }
@@ -50,7 +51,7 @@ router.get("/", async (req, res) => {
       include: {
         assignee: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" }, // Ensures PMs load from oldest to newest
     });
 
     res.status(200).json(pms);
@@ -62,7 +63,14 @@ router.get("/", async (req, res) => {
 
 // POST to create a new PM schedule
 router.post("/", async (req, res) => {
-  const { title, description, scheduleType, firstDueDate, assigneeId, organizationId, creatorId } = req.body;
+  const {
+    title,
+    description,
+    scheduleType,
+    firstDueDate,
+    assigneeId,
+    organizationId,
+  } = req.body;
 
   try {
     const newPm = await prisma.preventiveMaintenance.create({
@@ -73,7 +81,6 @@ router.post("/", async (req, res) => {
         nextDueDate: new Date(firstDueDate),
         assigneeId: assigneeId || null,
         organizationId,
-        creatorId,
       },
     });
 

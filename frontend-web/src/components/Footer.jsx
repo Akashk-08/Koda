@@ -9,7 +9,7 @@ const Footer = () => {
         {/* Created by <strong> Akash Kulkarni</strong> */}
       </div>
       <div className="text-center text-sm mt-1">
-        &copy; {currentYear} Koda. All Rights Reserved.
+        &copy; {currentYear} Pulseworks LLC. All Rights Reserved.
       </div>
     </footer>
   );

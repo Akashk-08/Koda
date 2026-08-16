@@ -117,8 +117,8 @@ router.put("/:id", async (req, res) => {
 
   try {
     // Ensure memberIds is an array, default to empty if not provided
-    const userConnections = Array.isArray(memberIds) 
-      ? memberIds.map((userId: string) => ({ id: userId })) 
+    const userConnections = Array.isArray(memberIds)
+      ? memberIds.map((userId: string) => ({ id: userId }))
       : [];
 
     const updatedTeam = await prisma.team.update({
@@ -126,15 +126,15 @@ router.put("/:id", async (req, res) => {
       data: {
         name,
         description,
-        // This 'set' command tells Prisma to replace the current members 
+        // This 'set' command tells Prisma to replace the current members
         // with the exact list of IDs sent from the frontend checklist
         users: {
-          set: userConnections, 
+          set: userConnections,
         },
       },
       include: {
         users: true, // Return the updated users list to the frontend
-      }
+      },
     });
 
     res.status(200).json(updatedTeam);

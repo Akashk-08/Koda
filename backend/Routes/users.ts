@@ -55,7 +55,7 @@ router.get("/:orgId", async (req, res) => {
       where: { organizationId: req.params.orgId },
       // Remove the restrictive select block so it returns approvalStatus, siteLocation, role, email, etc.
     });
-    
+
     // Strip out passwords for security
     const usersWithoutPasswords = users.map(({ password, ...rest }) => rest);
     res.json(usersWithoutPasswords);
@@ -120,7 +120,7 @@ router.put("/:id/approve", async (req, res) => {
 });
 
 // 5. Add permissions for users
-router.put('/:id/permissions', async (req, res) => {
+router.put("/:id/permissions", async (req, res) => {
   const { id } = req.params;
   const { role, locationId } = req.body;
 
@@ -130,10 +130,10 @@ router.put('/:id/permissions', async (req, res) => {
       data: {
         role: role,
         // Map the locationId from the frontend to your actual database column "siteLocation"
-        siteLocation: locationId || null, 
+        siteLocation: locationId || null,
       },
     });
-    
+
     const { password, ...userWithoutPassword } = updatedUser;
     res.status(200).json(userWithoutPassword);
   } catch (error) {

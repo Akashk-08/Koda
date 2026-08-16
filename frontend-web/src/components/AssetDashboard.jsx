@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Package, AlertTriangle, CheckCircle, RefreshCw, Loader2 } from 'lucide-react';
+import AssetQRCode from './AssetQRCode';
 
 const AssetDashboard = () => {
   const [assets, setAssets] = useState([]);
@@ -13,7 +14,6 @@ const AssetDashboard = () => {
   const fetchAssets = async () => {
     try {
       setLoading(true);
-      // Ensure this matches your backend URL
       const response = await fetch('http://localhost:8080/api/assets');
       if (!response.ok) throw new Error('Failed to fetch assets');
       const data = await response.json();
@@ -63,6 +63,29 @@ const AssetDashboard = () => {
           </div>
         ))}
       </div>
+
+      {assets.map((asset) => (
+        <div key={asset.id} className="p-4 border border-gray-200 rounded-md mb-4 flex justify-between items-center bg-white">
+
+          {/* Left Side: Asset Info */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">{asset.name}</h3>
+            <p className="text-sm text-gray-500">
+              Barcode: {asset.barcode || asset.serialNumber || 'N/A'}
+            </p>
+            <p className="text-sm text-gray-500">Status: {asset.status}</p>
+          </div>
+
+          {/* Right Side: The QR Code Component! */}
+          <div>
+            <AssetQRCode
+              assetName={asset.name}
+              barcodeValue={asset.barcode || asset.serialNumber}
+            />
+          </div>
+
+        </div>
+      ))}
 
       {assets.length === 0 && !error && (
         <div className="text-center py-20 text-gray-400">No assets found. Start by adding one!</div>

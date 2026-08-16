@@ -54,13 +54,15 @@ const AuthCard = ({ onAuthSuccess }: AuthCardProps) => {
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
       <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg border border-gray-200">
-        {/* Koda Branding Header */}
+        {/* Pulseworks Branding Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-600 mb-2">
-            <span className="text-white font-bold text-xl">K</span>
+            <span className="text-white font-bold text-xl">PW</span>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">
-            {isLogin ? "Sign in to Koda" : "Create your Koda account"}
+            {isLogin
+              ? "Sign in to Pulseworks CMMS"
+              : "Create your Pulseworks CMMS account"}
           </h2>
           <p className="text-sm text-gray-500 mt-1">
             {isLogin ? "Enter your details below to continue" : "."}
@@ -86,7 +88,7 @@ const AuthCard = ({ onAuthSuccess }: AuthCardProps) => {
                   required
                   className="w-full p-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   type="text"
-                  placeholder="e.g. Koda LLC"
+                  placeholder="e.g. Pulseworks LLC"
                   onChange={(e) =>
                     setFormData({
                       ...formData,

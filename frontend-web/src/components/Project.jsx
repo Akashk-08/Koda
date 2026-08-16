@@ -92,8 +92,8 @@ const Project = ({ user }) => {
               <div className="flex justify-between items-center text-xs text-gray-400">
                 <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {proj.contributors?.length || 1} members</span>
                 <span className={`px-2 py-0.5 rounded-full font-semibold ${proj.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                    proj.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
-                      proj.status === 'CLOSED' ? 'bg-gray-100 text-gray-700' : 'bg-purple-100 text-purple-700'
+                  proj.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
+                    proj.status === 'CLOSED' ? 'bg-gray-100 text-gray-700' : 'bg-purple-100 text-purple-700'
                   }`}>
                   {proj.status.replace('_', ' ')}
                 </span>
@@ -119,7 +119,7 @@ const Project = ({ user }) => {
   );
 };
 
-// --- CREATE PROJECT MODAL ---
+// CREATE PROJECT MODAL 
 const CreateProjectModal = ({ user, orgUsers, onClose, onCreated }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -219,7 +219,7 @@ const CreateProjectModal = ({ user, orgUsers, onClose, onCreated }) => {
   );
 };
 
-// --- JIRA STYLE DETAIL VIEW ---
+//  JIRA STYLE DETAIL VIEW 
 const ProjectDetail = ({ project, onBack, user, onProjectUpdated, formatProjectNumber }) => {
   const [activeTab, setActiveTab] = useState('About');
   const [comments, setComments] = useState(project.comments || []);
@@ -231,12 +231,12 @@ const ProjectDetail = ({ project, onBack, user, onProjectUpdated, formatProjectN
   const [decisions, setDecisions] = useState(project.decisions || []);
   const [newDecision, setNewDecision] = useState('');
 
-  // --- DYNAMIC ABOUT SECTIONS LOGIC ---
+  //  DYNAMIC ABOUT SECTIONS LOGIC 
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [editHeading, setEditHeading] = useState('');
   const [editContent, setEditContent] = useState('');
 
-  // Parse description as JSON, or set up default Jira-style sections
+  // Parse description as JSON
   const [aboutSections, setAboutSections] = useState(() => {
     try {
       if (project.description && project.description.startsWith('[')) {
@@ -270,7 +270,7 @@ const ProjectDetail = ({ project, onBack, user, onProjectUpdated, formatProjectN
     }
   };
 
-  // --- DYNAMIC SECTION HANDLERS ---
+  //  DYNAMIC SECTION HANDLERS 
   const saveSectionsToBackend = (newSections) => {
     setAboutSections(newSections);
     handleUpdateProject('description', JSON.stringify(newSections));
@@ -356,7 +356,7 @@ const ProjectDetail = ({ project, onBack, user, onProjectUpdated, formatProjectN
         <div className="text-sm text-gray-500 mb-2">Projects / {formatProjectNumber(project.projectNumber)}</div>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold flex items-center gap-3 text-gray-900">
-            <span>😎</span> {project.title}
+            {project.title}
           </h1>
           <div className="flex items-center gap-3">
             <select

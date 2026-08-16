@@ -54,6 +54,7 @@ enum ScheduleType {
 }
 
 enum Category {
+  NONE
   ANNUAL_PREVENTIVE_MAINTENANCE
   ASSETS
   LARGE_DAMAGE
@@ -64,48 +65,44 @@ enum Category {
   WEEKLY_MONTHLY_CHECKLISTS
 }
 
-// model  user
 model User {
-  id               String   @id @default(uuid())
-  firstName        String   @map("first_name") @db.VarChar(50)
-  lastName         String   @map("last_name") @db.VarChar(50)
-  email            String   @unique @db.VarChar(100)
-  password         String   @db.VarChar(255)
+  id                 String   @id @default(uuid())
+  firstName          String   @map("first_name") @db.VarChar(50)
+  lastName           String   @map("last_name") @db.VarChar(50)
+  email              String   @unique @db.VarChar(100)
+  password           String   @db.VarChar(255)
   
-  // New Profile Fields
-  phoneNumber      String?  @map("phone_number") @db.VarChar(20)
-  profilePicUrl    String?  @map("profile_pic_url") @db.Text
-  siteLocation     String?  @map("site_location") @db.VarChar(100)
-  designation      String?  @db.VarChar(100)
-  teams            Team[]
+  phoneNumber        String?  @map("phone_number") @db.VarChar(20)
+  profilePicUrl      String?  @map("profile_pic_url") @db.Text
+  siteLocation       String?  @map("site_location") @db.VarChar(100)
+  designation        String?  @db.VarChar(100)
+  teams              Team[]
 
-  // Access & Role Fields
-  role             UserRole       @default(USER)
-  approvalStatus   ApprovalStatus @default(PENDING) @map("approval_status")
+  role               UserRole       @default(USER)
+  approvalStatus     ApprovalStatus @default(PENDING) @map("approval_status")
 
-  createdAt        DateTime @default(now()) @map("created_at")
+  createdAt          DateTime @default(now()) @map("created_at")
 
-  organizationId   String   @map("organization_id")
-  // FIXED: references [orgId]
-  organization     Organization @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
+  organizationId     String   @map("organization_id")
+  organization       Organization @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
   assignedWorkOrders WorkOrder[]     @relation("AssignedTo")
   createdWorkOrders  WorkOrder[]     @relation("CreatedBy")
 
-  //  Project Relationships 
-  ownedProjects        Project[]        @relation("ProjectOwner")
-  contributedProjects  Project[]        @relation("ProjectContributors")
-  projectComments      ProjectComment[]
-  assignedPms          PreventiveMaintenance[] @relation("PMAssignee")
+  ownedProjects       Project[]        @relation("ProjectOwner")
+  contributedProjects Project[]        @relation("ProjectContributors")
+  projectComments     ProjectComment[]
+  assignedPms         PreventiveMaintenance[] @relation("PMAssignee")
 
-  //  Missing Opposite Relations
-  comments           Comment[]
-  activityLogs       ActivityLog[]
-  uploadedDocs       Document[]
+  comments            Comment[]
+  activityLogs        ActivityLog[]
+  uploadedDocs        Document[]
+  resetCode       String?   @db.VarChar(10)
+  resetCodeExpiry DateTime?
 
   @@map("users")
 }
 
-model  Organization {
+model Organization {
   orgId      String      @id @default(uuid())
   orgName    String
   users      User[]
@@ -113,12 +110,12 @@ model  Organization {
   teams      Team[]
   locations  Location[]
   
-  //  Project Relationships 
   projects   Project[]
   preventiveMaintenances PreventiveMaintenance[]
+  inventoryParts InventoryPart[]
+  assets     Asset[] 
 }
 
-//  model  comments 
 model Comment {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   text        String   @db.Text
@@ -133,10 +130,9 @@ model Comment {
   @@map("comments")
 }
 
-// model  activitylog 
 model ActivityLog {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  action      String   @db.VarChar(255) // e.g., "updated the priority to HIGH"
+  action      String   @db.VarChar(255)
   createdAt   DateTime @default(now()) @map("created_at")
 
   workOrderId Int      @map("work_order_id")
@@ -148,15 +144,31 @@ model ActivityLog {
   @@map("activity_logs")
 }
 
-// model  asset
+//  ASSET MODEL
 model Asset {
-  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name       String            @db.VarChar(100)
-  status     assetStatus       @default(OPERATIONAL)
-  createdAt  DateTime          @default(now()) @map("created_at")
-  workOrders WorkOrder[]
-  parents    AssetDependency[] @relation("ChildAsset")
-  children   AssetDependency[] @relation("ParentAsset")
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String            @db.VarChar(150)
+  description     String?           @db.Text
+  model           String?           @db.VarChar(100)
+  serialNumber    String?           @map("serial_number") @db.VarChar(100)
+  barcode         String?           @db.VarChar(100)
+  category        String?           @db.VarChar(100)
+  locationName    String?           @map("location_name") @db.VarChar(150)
+  status          assetStatus       @default(OPERATIONAL)
+  
+  uptime          String?           @default("100%") @db.VarChar(50)
+  downtime        String?           @default("0 hrs") @db.VarChar(50)
+  reliabilityScore String?          @default("A+") @db.VarChar(20)
+
+  organizationId  String?           @map("organization_id")
+  organization    Organization?     @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
+
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at")
+  
+  workOrders      WorkOrder[]
+  parents         AssetDependency[] @relation("ChildAsset")
+  children        AssetDependency[] @relation("ParentAsset")
 
   @@map("assets")
 }
@@ -173,42 +185,87 @@ model AssetDependency {
   @@map("asset_dependencies")
 }
 
-// model  workorder
 model WorkOrder {
   id             Int             @id @default(autoincrement())
+  upkeepId       String?         @map("upkeep_id") // Maps to CSV 'Work Order ID'
+  workOrderNumber Int?           @map("work_order_number") // Maps to CSV 'Work Order #'
   title          String          @db.VarChar(150)
-  description    String?
+  description    String?         @db.Text
+  
   priority       Priority        @default(MEDIUM)
   status         WorkOrderStatus @default(OPEN)
+  customStatus   String?         @map("custom_status") // Maps to CSV 'Custom Work Order Status'
   category       Category?
 
-  // date fields
+  startDate      DateTime?       @map("start_date")
   dueDate        DateTime?       @map("due_date")
   createdAt      DateTime        @default(now()) @map("created_at")
-  closedAt       DateTime?       @map("closed_at")
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at")
+  closedAt       DateTime?       @map("closed_at") // Maps to CSV 'Completed On'
+  nextDueDate    DateTime?       @map("next_due_date") // Maps to CSV 'Next Due Date'
 
   organizationId String          @map("organization_id")
-  // FIXED: references [orgId]
   organization   Organization    @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
 
+  // RELATIONS AND FKs
   assetId        String?         @map("asset_id") @db.Uuid
   assignedTo     String?         @map("assigned_to")
   createdBy      String?         @map("created_by")
+  teamId         String?         @map("team_id")
+  pmId           String?         @map("pm_id")
+  parentWorkOrderId Int?         @map("parent_work_order_id")
 
   asset          Asset?          @relation(fields: [assetId], references: [id], onDelete: SetNull)
   assignee       User?           @relation("AssignedTo", fields: [assignedTo], references: [id], onDelete: SetNull)
   creator        User?           @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  team           Team?           @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  preventiveMaintenance PreventiveMaintenance? @relation(fields: [pmId], references: [id], onDelete: SetNull)
+  parentWorkOrder WorkOrder?     @relation("ParentChildWorkOrder", fields: [parentWorkOrderId], references: [id], onDelete: SetNull)
+  childWorkOrders WorkOrder[]    @relation("ParentChildWorkOrder")
+
+  // UPKEEP CSV FLAT DATA COLUMNS
+  completedByEmail             String? @map("completed_by_email")
+  assignedByEmail              String? @map("assigned_by_email")
+  assignedToEmail              String? @map("assigned_to_email")
+  additionalAssigneeEmails     String? @map("additional_assignee_emails")
+  requestedByEmail             String? @map("requested_by_email")
+  teamAssignedName             String? @map("team_assigned_name")
+  assetName                    String? @map("asset_name")
+  locationName                 String? @map("location_name") @db.VarChar(150)
+  assetCategory                String? @map("asset_category")
   
+  // JOB DETAILS & COSTS
+  estimatedHours               Float?  @map("estimated_hours")
+  timeHours                    Float?  @map("time_hours")
+  additionalCost               Float?  @map("additional_cost")
+  laborCost                    Float?  @map("labor_cost")
+  
+  // INVENTORY & TASKS
+  checklistId                  String? @map("checklist_id")
+  taskData                     Json?   @map("task_data") // Stores structured 'Task Data'
+  partsNames                   String? @map("parts_names")
+  partQuantities               String? @map("part_quantities")
+  purchaseOrderNames           String? @map("purchase_order_names")
+  fileId                       String? @map("file_id")
+  
+  // BOOLEAN FLAGS
+  requiresSignature            Boolean @default(false) @map("requires_signature")
+  isArchived                   Boolean @default(false) @map("is_archived")
+  rootWorkOrderExists          Boolean @default(false) @map("root_work_order_exists")
+  rescheduleBasedOnCompletion  Boolean @default(false) @map("reschedule_based_on_completion")
+  
+  // REPEATING SCHEDULES
+  repeatingSchedule            String? @map("repeating_schedule")
+  stopRepeatingOn              DateTime? @map("stop_repeating_on")
+
+  // RELATED ARRAYS
   comments       Comment[]
   activityLogs   ActivityLog[]
-  estimatedHours Int?            @map("estimated_hours")
-  pmId           String?         @map("pm_id")
-  preventiveMaintenance PreventiveMaintenance? @relation(fields: [pmId], references: [id], onDelete: SetNull)
-  documents          Document[]
+  documents      Document[]
+
   @@map("work_orders")
 }
 
-// model  Project 
 model Project {
   id             String           @id @default(uuid())
   projectNumber  Int              @default(autoincrement()) @map("project_number")
@@ -222,7 +279,6 @@ model Project {
   createdAt      DateTime         @default(now()) @map("created_at")
 
   organizationId String           @map("organization_id")
-  // FIXED: references [orgId]
   organization   Organization     @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
 
   ownerId        String           @map("owner_id")
@@ -234,7 +290,6 @@ model Project {
   @@map("projects")
 }
 
-// model  ProjectComment
 model ProjectComment {
   id        String   @id @default(uuid())
   text      String   @db.Text
@@ -249,9 +304,6 @@ model ProjectComment {
   @@map("project_comments")
 }
 
-
-
-// model  Preventive Maintenance 
 model PreventiveMaintenance {
   id             String       @id @default(uuid())
   title          String       @db.VarChar(150)
@@ -261,7 +313,6 @@ model PreventiveMaintenance {
   createdAt      DateTime     @default(now()) @map("created_at")
 
   organizationId String       @map("organization_id")
-  // FIXED: references [orgId]
   organization   Organization @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
 
   assigneeId     String?      @map("assignee_id")
@@ -272,7 +323,6 @@ model PreventiveMaintenance {
   @@map("preventive_maintenances")
 }
 
-// model  Location
 model Location {
   id                    String   @id @default(uuid())
   name                  String
@@ -287,9 +337,7 @@ model Location {
   vendorAssignedNames   String?
   createdAt             DateTime @default(now())
 
-  // Add these two lines to link it to an Organization:
   organizationId        String?
-  // FIXED: references [orgId]
   organization          Organization? @relation(fields: [organizationId], references: [orgId])
   
   teams                 Team[]
@@ -301,13 +349,13 @@ model Team {
   description    String?
   
   organizationId String
-  // FIXED: references [orgId]
   organization   Organization @relation(fields: [organizationId], references: [orgId])
   
   locationId     String?
   location       Location?    @relation(fields: [locationId], references: [id])
   
-  users          User[]       // Establishes a many-to-many relationship with Users
+  users          User[]       
+  workOrders     WorkOrder[]  // Added backward relation for Work Orders
   
   createdAt      DateTime     @default(now())
 }
@@ -325,4 +373,29 @@ model Document {
   uploader    User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
 
   @@map("documents")
+}
+
+model InventoryPart {
+  id              String   @id @default(uuid())
+  name            String
+  partNumber      String?
+  description     String?
+  category        String?
+  cost            Float    @default(0)
+  barcode         String?
+  tags            String?
+  isNonStock      Boolean  @default(false)
+  isCritical      Boolean  @default(false)
+  availableQty    Int      @default(0)
+  minQty          Int      @default(0)
+  maxQtyThreshold Int      @default(0)
+  siteLocation    String?
+  area            String?
+  imageUrls       String[] @default([])
+
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [orgId])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
