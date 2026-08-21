@@ -1,4 +1,3 @@
-// backend/Routes/assets.ts
 import express from "express";
 import { PrismaClient } from "@prisma/client";
 
@@ -16,12 +15,30 @@ router.get("/", async (req, res) => {
       },
       include: {
         workOrders: {
-          orderBy: { createdAt: "desc" }, // Shows newest check-ins/check-outs at the top
+          orderBy: { createdAt: "desc" },
+        },
+        parts: true, // Pulls in the newly created Parts relation
+        children: {
+          // Pulls in the AssetDependency relation
+          include: {
+            childAsset: true,
+          },
         },
       },
     });
-    res.json(assets);
+
+    // Format the response so the frontend receives a flat 'subassets' array
+    const formattedAssets = assets.map((asset) => {
+      const { children, ...rest } = asset;
+      return {
+        ...rest,
+        subassets: children.map((c: any) => c.childAsset),
+      };
+    });
+
+    res.json(formattedAssets);
   } catch (err) {
+    console.error("GET Assets Error:", err);
     res.status(500).json({ error: "Failed to fetch assets" });
   }
 });
@@ -43,13 +60,64 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Extract relations gracefully (handles plain arrays OR {set: []} objects)
+    const subassetsList = Array.isArray(req.body.subassets)
+      ? req.body.subassets
+      : req.body.subassets?.set || [];
+
+    const partsList = Array.isArray(req.body.parts)
+      ? req.body.parts
+      : req.body.parts?.set || [];
+
+    // 1. Create a copy of the incoming data
+    const cleanData = { ...req.body };
+
+    // 2. Aggressively strip fields so they don't break Prisma
+    delete cleanData.id;
+    delete cleanData.createdAt;
+    delete cleanData.updatedAt;
+    delete cleanData.workOrders;
+    delete cleanData.organization;
+    delete cleanData.organizationId;
+    delete cleanData._count;
+    delete cleanData.parents;
+    delete cleanData.children;
+    delete cleanData.subassets;
+    delete cleanData.parts;
+
+    // 3. Attempt to update the database
     const updatedAsset = await prisma.asset.update({
       where: { id },
-      data: req.body,
+      data: {
+        ...cleanData,
+
+        // Map subassets safely into the explicit AssetDependency table
+        children: {
+          deleteMany: {}, // Clear existing linked subassets
+          create: subassetsList.map((sub: any) => ({
+            childAssetId: sub.id,
+            dependencyType: "SUBASSET",
+          })),
+        },
+
+        // Map parts safely into the new implicit many-to-many table
+        parts: {
+          set: partsList.map((p: any) => ({ id: p.id })),
+        },
+      },
     });
     res.json(updatedAsset);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to update asset" });
+  } catch (error: any) {
+    console.error("\n=========================================");
+    console.error(" PRISMA UPDATE ERROR:");
+    console.error(error.message || error);
+    console.error("=========================================\n");
+
+    res.status(500).json({
+      error: "Failed to update asset",
+      details: error.message || "Unknown Prisma Error",
+    });
   }
 });
 

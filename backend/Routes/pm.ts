@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// GET all PM schedules with proper global HQ and site permissions
+// GET all PM schedules with proper global HQ and fallback handling
 router.get("/", async (req, res) => {
   const { orgId, userId } = req.query;
 
@@ -13,45 +13,16 @@ router.get("/", async (req, res) => {
   }
 
   try {
-    let whereClause: any = {
-      organizationId: orgId,
-    };
-
-    if (userId && typeof userId === "string") {
-      const currentUser = await prisma.user.findUnique({
-        where: { id: userId },
-      });
-
-      if (currentUser) {
-        const globalHeadquarters = ["Pulseworks Shop", "Pulseworks Warehouse"];
-        const userLocation = currentUser.siteLocation || "";
-
-        // Check if user is an ADMIN or belongs to global headquarters
-        const isGlobalUser =
-          currentUser.role === "ADMIN" ||
-          globalHeadquarters.some((hq) =>
-            userLocation.toLowerCase().includes(hq.toLowerCase()),
-          );
-
-        // If NOT a global user, restrict PMs based on assignee match
-        if (!isGlobalUser) {
-          if (userLocation !== "") {
-            // Removed creatorId since it does not exist in the PM schema
-            whereClause.assigneeId = userId;
-          } else {
-            // Must be a string because PM IDs are UUIDs, not integers
-            whereClause.id = "LOCKED_OUT_USER";
-          }
-        }
-      }
-    }
-
+    // Simply fetch all PM schedules matching the organization ID
+    // This ensures imported CSV templates (which start unassigned) appear in both frontend and scheduler
     const pms = await prisma.preventiveMaintenance.findMany({
-      where: whereClause,
+      where: {
+        organizationId: orgId,
+      },
       include: {
         assignee: true,
       },
-      orderBy: { createdAt: "asc" }, // Ensures PMs load from oldest to newest
+      orderBy: { createdAt: "desc" },
     });
 
     res.status(200).json(pms);
@@ -61,7 +32,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST to create a new PM schedule
 router.post("/", async (req, res) => {
   const {
     title,
@@ -69,10 +39,16 @@ router.post("/", async (req, res) => {
     scheduleType,
     firstDueDate,
     assigneeId,
+    teamId,
+    assetId,
+    taskData,
+    partsData,
     organizationId,
+    creatorId,
   } = req.body;
 
   try {
+    // 1. Save the Master Template
     const newPm = await prisma.preventiveMaintenance.create({
       data: {
         title,
@@ -80,14 +56,41 @@ router.post("/", async (req, res) => {
         scheduleType,
         nextDueDate: new Date(firstDueDate),
         assigneeId: assigneeId || null,
+        teamId: teamId || null,
+        assetId: assetId || null,
+        taskData: taskData || [],
+        partsData: partsData || [],
         organizationId,
+      },
+    });
+
+    // 2. INSTANTLY generate the first Work Order based on this template!
+    await prisma.workOrder.create({
+      data: {
+        title: `[PM] ${title}`,
+        description,
+        priority: "MEDIUM",
+        status: "OPEN",
+        dueDate: new Date(firstDueDate),
+        organizationId,
+        assignedTo: assigneeId || null,
+        teamId: teamId || null,
+        assetId: assetId || null,
+        createdBy: creatorId || null,
+        pmId: newPm.id, // Link it to the PM template!
+        taskData: taskData || [], // Clone the master checklist!
+        // We inject the required parts straight into the WO description for easy visibility
+        partsNames:
+          partsData && partsData.length > 0
+            ? partsData.map((p: any) => p.name).join(", ")
+            : null,
       },
     });
 
     res.status(201).json(newPm);
   } catch (error) {
-    console.error("Error creating PM schedule:", error);
-    res.status(500).json({ error: "Failed to create PM schedule" });
+    console.error("Error creating PM:", error);
+    res.status(500).json({ error: "Failed to create PM" });
   }
 });
 

@@ -6,6 +6,7 @@ const AssetDashboard = () => {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const API_URL = "192.168.1.92:8080";
 
   useEffect(() => {
     fetchAssets();
@@ -14,7 +15,7 @@ const AssetDashboard = () => {
   const fetchAssets = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/api/assets');
+      const response = await fetch('http://${API_URL}/api/assets');
       if (!response.ok) throw new Error('Failed to fetch assets');
       const data = await response.json();
       setAssets(data);

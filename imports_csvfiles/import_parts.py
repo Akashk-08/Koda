@@ -1,4 +1,3 @@
-# model="gpt-5-nano"
 import psycopg2
 import csv
 import uuid

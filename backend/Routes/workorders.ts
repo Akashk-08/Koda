@@ -57,17 +57,27 @@ router.post(
   },
 );
 
-// 2. Get All Work Orders (Unlimited Search Support)
+// 2. Get All Work Orders (Server-Side Pagination & Filtering Support)
 router.get("/", async (req, res) => {
-  const { orgId, userId } = req.query;
-
-  if (!orgId || !userId) {
-    return res
-      .status(400)
-      .json({ error: "Organization ID and User ID are required" });
-  }
-
   try {
+    const {
+      orgId,
+      userId,
+      page = "1",
+      limit = "50",
+      search = "",
+      status,
+      category,
+      locationName,
+      teamId,
+    } = req.query;
+
+    if (!orgId || !userId) {
+      return res
+        .status(400)
+        .json({ error: "Organization ID and User ID are required" });
+    }
+
     const requestingUser = await prisma.user.findUnique({
       where: { id: String(userId) },
     });
@@ -76,10 +86,12 @@ router.get("/", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Build the dynamic WHERE clause based on frontend filters
     const queryConditions: any = {
       organizationId: String(orgId),
     };
 
+    // Location-based Access Control for standard users
     if (requestingUser.role === "USER" && requestingUser.siteLocation) {
       queryConditions.locationName = {
         contains: requestingUser.siteLocation,
@@ -87,15 +99,56 @@ router.get("/", async (req, res) => {
       };
     }
 
-    // Fetch ALL work orders without any 'take' or 'skip' limits for smooth searching
-    const workOrders = await prisma.workOrder.findMany({
-      where: queryConditions,
-      orderBy: { id: "desc" },
-      include: { assignee: true },
-    });
+    // Apply Filters if they exist and aren't "ALL"
+    if (status && status !== "ALL") queryConditions.status = status;
+    if (category && category !== "ALL") queryConditions.category = category;
+    if (locationName && locationName !== "ALL")
+      queryConditions.locationName = locationName;
+    if (teamId && teamId !== "ALL") queryConditions.teamId = teamId;
 
-    res.json(workOrders);
+    // Apply Search (Search by Title or exact ID)
+    if (search && typeof search === "string" && search.trim() !== "") {
+      const searchNum = parseInt(search.replace(/\D/g, "")); // Extract numbers if they typed "WO-123"
+
+      queryConditions.OR = [
+        { title: { contains: search.trim(), mode: "insensitive" } },
+        ...(isNaN(searchNum) ? [] : [{ id: searchNum }]),
+      ];
+    }
+
+    // Calculate Pagination Offsets
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Execute count and data fetch simultaneously for maximum performance
+    const [totalRecords, workOrders] = await Promise.all([
+      prisma.workOrder.count({ where: queryConditions }),
+      prisma.workOrder.findMany({
+        where: queryConditions,
+        skip: skip,
+        take: limitNumber,
+        orderBy: { id: "desc" },
+        include: {
+          assignee: true,
+          team: true,
+          asset: true,
+        },
+      }),
+    ]);
+
+    // Return the paginated payload
+    res.json({
+      data: workOrders,
+      meta: {
+        totalRecords,
+        totalPages: Math.ceil(totalRecords / limitNumber),
+        currentPage: pageNumber,
+        limit: limitNumber,
+      },
+    });
   } catch (error: any) {
+    console.error("Error fetching work orders:", error);
     res.status(500).json({ error: "Failed to fetch work orders" });
   }
 });
@@ -205,36 +258,43 @@ router.put("/:id", async (req, res) => {
 
   try {
     if (updateData.dueDate) updateData.dueDate = new Date(updateData.dueDate);
-    if (updateData.estimatedHours !== undefined) {
-      updateData.estimatedHours = updateData.estimatedHours
-        ? parseFloat(updateData.estimatedHours)
-        : null;
-    }
 
+    // Update the WO first
     const updatedWorkOrder = await prisma.workOrder.update({
       where: { id: parseInt(id) },
       data: updateData,
     });
 
-    if (actorId && actionLog) {
-      await prisma.activityLog.create({
-        data: { action: actionLog, workOrderId: parseInt(id), actorId },
-      });
-    }
-
+    //  THE AUTO-CLONE ENGINE
     if (
-      (updateData.status === "COMPLETED" || updateData.status === "CLOSED") &&
+      (updateData.status === "COMPLETED" ||
+        updateData.status === "CLOSED" ||
+        updateData.status === "COMPLETE") &&
       updatedWorkOrder.pmId
     ) {
-      const pm = await prisma.preventiveMaintenance.findUnique({
+      // Explicitly fetch the full PM template with all new fields
+      const pm: any = await prisma.preventiveMaintenance.findUnique({
         where: { id: updatedWorkOrder.pmId },
       });
+
       if (pm) {
-        const nextDate = calculateNextDate(pm.nextDueDate, pm.scheduleType);
+        const nextDate = new Date(pm.nextDueDate);
+        if (pm.scheduleType === "DAILY")
+          nextDate.setDate(nextDate.getDate() + 1);
+        if (pm.scheduleType === "WEEKLY")
+          nextDate.setDate(nextDate.getDate() + 7);
+        if (pm.scheduleType === "MONTHLY")
+          nextDate.setMonth(nextDate.getMonth() + 1);
+        if (pm.scheduleType === "QUARTERLY")
+          nextDate.setMonth(nextDate.getMonth() + 3);
+        if (pm.scheduleType === "YEARLY")
+          nextDate.setFullYear(nextDate.getFullYear() + 1);
+
         await prisma.preventiveMaintenance.update({
           where: { id: pm.id },
           data: { nextDueDate: nextDate },
         });
+
         await prisma.workOrder.create({
           data: {
             title: `[PM] ${pm.title}`,
@@ -243,15 +303,24 @@ router.put("/:id", async (req, res) => {
             status: "OPEN",
             dueDate: nextDate,
             organizationId: pm.organizationId,
-            assignedTo: pm.assigneeId,
+            assignedTo: pm.assigneeId || null,
+            teamId: pm.teamId || null,
+            assetId: pm.assetId || null,
             createdBy: updatedWorkOrder.createdBy,
             pmId: pm.id,
+            taskData: pm.taskData || [],
+            partsNames:
+              pm.partsData && pm.partsData.length > 0
+                ? pm.partsData.map((p: any) => p.name).join(", ")
+                : null,
           },
         });
       }
     }
+
     res.status(200).json(updatedWorkOrder);
   } catch (error) {
+    console.error("Error updating WO:", error);
     res.status(500).json({ error: "Failed to update work order" });
   }
 });

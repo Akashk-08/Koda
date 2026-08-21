@@ -35,6 +35,7 @@ const DEFAULT_LOCATIONS = [
   "Patriots Point",
   "Intrepid Sea, Air & Space Museum",
 ];
+const API_URL = "192.168.1.92:8080";
 
 const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
   const [locations, setLocations] = useState<string[]>(DEFAULT_LOCATIONS);
@@ -59,7 +60,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
       if (isOpen && user?.organizationId) {
         try {
           const res = await fetch(
-            `http://localhost:8080/api/assets?orgId=${user.organizationId}`,
+            `http://${API_URL}/api/assets?orgId=${user.organizationId}`,
           );
           if (res.ok) {
             const assets = await res.json();
@@ -85,7 +86,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/assets`, {
+      const res = await fetch(`http://${API_URL}/api/assets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -6,6 +6,7 @@ const MyTeam = ({ user }) => {
   const [orgUsers, setOrgUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const API_URL = "192.168.1.92:8080";
 
   // Modal State
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -18,10 +19,10 @@ const MyTeam = ({ user }) => {
     setIsLoading(true);
     try {
       if (user?.organizationId) {
-        const usersRes = await fetch(`http://localhost:8080/api/users/${user.organizationId}`);
+        const usersRes = await fetch(`http://${API_URL}/api/users/${user.organizationId}`);
         if (usersRes.ok) setOrgUsers(await usersRes.json());
 
-        const teamsRes = await fetch(`http://localhost:8080/api/teams?orgId=${user.organizationId}`);
+        const teamsRes = await fetch(`http://${API_URL}/api/teams?orgId=${user.organizationId}`);
         if (teamsRes.ok) setTeams(await teamsRes.json());
       }
     } catch (error) {
@@ -73,11 +74,11 @@ const MyTeam = ({ user }) => {
           {/* ONLY ADMINS SEE THE CREATION BUTTONS */}
           {isAdmin && (
             activeTab === 'directory' ? (
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95">
+              <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all">
                 <UserPlus className="w-4 h-4" /> Invite User
               </button>
             ) : (
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95">
+              <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all">
                 <Plus className="w-4 h-4" /> Create Team
               </button>
             )
@@ -196,8 +197,8 @@ const MyTeam = ({ user }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm border ${member.approvalStatus === 'PENDING'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}>
                         {member.approvalStatus || 'APPROVED'}
                       </span>
@@ -318,7 +319,7 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/teams/${team.id}`, {
+      const res = await fetch(`http://${API_URL}/api/teams/${team.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description, memberIds })
@@ -339,7 +340,7 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
   const handleDelete = async () => {
     if (!window.confirm(`Are you sure you want to delete ${team.name}? This action cannot be undone.`)) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/teams/${team.id}`, { method: 'DELETE' });
+      const res = await fetch(`http://${API_URL}/api/teams/${team.id}`, { method: 'DELETE' });
       if (res.ok) {
         onRefresh();
         onClose();
@@ -428,8 +429,8 @@ const TeamManagementModal = ({ team, orgUsers, onClose, onRefresh, isAdmin }) =>
                     key={user.id}
                     onClick={() => toggleMember(user.id)}
                     className={`flex items-center justify-between p-3 transition-colors ${isAdmin
-                        ? `cursor-pointer ${isSelected ? 'bg-blue-50/50 hover:bg-blue-50' : 'hover:bg-gray-50'}`
-                        : 'bg-white cursor-default'
+                      ? `cursor-pointer ${isSelected ? 'bg-blue-50/50 hover:bg-blue-50' : 'hover:bg-gray-50'}`
+                      : 'bg-white cursor-default'
                       }`}
                   >
                     <div className="flex items-center gap-3">

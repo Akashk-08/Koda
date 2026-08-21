@@ -216,3 +216,16 @@ mkdir -p docs/architecture docs/schemas
 npx prisma db push
 npx prisma generate
 npx prisma studio
+
+## Build and sync:
+
+cd frontend-web
+npm run build 
+cd .. 
+npx cap sync
+
+## Build for ios 
+npx cap sync ios
+
+## build for Android
+npx cap sync android

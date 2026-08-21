@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -13,11 +14,13 @@ import {
 // Components
 import Project from "./components/Project.jsx";
 import WorkOrders from "./components/WorkOrders.jsx";
-import PreventiveMaintenance from "./components/PreventiveMaintenance.jsx";
+import PreventiveMaintenance from "./components/PreventiveMaintenance";
 import WorkOrderDetail from "./components/WorkOrderDetail";
 import CreateWorkOrderModal from "./components/CreateWorkOrderModal";
 import UserProfile from "./components/UserProfile.jsx";
-import Requests from "./components/AccessRequests.jsx";
+import AccessRequests from "./components/AccessRequests.jsx";
+import Requests from "./components/Requests.jsx";
+import Calendar from "./components/Calendar.jsx";
 import Locations from "./components/Locations.jsx";
 import MyTeam from "./components/MyTeam.jsx";
 import Footer from "./components/Footer.jsx";
@@ -26,7 +29,33 @@ import LandingPage from "./components/LandingPage.jsx";
 import PartsInventory from "./components/PartsInventory";
 import Assets from "./components/Assets";
 import Inventory from "./components/Inventory";
-import { Box } from "lucide-react";
+import MobileMoreMenu from "./components/MobileMoreMenu.jsx";
+
+import {
+  Box,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Wrench,
+  Calendar as CalendarIcon,
+  Sparkles,
+  Users,
+  MapPin,
+  FolderKanban,
+  ShieldCheck,
+  Inbox,
+  Package,
+  Layers,
+  BarChart3,
+  Terminal,
+  X,
+  Bug,
+  Home,
+  Menu,
+  Plus,
+} from "lucide-react";
+import Scheduler from "./components/Schedular.js";
+import Header from "./components/Header.jsx";
 
 // INTERFACES
 interface User {
@@ -37,7 +66,8 @@ interface User {
   organizationId: string;
   role?: string;
   approvalStatus?: string;
-  siteLocation?: string; // Added to support location-based access control
+  siteLocation?: string;
+  profilePicUrl?: string;
 }
 
 interface AuthCardProps {
@@ -45,59 +75,50 @@ interface AuthCardProps {
   onAuthSuccess: (user: User) => void;
 }
 
-// ICONS
-const IconList = () => (
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 6h16M4 12h16M4 18h16"
-    />
-  </svg>
-);
-const IconBox = () => (
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-    />
-  </svg>
-);
-const IconUsers = () => (
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-    />
-  </svg>
-);
+// GLOBAL FETCH INTERCEPTOR FOR DEBUGGER
+if (typeof window !== "undefined") {
+  const originalFetch = window.fetch;
+  (window as any).__apiLogs = (window as any).__apiLogs || [];
 
-// AUTH COMPONENT WITH OTP PASSWORD RECOVERY
+  window.fetch = async (...args) => {
+    const [resource, config] = args;
+    const startTime = Date.now();
+    const logEntry = {
+      id: Math.random().toString(36),
+      url: resource,
+      method: config?.method || "GET",
+      timestamp: new Date().toLocaleTimeString(),
+      status: "PENDING",
+      duration: 0,
+    };
+
+    (window as any).__apiLogs.unshift(logEntry);
+
+    try {
+      const response = await originalFetch(...args);
+      logEntry.status = response.status.toString();
+      logEntry.duration = Date.now() - startTime;
+      return response;
+    } catch (error) {
+      logEntry.status = "ERROR";
+      logEntry.duration = Date.now() - startTime;
+      throw error;
+    }
+  };
+}
+
+const API_URL = "192.168.1.92:8080";
+
+// AUTH COMPONENT
 const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
   const [mode, setMode] = useState<string>(initialMode);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const navigate = useNavigate();
+
+  const [subUsers, setSubUsers] = useState<any[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
+  const [pin, setPin] = useState("");
 
   const [formData, setFormData] = useState({
     organizationName: "",
@@ -109,22 +130,83 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
     resetCode: "",
   });
 
+  useEffect(() => {
+    const kioskEmail = localStorage.getItem("koda_kiosk_email");
+    if (kioskEmail && mode === "login") {
+      fetch(`http://${API_URL}/api/auth/get-profiles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: kioskEmail }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.profiles && data.profiles.length > 1) {
+            setFormData((prev) => ({ ...prev, email: kioskEmail }));
+            setSubUsers(data.profiles);
+            setMode("select_profile");
+            localStorage.removeItem("koda_kiosk_email");
+          }
+        })
+        .catch((err) => console.error("Failed to auto-load profiles", err));
+    }
+  }, [mode]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
 
     try {
-      if (mode === "login" || mode === "signup") {
-        if (
-          mode === "signup" &&
-          formData.password !== formData.confirmPassword
-        ) {
+      if (mode === "login") {
+        const response = await fetch(`http://${API_URL}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          if (data.profiles && data.profiles.length > 1) {
+            setSubUsers(data.profiles);
+            setMode("select_profile");
+          } else {
+            onAuthSuccess(data.user);
+            navigate("/workspace/workorders");
+          }
+        } else {
+          setErrorMsg(data.error || "Authentication failed");
+        }
+      }
+
+      if (mode === "pin_entry") {
+        const response = await fetch(`http://${API_URL}/api/auth/verify-pin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: formData.email,
+            profileId: selectedProfile.id,
+            pin: pin,
+          }),
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          onAuthSuccess(data.user);
+          navigate("/workspace/workorders");
+        } else {
+          setErrorMsg("Incorrect PIN. Please try again.");
+          setPin("");
+        }
+      }
+
+      if (mode === "signup") {
+        if (formData.password !== formData.confirmPassword) {
           return setErrorMsg("Passwords do not match!");
         }
-        const endpoint =
-          mode === "login" ? "/api/auth/login" : "/api/auth/signup";
-        const response = await fetch(`http://localhost:8080${endpoint}`, {
+        const response = await fetch(`http://${API_URL}/api/auth/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...formData }),
@@ -140,7 +222,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
 
       if (mode === "forgot_email") {
         const response = await fetch(
-          `http://localhost:8080/api/auth/forgot-password`,
+          `http://${API_URL}/api/auth/forgot-password`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -156,17 +238,14 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
       }
 
       if (mode === "forgot_code") {
-        const response = await fetch(
-          `http://localhost:8080/api/auth/verify-code`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: formData.email,
-              code: formData.resetCode,
-            }),
-          },
-        );
+        const response = await fetch(`http://${API_URL}/api/auth/verify-code`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: formData.email,
+            code: formData.resetCode,
+          }),
+        });
         const data = await response.json();
         if (response.ok) {
           setSuccessMsg("Code verified! You may now reset your password.");
@@ -181,7 +260,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
           return setErrorMsg("Passwords do not match!");
         }
         const response = await fetch(
-          `http://localhost:8080/api/auth/reset-password`,
+          `http://${API_URL}/api/auth/reset-password`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -208,6 +287,11 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
     } catch (err) {
       setErrorMsg("Failed to connect to the server.");
     }
+  };
+
+  const handleProfileSelect = (profile: any) => {
+    setSelectedProfile(profile);
+    setMode("pin_entry");
   };
 
   const inputClasses =
@@ -247,6 +331,9 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                 {mode === "forgot_email" && "Reset Password"}
                 {mode === "forgot_code" && "Verify Code"}
                 {mode === "forgot_reset" && "Create New Password"}
+                {mode === "select_profile" && "Who is using the device?"}
+                {mode === "pin_entry" &&
+                  `Welcome, ${selectedProfile?.firstName}`}
               </h2>
               <p className="text-gray-500 text-sm">
                 {mode === "login" &&
@@ -259,6 +346,10 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                   `Enter the 4-digit code sent to ${formData.email}`}
                 {mode === "forgot_reset" &&
                   "Please enter a strong new password."}
+                {mode === "select_profile" &&
+                  "Select your profile to continue to the workspace."}
+                {mode === "pin_entry" &&
+                  "Please enter your 4-digit security PIN."}
               </p>
             </div>
 
@@ -275,6 +366,64 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {mode === "select_profile" && (
+                <div className="grid grid-cols-2 gap-4">
+                  {subUsers.map((profile) => (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      onClick={() => handleProfileSelect(profile)}
+                      className="p-6 border border-gray-200 rounded-2xl hover:border-blue-500 hover:shadow-lg transition-all flex flex-col items-center gap-3 bg-gray-50 hover:bg-white"
+                    >
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 text-white flex items-center justify-center font-black text-xl shadow-md">
+                        {profile.firstName.charAt(0)}
+                        {profile.lastName.charAt(0)}
+                      </div>
+                      <span className="font-bold text-gray-900">
+                        {profile.firstName}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {mode === "pin_entry" && (
+                <div className="space-y-6">
+                  <div>
+                    <input
+                      required
+                      autoFocus
+                      className={`${inputClasses} text-center tracking-[1em] text-3xl font-black`}
+                      type="password"
+                      maxLength={4}
+                      placeholder="••••"
+                      value={pin}
+                      onChange={(e) =>
+                        setPin(e.target.value.replace(/\D/g, ""))
+                      }
+                    />
+                  </div>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("select_profile");
+                        setPin("");
+                      }}
+                      className="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-700 p-3.5 rounded-xl font-bold transition-all"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      className="w-2/3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white p-3.5 rounded-xl font-bold transition-all shadow-md hover:shadow-lg"
+                    >
+                      Login
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {mode === "signup" && (
                 <>
                   <div>
@@ -394,16 +543,18 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                 </div>
               )}
 
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white p-3.5 rounded-xl hover:bg-blue-700 font-bold transition-all shadow-md hover:shadow-lg active:scale-[0.98] mt-6"
-              >
-                {mode === "login" && "Sign In"}
-                {mode === "signup" && "Create Workspace"}
-                {mode === "forgot_email" && "Send Code"}
-                {mode === "forgot_code" && "Verify Code"}
-                {mode === "forgot_reset" && "Update Password"}
-              </button>
+              {mode !== "select_profile" && mode !== "pin_entry" && (
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white p-3.5 rounded-xl font-bold transition-all shadow-md hover:shadow-lg active:scale-[0.98] mt-6 border-0"
+                >
+                  {mode === "login" && "Sign In"}
+                  {mode === "signup" && "Create Workspace"}
+                  {mode === "forgot_email" && "Send Code"}
+                  {mode === "forgot_code" && "Verify Code"}
+                  {mode === "forgot_reset" && "Update Password"}
+                </button>
+              )}
             </form>
 
             <div className="mt-10 pt-6 border-t border-gray-100 text-center lg:text-left text-sm text-gray-600 flex flex-col sm:flex-row items-center justify-between">
@@ -446,132 +597,247 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
   );
 };
 
+// MOBILE BOTTOM NAVIGATION & FAB COMPONENT
+const MobileNav = ({ onOpenModal }: { onOpenModal: () => void }) => {
+  const location = useLocation();
+  const isActive = (path: string) => location.pathname === path;
+
+  return (
+    <>
+      {/* FLOATING ACTION BUTTON (+) */}
+      <button
+        onClick={onOpenModal}
+        className="md:hidden fixed bottom-20 right-6 z-50 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+      >
+        <Plus className="w-7 h-7" />
+      </button>
+
+      {/* BOTTOM NAVIGATION BAR */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 px-6 py-2 flex justify-between items-center z-40 pb-[env(safe-area-inset-bottom)] shadow-lg">
+        <Link
+          to="/workspace/workorders"
+          className={`flex flex-col items-center gap-1 ${isActive("/workspace/workorders") ? "text-blue-600 font-bold" : "text-gray-400 font-medium"}`}
+        >
+          <Home className="w-5 h-5" />
+          <span className="text-[10px]">Home</span>
+        </Link>
+
+        <Link
+          to="/workspace/workorders"
+          className={`flex flex-col items-center gap-1 ${isActive("/workspace/workorders") ? "text-blue-600 font-bold" : "text-gray-400 font-medium"}`}
+        >
+          <ClipboardList className="w-5 h-5" />
+          <span className="text-[10px]">Work Orders</span>
+        </Link>
+
+        <Link
+          to="/resources/requests"
+          className={`flex flex-col items-center gap-1 ${isActive("/resources/requests") ? "text-blue-600 font-bold" : "text-gray-400 font-medium"}`}
+        >
+          <Inbox className="w-5 h-5" />
+          <span className="text-[10px]">Requests</span>
+        </Link>
+
+        <Link
+          to="/more"
+          className={`flex flex-col items-center gap-1 ${isActive("/more") ? "text-blue-600 font-bold" : "text-gray-400 font-medium"}`}
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-[10px]">Menu</span>
+        </Link>
+      </div>
+    </>
+  );
+};
+
 // DASHBOARD / LAYOUT COMPONENT
 const DashboardLayout = ({
   user,
   onSignOut,
+  onUpdateUser,
+  onSwitchUser,
 }: {
   user: User;
   onSignOut: () => void;
+  onUpdateUser: (u: User) => void;
+  onSwitchUser: () => void;
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
 
   const isLinkActive = (path: string) => location.pathname.startsWith(path);
 
   const linkClass = (path: string) =>
     isLinkActive(path)
-      ? "flex items-center px-3 py-2 text-sm font-medium rounded-md text-blue-700 bg-blue-50"
-      : "flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 transition-colors";
+      ? `flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 transition-colors ${isSidebarCollapsed ? "justify-center" : ""}`
+      : `flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition-colors ${isSidebarCollapsed ? "justify-center" : ""}`;
 
   const iconClass = (path: string) =>
-    isLinkActive(path) ? "mr-3 text-blue-600" : "mr-3 text-gray-400";
+    isLinkActive(path)
+      ? `text-blue-600 ${isSidebarCollapsed ? "" : "mr-3"}`
+      : `text-gray-400 ${isSidebarCollapsed ? "" : "mr-3"}`;
+
+  const initials =
+    `${user.firstName?.charAt(0) || ""}${user.lastName?.charAt(0) || ""}`.toUpperCase();
 
   return (
-    <div className="flex h-screen w-full bg-white text-gray-800 font-sans">
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col h-full shrink-0">
-        <div className="h-14 flex items-center px-4 border-b border-gray-200 font-bold text-lg">
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white mr-3">
-            PW
-          </div>{" "}
-          Pulseworks CMMS
-        </div>
+    <div className="flex h-screen w-full bg-white text-gray-800 font-sans relative pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+      {/* SIDEBAR (Hidden on mobile via hidden md:flex) */}
+      <aside
+        className={`hidden md:flex ${isSidebarCollapsed ? "w-20" : "w-64"} relative bg-gray-50 border-r border-gray-200 flex-col h-full shrink-0 transition-all duration-300 ease-in-out z-30`}
+      >
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="absolute -right-3 top-16 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-500 hover:text-blue-600 shadow-md z-40 transition-transform hover:scale-110 outline-none"
+        >
+          {isSidebarCollapsed ? (
+            <ChevronRight className="w-4 h-4 ml-0.5" />
+          ) : (
+            <ChevronLeft className="w-4 h-4 mr-0.5" />
+          )}
+        </button>
 
-        <nav className="flex-1 overflow-y-auto py-4">
-          <div className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Workspace
+        <Link
+          to="/workspace/workorders"
+          className={`h-14 flex items-center ${isSidebarCollapsed ? "justify-center px-0" : "px-4"} border-b border-gray-200 font-bold text-lg hover:bg-gray-100 transition-colors cursor-pointer overflow-hidden whitespace-nowrap`}
+          title={isSidebarCollapsed ? "Pulseworks CMMS" : ""}
+        >
+          <div
+            className={`w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded flex items-center justify-center text-white shrink-0 shadow-sm ${isSidebarCollapsed ? "" : "mr-3"}`}
+          >
+            PW
           </div>
-          <ul className="space-y-0.5 px-2">
+          {!isSidebarCollapsed && <span>Pulseworks CMMS</span>}
+        </Link>
+
+        <nav className="flex-1 overflow-y-auto py-4 overflow-x-hidden custom-scrollbar">
+          <div
+            className={`px-3 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
+          >
+            {isSidebarCollapsed ? "..." : "Workspace"}
+          </div>
+          <ul className="space-y-1 px-3">
             <li>
               <Link
                 to="/workspace/workorders"
                 className={linkClass("/workspace/workorders")}
+                title={isSidebarCollapsed ? "Work Orders" : ""}
               >
                 <span className={iconClass("/workspace/workorders")}>
-                  <IconList />
+                  <ClipboardList className="w-5 h-5" />
                 </span>
-                Work Orders
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Work Orders</span>
+                )}
               </Link>
             </li>
             <li>
-              <Link to="/workspace/pm" className={linkClass("/workspace/pm")}>
+              <Link
+                to="/workspace/pm"
+                className={linkClass("/workspace/pm")}
+                title={isSidebarCollapsed ? "Preventive Maintenance" : ""}
+              >
                 <span className={iconClass("/workspace/pm")}>
-                  <IconBox />
+                  <Wrench className="w-5 h-5" />
                 </span>
-                Preventive Maintenance
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Preventive Maintenance</span>
+                )}
               </Link>
             </li>
             <li>
               <Link
                 to="/workspace/schedular"
-                className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
+                className={linkClass("/workspace/schedular")}
+                title={isSidebarCollapsed ? "Scheduler" : ""}
               >
-                <span className="mr-3 text-gray-400">
-                  <IconBox />
+                <span className={iconClass("/workspace/schedular")}>
+                  <CalendarIcon className="w-5 h-5" />
                 </span>
-                Schedular
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Scheduler</span>
+                )}
               </Link>
             </li>
           </ul>
-          <div className="px-3 mt-8 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            AI search
+
+          <div
+            className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
+          >
+            {isSidebarCollapsed ? "..." : "AI Search"}
           </div>
-          <ul className="space-y-0.5 px-2">
+          <ul className="space-y-1 px-3">
             <li>
               <Link
                 to="/aisearch/pulseworksAI"
                 className={linkClass("/aisearch/pulseworksAI")}
+                title={isSidebarCollapsed ? "Pulseworks AI" : ""}
               >
                 <span className={iconClass("/aisearch/pulseworksAI")}>
-                  <IconUsers />
+                  <Sparkles className="w-5 h-5" />
                 </span>
-                Pulseworks AI
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Pulseworks AI</span>
+                )}
               </Link>
             </li>
           </ul>
-          <div className="px-3 mt-8 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Organization
+
+          <div
+            className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
+          >
+            {isSidebarCollapsed ? "..." : "Organization"}
           </div>
-          <ul className="space-y-0.5 px-2">
+          <ul className="space-y-1 px-3">
             <li>
               <Link
                 to="/organization/myteam"
                 className={linkClass("/organization/myteam")}
+                title={isSidebarCollapsed ? "My Team" : ""}
               >
                 <span className={iconClass("/organization/myteam")}>
-                  <IconUsers />
+                  <Users className="w-5 h-5" />
                 </span>
-                My Team
+                {!isSidebarCollapsed && (
+                  <span className="truncate">My Team</span>
+                )}
               </Link>
             </li>
             <li>
               <Link
                 to="/organization/locations"
                 className={linkClass("/organization/locations")}
+                title={isSidebarCollapsed ? "Locations" : ""}
               >
                 <span className={iconClass("/organization/locations")}>
-                  <IconUsers />
+                  <MapPin className="w-5 h-5" />
                 </span>
-                Locations
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Locations</span>
+                )}
               </Link>
             </li>
           </ul>
 
-          <div className="px-3 mt-8 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Resources
+          <div
+            className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
+          >
+            {isSidebarCollapsed ? "..." : "Resources"}
           </div>
-          <ul className="space-y-0.5 px-2">
+          <ul className="space-y-1 px-3">
             <li>
               <Link
                 to="/resources/projects"
                 className={linkClass("/resources/projects")}
+                title={isSidebarCollapsed ? "Projects" : ""}
               >
                 <span className={iconClass("/resources/projects")}>
-                  <IconList />
+                  <FolderKanban className="w-5 h-5" />
                 </span>
-                Projects
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Projects</span>
+                )}
               </Link>
             </li>
             {user.role === "ADMIN" && (
@@ -579,186 +845,152 @@ const DashboardLayout = ({
                 <Link
                   to="/resources/accessrequests"
                   className={linkClass("/resources/accessrequests")}
+                  title={isSidebarCollapsed ? "Access Requests" : ""}
                 >
                   <span className={iconClass("/resources/accessrequests")}>
-                    <IconUsers />
+                    <ShieldCheck className="w-5 h-5" />
                   </span>
-                  Access Requests
+                  {!isSidebarCollapsed && (
+                    <span className="truncate">Access Requests</span>
+                  )}
                 </Link>
               </li>
             )}
             <li>
               <Link
                 to="/resources/requests"
-                className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
+                className={linkClass("/resources/requests")}
+                title={isSidebarCollapsed ? "Requests" : ""}
               >
-                <span className="mr-3 text-gray-400">
-                  <IconBox />
+                <span className={iconClass("/resources/requests")}>
+                  <Inbox className="w-5 h-5" />
                 </span>
-                Requests
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Requests</span>
+                )}
               </Link>
             </li>
             <li>
               <Link
                 to="/resources/calendar"
-                className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
+                className={linkClass("/resources/calendar")}
+                title={isSidebarCollapsed ? "Calendar" : ""}
               >
-                <span className="mr-3 text-gray-400">
-                  <IconBox />
+                <span className={iconClass("/resources/calendar")}>
+                  <CalendarIcon className="w-5 h-5" />
                 </span>
-                Calendar
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Calendar</span>
+                )}
               </Link>
             </li>
           </ul>
 
-          <div className="px-3 mt-8 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Procurement
+          <div
+            className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
+          >
+            {isSidebarCollapsed ? "..." : "Procurement"}
           </div>
-          <ul className="space-y-0.5 px-2">
+          <ul className="space-y-1 px-3">
             <li>
               <Link
                 to="/procurement/assets"
                 className={linkClass("/procurement/assets")}
+                title={isSidebarCollapsed ? "Assets" : ""}
               >
                 <span className={iconClass("/procurement/assets")}>
-                  <Box className="w-5 h-5" />
+                  <Package className="w-5 h-5" />
                 </span>
-                Assets
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Assets</span>
+                )}
               </Link>
             </li>
             <li>
               <Link
                 to="/procurement/partsinventory"
                 className={linkClass("/procurement/partsinventory")}
+                title={isSidebarCollapsed ? "Parts Inventory" : ""}
               >
                 <span className={iconClass("/procurement/partsinventory")}>
                   <Box className="w-5 h-5" />
                 </span>
-                Parts Inventory
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Parts Inventory</span>
+                )}
               </Link>
             </li>
             <li>
               <Link
                 to="/procurement/inventory"
                 className={linkClass("/procurement/inventory")}
+                title={isSidebarCollapsed ? "IN/OUT Inventory" : ""}
               >
                 <span className={iconClass("/procurement/inventory")}>
-                  <Box className="w-5 h-5" />
+                  <Layers className="w-5 h-5" />
                 </span>
-                IN/OUT Inventory
+                {!isSidebarCollapsed && (
+                  <span className="truncate">IN/OUT Inventory</span>
+                )}
               </Link>
             </li>
           </ul>
 
-          <div className="px-3 mt-8 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Analytics
+          <div
+            className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
+          >
+            {isSidebarCollapsed ? "..." : "Analytics"}
           </div>
-          <ul className="space-y-0.5 px-2">
+          <ul className="space-y-1 px-3 pb-6">
             <li>
-              <a
-                href="/analytics/metrics"
-                className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100"
+              <Link
+                to="/analytics/metrics"
+                className={linkClass("/analytics/metrics")}
+                title={isSidebarCollapsed ? "Metrics" : ""}
               >
-                <span className="mr-3 text-gray-400">
-                  <IconUsers />
+                <span className={iconClass("/analytics/metrics")}>
+                  <BarChart3 className="w-5 h-5" />
                 </span>
-                Metrics
-              </a>
+                {!isSidebarCollapsed && (
+                  <span className="truncate">Metrics</span>
+                )}
+              </Link>
             </li>
           </ul>
         </nav>
 
         <Link
           to="/profile"
-          className="p-4 border-t border-gray-200 flex items-center hover:bg-gray-100 transition-colors cursor-pointer block mt-auto shrink-0"
+          className={`p-4 border-t border-gray-200 flex items-center hover:bg-gray-100 transition-colors cursor-pointer block mt-auto shrink-0 ${isSidebarCollapsed ? "justify-center px-0" : ""}`}
+          title={isSidebarCollapsed ? "View Profile" : ""}
         >
-          <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
-            {user.firstName.charAt(0)}
-            {user.lastName?.charAt(0)}
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 text-white flex items-center justify-center font-black text-xs shadow-sm shrink-0">
+            {initials}
           </div>
-          <div className="ml-3 flex flex-col overflow-hidden">
-            <span className="text-sm font-bold text-gray-900 truncate">
-              {user.firstName} {user.lastName}
-            </span>
-            <span className="text-xs text-gray-500 font-medium">
-              View Profile
-            </span>
-          </div>
+          {!isSidebarCollapsed && (
+            <div className="ml-3 flex flex-col overflow-hidden">
+              <span className="text-sm font-bold text-gray-900 truncate">
+                {user.firstName} {user.lastName}
+              </span>
+              <span className="text-xs text-gray-500 font-medium">
+                View Profile
+              </span>
+            </div>
+          )}
         </Link>
       </aside>
 
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white relative">
-        <header className="h-14 border-b flex items-center justify-between px-6 shrink-0 relative z-20">
-          <input
-            type="text"
-            placeholder="Search..."
-            className="pl-4 pr-4 py-1.5 border rounded-md text-sm w-64 outline-none"
-          />
+      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white relative pb-16 md:pb-0">
+        <Header
+          user={user}
+          onSignOut={onSignOut}
+          onOpenWOModal={() => setIsModalOpen(true)}
+          onSwitchUser={onSwitchUser}
+        />
 
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <button
-                onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
-              >
-                + Create
-              </button>
-
-              {isCreateMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    onClick={() => setIsCreateMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-xl shadow-xl z-40 overflow-hidden py-1">
-                    <button
-                      onClick={() => {
-                        setIsCreateMenuOpen(false);
-                        setIsModalOpen(true);
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors"
-                    >
-                      Work Order
-                    </button>
-                    <button
-                      onClick={() => setIsCreateMenuOpen(false)}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors border-t border-gray-50"
-                    >
-                      Preventive Maintenance
-                    </button>
-                    <button
-                      onClick={() => setIsCreateMenuOpen(false)}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors border-t border-gray-50"
-                    >
-                      General Request
-                    </button>
-                    {user.role === "ADMIN" && (
-                      <button
-                        onClick={() => setIsCreateMenuOpen(false)}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors border-t border-gray-50"
-                      >
-                        Access Request
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <button
-              onClick={onSignOut}
-              className="text-sm font-medium border px-4 py-1.5 rounded-md hover:bg-gray-50 transition-colors"
-            >
-              Sign Out
-            </button>
-          </div>
-        </header>
-
-        {/* MAIN ROUTED CONTENT */}
         <main className="flex-1 flex flex-col overflow-y-auto">
           <div className="flex-1">
             <Routes>
-              {/* Workspace */}
               <Route
                 path="/workspace/workorder/:id"
                 element={<WorkOrderDetail user={user} />}
@@ -776,29 +1008,36 @@ const DashboardLayout = ({
                 path="/workspace/pm"
                 element={<PreventiveMaintenance user={user} />}
               />
-              <Route path="/workspace/schedular" />
+              <Route
+                path="/workspace/schedular"
+                element={<Scheduler user={user} />}
+              />
 
-              {/* AI Search */}
               <Route path="/aisearch/pulseworksAI" />
 
-              {/* Organization */}
               <Route path="/organization/locations" element={<Locations />} />
               <Route
                 path="/organization/myteam"
                 element={<MyTeam user={user} />}
               />
 
-              {/* Resources */}
               <Route
                 path="/resources/projects"
                 element={<Project user={user} />}
               />
               <Route
                 path="/resources/accessrequests"
+                element={<AccessRequests user={user} />}
+              />
+              <Route
+                path="/resources/requests"
                 element={<Requests user={user} />}
               />
+              <Route
+                path="/resources/calendar"
+                element={<Calendar user={user} />}
+              />
 
-              {/* Procurement */}
               <Route
                 path="/procurement/partsinventory"
                 element={<PartsInventory user={user} />}
@@ -811,12 +1050,18 @@ const DashboardLayout = ({
                 path="/procurement/inventory"
                 element={<Inventory user={user} />}
               />
+              <Route path="/more" element={<MobileMoreMenu user={user} />} />
+              <Route
+                path="/profile"
+                element={<MyProfile user={user} onUpdateUser={onUpdateUser} />}
+              />
 
-              {/* Analytics */}
               <Route path="/analytics/metrics" />
 
-              {/* Profile */}
-              <Route path="/profile" element={<MyProfile user={user} />} />
+              <Route
+                path="/profile"
+                element={<MyProfile user={user} onUpdateUser={onUpdateUser} />}
+              />
             </Routes>
           </div>
           <Footer />
@@ -828,6 +1073,9 @@ const DashboardLayout = ({
           user={user}
           onCreated={() => window.location.reload()}
         />
+
+        {/* MOBILE NAVIGATION BAR & FAB */}
+        <MobileNav onOpenModal={() => setIsModalOpen(true)} />
       </div>
     </div>
   );
@@ -843,7 +1091,19 @@ export default function App() {
     setUser(u);
     localStorage.setItem("koda_user", JSON.stringify(u));
   };
+
+  const handleUpdateUser = (u: User) => {
+    setUser(u);
+    localStorage.setItem("koda_user", JSON.stringify(u));
+  };
+
   const handleSignOut = () => {
+    setUser(null);
+    localStorage.removeItem("koda_user");
+  };
+
+  const handleSwitchUser = (email: string) => {
+    localStorage.setItem("koda_kiosk_email", email);
     setUser(null);
     localStorage.removeItem("koda_user");
   };
@@ -887,7 +1147,6 @@ export default function App() {
           }
         />
 
-        {/* Main App Layout Guard */}
         <Route
           path="/*"
           element={
@@ -895,7 +1154,12 @@ export default function App() {
               user.approvalStatus === "PENDING" ? (
                 <Navigate to="/userprofile" />
               ) : (
-                <DashboardLayout user={user} onSignOut={handleSignOut} />
+                <DashboardLayout
+                  user={user}
+                  onSignOut={handleSignOut}
+                  onSwitchUser={() => handleSwitchUser(user.email)}
+                  onUpdateUser={handleUpdateUser}
+                />
               )
             ) : (
               <Navigate to="/login" />

@@ -1,3 +1,6 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Building2, MapPin, Briefcase, Phone } from 'lucide-react';
@@ -21,7 +24,7 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locations, setLocations] = useState([]);
-  const [profilePic, setProfilePic] = useState(null);
+  const [profilePic, setProfilePic] = useState(user?.profilePicUrl || null);
 
   // Track if the user selected "Other" to type a custom location
   const [isCustomLocation, setIsCustomLocation] = useState(false);
@@ -29,23 +32,25 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
   // Check if this is a Pulseworks user
   const isPulseworks =
     user?.email?.toLowerCase().endsWith('@pulseworks.com') ||
-    user?.organization?.orgName?.toLowerCase().includes('pulseworks');
+    user?.organization?.orgName?.toLowerCase().includes('pulseworks') || user?.email?.toLowerCase().endsWith('@pulseworksops.com');
 
+  // Pre-fill phoneNumber, siteLocation, and designation from existing user object
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
-    phoneNumber: '',
-    siteLocation: '',
-    designation: ''
+    phoneNumber: user?.phoneNumber || '',
+    siteLocation: user?.siteLocation || '',
+    designation: user?.designation || ''
   });
+  const API_URL = "192.168.1.92:8080";
 
   useEffect(() => {
     const fetchLocations = async () => {
       try {
         const orgId = user?.organizationId;
         const url = orgId
-          ? `http://localhost:8080/api/locations?orgId=${orgId}`
-          : `http://localhost:8080/api/assets`;
+          ? `http://${API_URL}/api/locations?orgId=${orgId}`
+          : `http://${API_URL}/api/assets`;
 
         const res = await fetch(url);
         if (res.ok) {
@@ -87,7 +92,7 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`http://localhost:8080/api/users/${user.id}/profile`, {
+      const res = await fetch(`http://${API_URL}/api/users/${user.id}/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, profilePicUrl: profilePic })
@@ -119,7 +124,7 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
 
-          <div className="bg-blue-600 p-8 text-white text-center relative overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white text-center relative overflow-hidden">
             <div className="relative z-10">
               <h2 className="text-3xl font-extrabold mb-2">Complete Your Profile</h2>
               <p className="text-blue-100 text-sm">Please provide your details to request workspace access.</p>
@@ -205,7 +210,6 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
                     {locations.map(locName => (
                       <option key={locName} value={locName}>{locName}</option>
                     ))}
-                    <option value="OTHER" className="font-bold text-blue-600">+ Add custom location...</option>
                   </select>
                 ) : (
                   <input
@@ -252,7 +256,7 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
               <button type="button" onClick={() => { onSignOut(); navigate('/login'); }} className="px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
                 Cancel
               </button>
-              <button type="submit" disabled={isSubmitting} className="px-8 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50">
+              <button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-8 py-3 text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50">
                 {isSubmitting ? 'Submitting...' : 'Submit Request'}
               </button>
             </div>

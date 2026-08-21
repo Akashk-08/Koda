@@ -13,6 +13,7 @@ import {
   Wrench,
   Search,
 } from "lucide-react";
+const API_URL = "192.168.1.92:8080";
 
 const Inventory = ({ user }: any) => {
   const [loading, setLoading] = useState(false);
@@ -33,21 +34,48 @@ const Inventory = ({ user }: any) => {
   const [workOrderSuggestions, setWorkOrderSuggestions] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]); // Store fetched locations
 
+  const [markAsComplete, setMarkAsComplete] = useState(true); // Set to true to make it the default!
+
+  // Dummy data : fixed dynamic rendering below
   const inventorySummary = [
     {
-      category: "VR HEADSETS",
+      category: "DPVR HEADSETS",
       location: "Pulseworks Shop",
       count: 45,
       status: "Healthy",
     },
     {
-      category: "VR HEADSETS",
-      location: "Pulseworks Warehouse",
+      category: "HP VR HEADSETS",
+      location: "Pulseworks Shop",
       count: 120,
       status: "Healthy",
     },
     {
-      category: "CONTROL PCS",
+      category: "Meta Quest 3 HEADSETS",
+      location: "Pulseworks Shop",
+      count: 70,
+      status: "Healthy",
+    },
+    {
+      category: "Vive Cosmos HEADSETS",
+      location: "Pulseworks Shop",
+      count: 50,
+      status: "Healthy",
+    },
+    {
+      category: "Vive Pro HEADSETS",
+      location: "Pulseworks Shop",
+      count: 30,
+      status: "Healthy",
+    },
+    {
+      category: "VR Client PCS",
+      location: "Pulseworks Shop",
+      count: 8,
+      status: "Low Stock",
+    },
+    {
+      category: "Mini pcs PCS",
       location: "Pulseworks Shop",
       count: 8,
       status: "Low Stock",
@@ -74,7 +102,7 @@ const Inventory = ({ user }: any) => {
       if (!user?.organizationId) return;
       try {
         const res = await fetch(
-          `http://localhost:8080/api/locations?orgId=${user.organizationId}`,
+          `http://${API_URL}/api/locations?orgId=${user.organizationId}`,
         );
         if (res.ok) {
           const data = await res.json();
@@ -92,7 +120,7 @@ const Inventory = ({ user }: any) => {
     const fetchWorkOrders = async () => {
       try {
         const res = await fetch(
-          `http://localhost:8080/api/workorders?orgId=${user.organizationId}&userId=${user.id}`,
+          `http://${API_URL}/api/workorders?orgId=${user.organizationId}&userId=${user.id}`,
         );
         if (res.ok) {
           const data = await res.json();
@@ -131,7 +159,7 @@ const Inventory = ({ user }: any) => {
 
       try {
         const res = await fetch(
-          `http://localhost:8080/api/assets?orgId=${user?.organizationId}`,
+          `http://${API_URL}/api/assets?orgId=${user?.organizationId}`,
         );
         if (res.ok) {
           const data = await res.json();
@@ -176,7 +204,7 @@ const Inventory = ({ user }: any) => {
     setLoading(true);
     try {
       const assetRes = await fetch(
-        `http://localhost:8080/api/assets/${scannedAsset.id}`,
+        `http://${API_URL}/api/assets/${scannedAsset.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -190,7 +218,7 @@ const Inventory = ({ user }: any) => {
       const woTitle = `[Inventory ${actionType === "IN" ? "Check-In" : "Check-Out"}] ${scannedAsset.name} -> ${destination}`;
       const woDescription = `Movement Type: ${actionType === "IN" ? "Check-In to Shop" : "Check-Out to Site"}\nDestination: ${destination}\nComments: ${comment || "None"}\nLinked Parent WO: #${selectedWorkOrderId || "None"}`;
 
-      await fetch(`http://localhost:8080/api/workorders`, {
+      await fetch(`http://${API_URL}/api/workorders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -198,7 +226,7 @@ const Inventory = ({ user }: any) => {
           description: woDescription,
           category: "ASSETS",
           priority: "MEDIUM",
-          status: "OPEN",
+          status: markAsComplete ? "COMPLETE" : "OPEN", // To mark the WO to completed
           organizationId: user.organizationId,
           createdBy: user.id,
           assignedTo: user.id,
@@ -261,7 +289,7 @@ const Inventory = ({ user }: any) => {
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-bold text-gray-900 mb-2">
-                Scanner Gun Active
+                Scanner Active
               </h2>
               <input
                 ref={scanInputRef}
@@ -390,8 +418,10 @@ const Inventory = ({ user }: any) => {
                       {item.count}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-green-50 text-green-700">
-                        Healthy
+                      <span
+                        className={`px-2.5 py-1 rounded-md text-xs font-bold ${item.status === "Low Stock" ? "bg-orange-50 text-orange-700" : "bg-green-50 text-green-700"}`}
+                      >
+                        {item.status}
                       </span>
                     </td>
                   </tr>
@@ -428,7 +458,7 @@ const Inventory = ({ user }: any) => {
             </div>
 
             <form onSubmit={handleConfirmAction} className="space-y-4">
-              {/* UPDATED: DESTINATION LOCATION WITH DATALIST */}
+              {/* DESTINATION LOCATION WITH DATALIST */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">
                   Destination Location
@@ -519,6 +549,26 @@ const Inventory = ({ user }: any) => {
                   className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 min-h-[90px]"
                 />
               </div>
+
+              {/* AUTO-COMPLETE CHECKBOX */}
+              <label className="flex items-center gap-3 cursor-pointer group mt-4 mb-2">
+                <div className="relative flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={markAsComplete}
+                    onChange={(e) => setMarkAsComplete(e.target.checked)}
+                    className="peer w-5 h-5 opacity-0 absolute"
+                  />
+                  <div className="w-5 h-5 border-2 border-gray-300 rounded-[6px] peer-checked:bg-green-600 peer-checked:border-green-600 transition-colors flex items-center justify-center">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100" />
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[14px] font-bold text-gray-700 group-hover:text-gray-900 transition-colors">
+                    Mark Work Order as Complete
+                  </span>
+                </div>
+              </label>
 
               <div className="flex gap-3 pt-4">
                 <button

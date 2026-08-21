@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, CheckCircle, XCircle, Shield, MapPin, Edit, X } from 'lucide-react';
+import { Users, CheckCircle, XCircle, Shield, MapPin, Edit, X, UserX, MonitorSmartphone, UserPlus, KeyRound } from 'lucide-react';
 
 const AccessRequests = ({ user }) => {
   const [activeTab, setActiveTab] = useState('PENDING');
   const [pendingUsers, setPendingUsers] = useState([]);
   const [activeUsers, setActiveUsers] = useState([]);
+  const [sharedGroups, setSharedGroups] = useState([]);
   const [locations, setLocations] = useState([]);
 
   // Permissions Modal State
@@ -13,15 +14,46 @@ const AccessRequests = ({ user }) => {
   const [editRole, setEditRole] = useState('');
   const [editSiteLocations, setEditSiteLocations] = useState([]);
 
+  // Shared Profile Modal State
+  const [isSharedProfileModalOpen, setSharedProfileModalOpen] = useState(false);
+  const [sharedModalMode, setSharedModalMode] = useState('ADD');
+  const [sharedBaseEmail, setSharedBaseEmail] = useState('');
+  const [sharedSelectedUserId, setSharedSelectedUserId] = useState('');
+  const [sharedPin, setSharedPin] = useState('');
+  const API_URL = "192.168.1.92:8080";
+
   const fetchData = async () => {
     try {
-      const usersRes = await fetch(`http://localhost:8080/api/users/${user.organizationId}`);
-      const locationsRes = await fetch('http://localhost:8080/api/locations');
+      const usersRes = await fetch(`http://${API_URL}/api/users/${user.organizationId}`);
+      const locationsRes = await fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`);
 
       if (usersRes.ok) {
         const allUsers = await usersRes.json();
+
         setPendingUsers(allUsers.filter(u => u.approvalStatus === 'PENDING'));
-        setActiveUsers(allUsers.filter(u => u.approvalStatus !== 'PENDING'));
+        setActiveUsers(allUsers.filter(u => u.approvalStatus === 'APPROVED'));
+
+        // Group by email
+        const groups = {};
+        allUsers.filter(u => u.approvalStatus === 'APPROVED').forEach(u => {
+          if (!groups[u.email]) groups[u.email] = [];
+          groups[u.email].push(u);
+        });
+
+        // Ensure groups only show up if there is MORE than 1 user sharing the email
+        const shared = Object.keys(groups)
+          .map(email => {
+            // Sort to ensure the oldest account (the original) is always index 0
+            const sortedUsers = groups[email].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            return {
+              baseEmail: email,
+              baseUser: sortedUsers[0], // Original Account metadata for the header
+              allSharedUsers: sortedUsers // All accounts (including the base) so you can manage them!
+            };
+          })
+          .filter(group => group.allSharedUsers.length > 1); // Only keep if there are sub-users
+
+        setSharedGroups(shared);
       }
       if (locationsRes.ok) {
         setLocations(await locationsRes.json());
@@ -37,7 +69,7 @@ const AccessRequests = ({ user }) => {
 
   const handleApproval = async (userId, status) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/users/${userId}/approve`, {
+      const res = await fetch(`http://${API_URL}/api/users/${userId}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -73,7 +105,7 @@ const AccessRequests = ({ user }) => {
     try {
       const locationString = editSiteLocations.length > 0 ? editSiteLocations.join(', ') : null;
 
-      const res = await fetch(`http://localhost:8080/api/users/${selectedUser.id}/permissions`, {
+      const res = await fetch(`http://${API_URL}/api/users/${selectedUser.id}/permissions`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -95,21 +127,103 @@ const AccessRequests = ({ user }) => {
     }
   };
 
+  const handleRevokeAccess = async (targetUser = selectedUser) => {
+    if (!window.confirm(`Are you sure you want to revoke workspace access for ${targetUser.firstName}?`)) return;
+
+    await handleApproval(targetUser.id, 'REJECTED');
+    setIsModalOpen(false);
+    setSelectedUser(null);
+  };
+
+  //  SHARED PROFILE / KIOSK HANDLERS 
+  const openAddSharedModal = (prefilledEmail = '') => {
+    setSharedModalMode('ADD');
+    setSharedBaseEmail(prefilledEmail);
+    setSharedSelectedUserId('');
+    setSharedPin('');
+    setSharedProfileModalOpen(true);
+  };
+
+  const openEditSharedPinModal = (userToEdit) => {
+    setSharedModalMode('EDIT');
+    setSharedBaseEmail(userToEdit.email);
+    setSharedSelectedUserId(userToEdit.id);
+    setSharedPin('');
+    setSharedProfileModalOpen(true);
+  };
+
+  const handleSharedProfileSubmit = async (e) => {
+    e.preventDefault();
+    const u = activeUsers.find(usr => usr.id === sharedSelectedUserId);
+    if (!u) return;
+
+    try {
+      if (sharedModalMode === 'ADD') {
+        const res = await fetch("http://${API_URL}/api/auth/add-shared-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            baseEmail: sharedBaseEmail,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            pin: sharedPin
+          })
+        });
+        if (res.ok) {
+          setSharedProfileModalOpen(false);
+          fetchData();
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          alert(`Failed to add profile: ${errorData.error || res.statusText}`);
+        }
+      } else {
+        // RESET PIN LOGIC
+        const res = await fetch(`http://${API_URL}/api/users/${u.id}/pin`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin: sharedPin })
+        });
+
+        if (res.ok) {
+          setSharedProfileModalOpen(false);
+          fetchData();
+        } else {
+          alert("Failed to update PIN. Please ensure backend route is setup.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network Error: Could not reach the backend server.");
+    }
+  };
+
+  // Count the total number of Kiosk Users
+  const totalSharedUsers = sharedGroups.reduce((acc, group) => acc + group.allSharedUsers.length, 0);
+
   return (
     <div className="flex-1 bg-gray-50 p-8 h-full overflow-y-auto font-sans">
       <div className="max-w-6xl mx-auto">
 
-        <div className="mb-8">
-          <div className="flex items-center text-sm text-gray-500 mb-2">
-            <span>Organization</span>
-            <span className="mx-2">/</span>
-            <span>User Management</span>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <div className="flex items-center text-sm text-gray-500 mb-2">
+              <span>Organization</span>
+              <span className="mx-2">/</span>
+              <span>User Management</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Users className="w-8 h-8 text-blue-600" />
+              <h1 className="text-3xl font-extrabold text-gray-900">User Management</h1>
+            </div>
+            <p className="text-gray-500 mt-2">Approve workspace access and manage user permissions.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Users className="w-8 h-8 text-blue-600" />
-            <h1 className="text-3xl font-extrabold text-gray-900">User Management</h1>
-          </div>
-          <p className="text-gray-500 mt-2">Approve workspace access and manage user permissions.</p>
+
+          <button
+            onClick={() => openAddSharedModal()}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2"
+          >
+            <MonitorSmartphone className="w-4 h-4" /> Add Shared Profile
+          </button>
         </div>
 
         <div className="flex space-x-6 mb-6 border-b border-gray-200">
@@ -127,20 +241,31 @@ const AccessRequests = ({ user }) => {
             Active Members ({activeUsers.length})
             {activeTab === 'ACTIVE' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>}
           </button>
+          <button
+            onClick={() => setActiveTab('SHARED')}
+            className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'SHARED' ? "text-blue-600" : "text-gray-500 hover:text-gray-900"}`}
+          >
+            Shared Profiles ({totalSharedUsers})
+            {activeTab === 'SHARED' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>}
+          </button>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role / Site Access</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
+            {activeTab !== 'SHARED' && (
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role / Site Access</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+            )}
+
             <tbody className="divide-y divide-gray-100">
 
+              {/* PENDING TAB */}
               {activeTab === 'PENDING' && (
                 pendingUsers.length === 0 ? (
                   <tr>
@@ -189,6 +314,7 @@ const AccessRequests = ({ user }) => {
                 )
               )}
 
+              {/* ACTIVE TAB */}
               {activeTab === 'ACTIVE' && (
                 activeUsers.length === 0 ? (
                   <tr>
@@ -241,11 +367,106 @@ const AccessRequests = ({ user }) => {
                   ))
                 )
               )}
+
+              {/* SHARED PROFILES (KIOSK) TAB */}
+              {activeTab === 'SHARED' && (
+                sharedGroups.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
+                      No shared profiles established in the organization.
+                    </td>
+                  </tr>
+                ) : (
+                  sharedGroups.map((group) => (
+                    <React.Fragment key={group.baseEmail}>
+                      {/* GROUP HEADER ROW - Displays the Base User Info */}
+                      <tr className="bg-gray-50/80 border-t-4 border-gray-100">
+                        <td colSpan="4" className="px-6 py-4">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <MonitorSmartphone className="w-6 h-6 text-indigo-600" />
+                              <div>
+                                <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block">
+                                  Terminal Identity: {group.baseUser.firstName} {group.baseUser.lastName}
+                                </span>
+                                <span className="font-black text-gray-900">{group.baseEmail}</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => openAddSharedModal(group.baseEmail)}
+                              className="text-sm font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
+                            >
+                              <UserPlus className="w-4 h-4" /> Add Sub-User
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* SUB USERS ROWS (Now maps over allSharedUsers so the Base User is visible!) */}
+                      {group.allSharedUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-indigo-50/30 transition-colors border-b border-gray-100">
+                          <td className="px-6 py-4 whitespace-nowrap pl-14">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xs">
+                                {u.firstName.charAt(0)}{u.lastName?.charAt(0)}
+                              </div>
+                              <span className="font-bold text-gray-900">{u.firstName} {u.lastName}</span>
+                              {u.id === group.baseUser.id && (
+                                <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold ml-2">Base</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black tracking-wider ${u.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
+                                {u.role === 'ADMIN' && <Shield className="w-3 h-3" />}
+                                {u.role === 'ADMIN' ? 'ADMIN' : 'MEMBER'}
+                              </span>
+                              {u.siteLocation ? (
+                                <span className="flex items-center text-xs font-bold text-gray-600">
+                                  <MapPin className="w-3.5 h-3.5 mr-1 text-gray-400" /> {u.siteLocation}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-medium text-gray-400 italic">No Site</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-500">
+                            PIN Auth Required
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => openEditSharedPinModal(u)}
+                                className="text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-indigo-100 flex items-center gap-1"
+                              >
+                                <KeyRound className="w-3.5 h-3.5" /> Reset PIN
+                              </button>
+                              <button
+                                onClick={() => openPermissionsModal(u)}
+                                className="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-blue-100"
+                              >
+                                Edit Access
+                              </button>
+                              <button
+                                onClick={() => handleRevokeAccess(u)}
+                                className="text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))
+                )
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
+      {/* PERMISSIONS MODAL */}
       {isModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
@@ -258,7 +479,6 @@ const AccessRequests = ({ user }) => {
             </div>
 
             <form onSubmit={handleSavePermissions} className="p-6 space-y-6 overflow-y-auto flex-1">
-
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">System Role</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -286,43 +506,157 @@ const AccessRequests = ({ user }) => {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-bold text-gray-700">Permitted Site Locations</label>
-                  <button
-                    type="button"
-                    onClick={() => setEditSiteLocations([])}
-                    className="text-xs text-blue-600 hover:underline font-semibold"
-                  >
+                  <button type="button" onClick={() => setEditSiteLocations([])} className="text-xs text-blue-600 hover:underline font-semibold">
                     Clear All (Global)
                   </button>
                 </div>
 
                 <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl p-3 space-y-2 bg-gray-50/30">
-                  {locations.map(loc => {
-                    const isChecked = editSiteLocations.includes(loc.name);
-                    return (
-                      <label
-                        key={loc.id}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-blue-50 border border-blue-200' : 'hover:bg-white border border-transparent'}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleLocationToggle(loc.name)}
-                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                        />
-                        <span className="text-sm font-medium text-gray-800">{loc.name}</span>
-                      </label>
-                    );
-                  })}
+                  {locations.length === 0 ? (
+                    <div className="text-sm text-gray-500 italic p-2">Loading locations...</div>
+                  ) : (
+                    locations.map(loc => {
+                      const isChecked = editSiteLocations.includes(loc.name);
+                      return (
+                        <label key={loc.id} className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-blue-50 border border-blue-200' : 'hover:bg-white border border-transparent'}`}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleLocationToggle(loc.name)}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                          />
+                          <span className="text-sm font-medium text-gray-800">{loc.name}</span>
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Select one or multiple locations. If locations selected to Pulseworks shop and warehouse, then the user will have access to all locations.
-                </p>
               </div>
+
+              {selectedUser.id !== user.id && (
+                <div className="pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => handleRevokeAccess(selectedUser)}
+                    className="w-full py-2.5 flex items-center justify-center gap-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
+                  >
+                    <UserX className="w-4 h-4" /> Revoke Workspace Access
+                  </button>
+                </div>
+              )}
 
               <div className="pt-2 flex gap-3 shrink-0">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Cancel</button>
                 <button type="submit" className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors">Save Permissions</button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* NEW MODAL FOR ADDING/EDITING SHARED PROFILES */}
+      {isSharedProfileModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
+            <button
+              onClick={() => setSharedProfileModalOpen(false)}
+              className="absolute top-4 right-4 p-2 bg-gray-50 text-gray-400 hover:text-gray-900 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">
+              {sharedModalMode === 'EDIT' ? 'Reset Shared PIN' : 'Add Shared User'}
+            </h2>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              {sharedModalMode === 'EDIT'
+                ? 'Update the 4-digit security PIN for this worker.'
+                : 'Select an existing team member to grant them shared terminal access.'}
+            </p>
+
+            <form onSubmit={handleSharedProfileSubmit} className="space-y-5">
+
+              {/* Terminal Email (Only when Adding) */}
+              {sharedModalMode === 'ADD' && (
+                <div>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-wider mb-2">Terminal Email</label>
+                  <input
+                    required
+                    type="email"
+                    placeholder="e.g. kiosk@pulseworks.com"
+                    className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold text-gray-800"
+                    value={sharedBaseEmail}
+                    onChange={(e) => setSharedBaseEmail(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {/* User Dropdown (Only when Adding) */}
+              {sharedModalMode === 'ADD' && (
+                <div>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-wider mb-2">Select Existing User</label>
+                  <select
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl p-3.5 text-sm font-bold text-gray-800 focus:bg-white focus:ring-2 focus:ring-blue-600 outline-none transition-all cursor-pointer"
+                    value={sharedSelectedUserId}
+                    onChange={(e) => setSharedSelectedUserId(e.target.value)}
+                    required
+                  >
+                    <option value="">-- Choose a team member --</option>
+                    {activeUsers.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.firstName} {u.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Read-Only Details for Selected User */}
+              {(() => {
+                const u = activeUsers.find(user => user.id === sharedSelectedUserId);
+                if (!u) return null;
+                return (
+                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-3 shadow-inner">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Name</span>
+                      <span className="text-sm font-bold text-gray-900">{u.firstName} {u.lastName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Email</span>
+                      <span className="text-sm font-bold text-gray-900">{u.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Location</span>
+                      <span className="text-sm font-bold text-gray-900">{u.siteLocation || "Unassigned"}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider">System Role</span>
+                      <span className="text-sm font-bold text-gray-900">{u.role || "Worker"}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* PIN Input */}
+              {sharedSelectedUserId && (
+                <div>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-wider mb-2">4-Digit PIN</label>
+                  <input
+                    required type="password" maxLength={4}
+                    className="w-full border border-gray-200 bg-gray-50 rounded-xl p-4 text-center tracking-[1em] text-3xl font-black focus:bg-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
+                    value={sharedPin}
+                    onChange={(e) => setSharedPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••"
+                  />
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={!sharedSelectedUserId || sharedPin.length !== 4}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md active:scale-[0.98] mt-2"
+              >
+                {sharedModalMode === 'EDIT' ? 'Save New PIN' : 'Create Shared Profile'}
+              </button>
             </form>
           </div>
         </div>

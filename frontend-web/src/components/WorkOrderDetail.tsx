@@ -7,13 +7,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Send,
-  Paperclip,
   FileText,
   UploadCloud,
-  Plus,
   X,
   Trash2,
   Pencil,
+  MessageSquare,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -27,7 +26,6 @@ const CATEGORIES = [
   "WEEKLY_MONTHLY_CHECKLISTS",
 ];
 
-// Helper for unified activity feed
 const combineAndSortActivity = (logs: any[] = [], comments: any[] = []) => {
   const combined = [
     ...logs.map((log) => ({ ...log, type: "log" })),
@@ -44,35 +42,33 @@ const WorkOrderDetail = ({ user }: any) => {
   const [wo, setWo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Organization Data for Dropdowns
   const [orgUsers, setOrgUsers] = useState<any[]>([]);
   const [orgAssets, setOrgAssets] = useState<any[]>([]);
   const [orgLocations, setOrgLocations] = useState<any[]>([]);
   const [orgParts, setOrgParts] = useState<any[]>([]);
 
-  // UI States
   const [activeTab, setActiveTab] = useState<
     "DETAILS" | "TASKS" | "TIME" | "PARTS" | "FILES"
   >("DETAILS");
-  const [isActivityOpen, setIsActivityOpen] = useState(true);
 
-  // Title & Description Editing States
+  // Default sidebar closed on mobile so details show up first!
+  const [isActivityOpen, setIsActivityOpen] = useState(
+    window.innerWidth >= 768,
+  );
+
   const [isEditingHeader, setIsEditingHeader] = useState(false);
   const [headerTitle, setHeaderTitle] = useState("");
   const [headerDesc, setHeaderDesc] = useState("");
 
-  // Comment & Mentions State
   const [newComment, setNewComment] = useState("");
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const commentInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Edit Comment State
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
 
-  // Simulated Local States for new interactive tabs
   const [tasks, setTasks] = useState<
     { id: number; text: string; completed: boolean }[]
   >([]);
@@ -88,10 +84,11 @@ const WorkOrderDetail = ({ user }: any) => {
     { id: number; worker: string; duration: number; date: string }[]
   >([]);
   const [newTimeDuration, setNewTimeDuration] = useState("");
+  const API_URL = "192.168.1.92:8080";
 
   const fetchWO = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/workorders/${id}`);
+      const res = await fetch(`http://${API_URL}/api/workorders/${id}`);
       if (res.ok) setWo(await res.json());
     } catch (err) {
       console.error(err);
@@ -103,22 +100,21 @@ const WorkOrderDetail = ({ user }: any) => {
   useEffect(() => {
     fetchWO();
     if (user?.organizationId) {
-      fetch(`http://localhost:8080/api/users/${user.organizationId}`)
+      fetch(`http://${API_URL}/api/users/${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgUsers);
-      fetch(`http://localhost:8080/api/assets?orgId=${user.organizationId}`)
+      fetch(`http://${API_URL}/api/assets?orgId=${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgAssets);
-      fetch(`http://localhost:8080/api/locations?orgId=${user.organizationId}`)
+      fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgLocations);
-      fetch(`http://localhost:8080/api/inventory?orgId=${user.organizationId}`)
+      fetch(`http://${API_URL}/api/inventory?orgId=${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgParts);
     }
   }, [id, user?.organizationId]);
 
-  // Mentions Logic
   const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setNewComment(val);
@@ -155,7 +151,6 @@ const WorkOrderDetail = ({ user }: any) => {
       .includes(mentionQuery.toLowerCase()),
   );
 
-  // Header Editing Handlers (Title/Desc)
   const startEditingHeader = () => {
     setHeaderTitle(wo.title);
     setHeaderDesc(wo.description || "");
@@ -164,7 +159,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
   const handleSaveHeader = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/workorders/${id}`, {
+      const res = await fetch(`http://${API_URL}/api/workorders/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -191,7 +186,7 @@ const WorkOrderDetail = ({ user }: any) => {
     )
       return;
     try {
-      const res = await fetch(`http://localhost:8080/api/workorders/${id}`, {
+      const res = await fetch(`http://${API_URL}/api/workorders/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -204,10 +199,9 @@ const WorkOrderDetail = ({ user }: any) => {
     }
   };
 
-  // Work Order Update Handlers
   const handleStatusChange = async (status: string) => {
     try {
-      await fetch(`http://localhost:8080/api/workorders/${id}`, {
+      await fetch(`http://${API_URL}/api/workorders/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -228,7 +222,7 @@ const WorkOrderDetail = ({ user }: any) => {
     logMessage: string,
   ) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/workorders/${id}`, {
+      const res = await fetch(`http://${API_URL}/api/workorders/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -243,12 +237,11 @@ const WorkOrderDetail = ({ user }: any) => {
     }
   };
 
-  // Comments Handlers
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
     try {
       const res = await fetch(
-        `http://localhost:8080/api/workorders/${id}/comments`,
+        `http://${API_URL}/api/workorders/${id}/comments`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -269,7 +262,7 @@ const WorkOrderDetail = ({ user }: any) => {
     if (!editCommentText.trim()) return;
     try {
       const res = await fetch(
-        `http://localhost:8080/api/workorders/${id}/comments/${commentId}`,
+        `http://${API_URL}/api/workorders/${id}/comments/${commentId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -290,7 +283,7 @@ const WorkOrderDetail = ({ user }: any) => {
       return;
     try {
       const res = await fetch(
-        `http://localhost:8080/api/workorders/${id}/comments/${commentId}`,
+        `http://${API_URL}/api/workorders/${id}/comments/${commentId}`,
         {
           method: "DELETE",
         },
@@ -301,7 +294,6 @@ const WorkOrderDetail = ({ user }: any) => {
     }
   };
 
-  // File Upload Handler (Paperclip)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -311,7 +303,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
     try {
       const res = await fetch(
-        `http://localhost:8080/api/workorders/${id}/documents`,
+        `http://${API_URL}/api/workorders/${id}/documents`,
         { method: "POST", body: formData },
       );
       if (res.ok) fetchWO();
@@ -320,7 +312,6 @@ const WorkOrderDetail = ({ user }: any) => {
     }
   };
 
-  // Other Tab Handlers
   const handleAddTask = () => {
     if (!newTaskText.trim()) return;
     setTasks([
@@ -389,24 +380,26 @@ const WorkOrderDetail = ({ user }: any) => {
   const isCompleted = wo.status === "COMPLETE" || wo.status === "CLOSED";
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 font-sans overflow-hidden">
+    <div className="flex flex-col h-full bg-gray-50 font-sans overflow-hidden pb-20 md:pb-0">
       {/* HEADER */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
-        <div className="flex items-center gap-4">
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/workspace/workorders")}
             className="p-1.5 hover:bg-gray-100 rounded-md text-gray-500 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span className="font-bold text-gray-900 text-lg">WO-{wo.id}</span>
+          <span className="font-bold text-gray-900 text-base md:text-lg">
+            WO-{wo.id}
+          </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <select
             value={wo.status}
             onChange={(e) => handleStatusChange(e.target.value)}
-            className={`flex items-center px-4 py-2 rounded-md font-bold text-sm cursor-pointer outline-none border transition-colors ${
+            className={`flex items-center px-3 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-xs md:text-sm cursor-pointer outline-none border transition-colors ${
               isCompleted
                 ? "bg-green-50 text-green-700 border-green-200"
                 : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
@@ -418,25 +411,40 @@ const WorkOrderDetail = ({ user }: any) => {
             <option value="COMPLETE">Complete</option>
             <option value="CLOSED">Closed</option>
           </select>
+
+          {/* MOBILE TOGGLE COMMENTS BUTTON */}
+          <button
+            onClick={() => setIsActivityOpen(!isActivityOpen)}
+            className="md:hidden p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 relative"
+            title="Toggle Comments"
+          >
+            <MessageSquare className="w-5 h-5" />
+            {activities.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                {activities.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {/* CENTER CONTENT */}
-        <div className="flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200">
-          {/* Editable Header Area */}
-          <div className="px-10 pt-8 pb-6 shrink-0 relative group">
+        <div
+          className={`flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200 transition-all ${isActivityOpen ? "hidden md:flex" : "flex"}`}
+        >
+          <div className="px-4 md:px-10 pt-6 md:pt-8 pb-4 md:pb-6 shrink-0 relative group">
             {isEditingHeader ? (
               <div className="space-y-4 max-w-4xl">
                 <input
                   autoFocus
-                  className="w-full text-2xl font-black text-gray-900 border border-blue-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-600 bg-gray-50 shadow-sm transition-all"
+                  className="w-full text-xl md:text-2xl font-black text-gray-900 border border-blue-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-600 bg-gray-50 shadow-sm transition-all"
                   value={headerTitle}
                   onChange={(e) => setHeaderTitle(e.target.value)}
                   placeholder="Work Order Title"
                 />
                 <textarea
-                  className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-600 resize-y min-h-[120px] bg-gray-50 shadow-sm transition-all"
+                  className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-600 resize-y min-h-[100px] bg-gray-50 shadow-sm transition-all"
                   value={headerDesc}
                   onChange={(e) => setHeaderDesc(e.target.value)}
                   placeholder="Work Order Description"
@@ -458,15 +466,15 @@ const WorkOrderDetail = ({ user }: any) => {
               </div>
             ) : (
               <div className="flex justify-between items-start max-w-4xl">
-                <div className="flex-1 pr-6">
-                  <h1 className="text-2xl font-black text-gray-900 mb-2 leading-tight">
+                <div className="flex-1 pr-4">
+                  <h1 className="text-xl md:text-2xl font-black text-gray-900 mb-2 leading-tight">
                     {wo.title}
                   </h1>
-                  <p className="text-sm text-gray-500 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-xs md:text-sm text-gray-500 whitespace-pre-wrap leading-relaxed">
                     {wo.description || "No description provided."}
                   </p>
                 </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={startEditingHeader}
                     className="p-2 text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-md transition-colors shadow-sm"
@@ -486,12 +494,12 @@ const WorkOrderDetail = ({ user }: any) => {
             )}
           </div>
 
-          <div className="px-10 border-b border-gray-200 flex gap-8 shrink-0">
+          <div className="px-4 md:px-10 border-b border-gray-200 flex gap-6 md:gap-8 shrink-0 overflow-x-auto">
             {["DETAILS", "TASKS", "TIME", "PARTS", "FILES"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
-                className={`pb-3 text-sm font-bold tracking-wide transition-colors relative ${activeTab === tab ? "text-blue-600" : "text-gray-500 hover:text-gray-900"}`}
+                className={`pb-3 text-xs md:text-sm font-bold tracking-wide transition-colors relative shrink-0 ${activeTab === tab ? "text-blue-600" : "text-gray-500 hover:text-gray-900"}`}
               >
                 {tab.charAt(0) + tab.slice(1).toLowerCase()}
                 {activeTab === tab && (
@@ -501,14 +509,13 @@ const WorkOrderDetail = ({ user }: any) => {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-10 py-8 bg-white">
-            {/* DETAILS TAB */}
+          <div className="flex-1 overflow-y-auto px-4 md:px-10 py-6 md:py-8 bg-white">
             {activeTab === "DETAILS" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-6">
+                <h3 className="text-base font-bold text-gray-900 mb-4">
                   Details
                 </h3>
-                <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100">
+                <div className="border border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-100 shadow-sm">
                   <EditableRow label="LOCATION">
                     <select
                       value={wo.locationName || ""}
@@ -519,7 +526,7 @@ const WorkOrderDetail = ({ user }: any) => {
                           "updated the location",
                         )
                       }
-                      className="w-full bg-transparent text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
+                      className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
                     >
                       <option value="">Select a location...</option>
                       {orgLocations.map((loc) => (
@@ -540,7 +547,7 @@ const WorkOrderDetail = ({ user }: any) => {
                           "updated the asset",
                         )
                       }
-                      className="w-full bg-transparent text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
+                      className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
                     >
                       <option value="">None</option>
                       {orgAssets.map((asset) => (
@@ -561,7 +568,7 @@ const WorkOrderDetail = ({ user }: any) => {
                           "updated the assignee",
                         )
                       }
-                      className="w-full bg-transparent text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
+                      className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
                     >
                       <option value="">Unassigned</option>
                       {orgUsers.map((u) => (
@@ -582,7 +589,7 @@ const WorkOrderDetail = ({ user }: any) => {
                           "updated category",
                         )
                       }
-                      className="w-full bg-transparent text-sm font-medium text-gray-900 cursor-pointer outline-none"
+                      className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 cursor-pointer outline-none"
                     >
                       <option value="">None</option>
                       {CATEGORIES.map((cat) => (
@@ -603,7 +610,7 @@ const WorkOrderDetail = ({ user }: any) => {
                           "updated priority",
                         )
                       }
-                      className="w-full bg-transparent text-sm font-medium text-gray-900 cursor-pointer outline-none"
+                      className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 cursor-pointer outline-none"
                     >
                       <option value="LOW">Low</option>
                       <option value="MEDIUM">Medium</option>
@@ -612,7 +619,7 @@ const WorkOrderDetail = ({ user }: any) => {
                     </select>
                   </EditableRow>
 
-                  <EditableRow label="EST. DURATION (HRS)">
+                  <EditableRow label="EST. DURATION">
                     <input
                       type="number"
                       step="0.5"
@@ -625,7 +632,7 @@ const WorkOrderDetail = ({ user }: any) => {
                         )
                       }
                       placeholder="0.0"
-                      className="w-full bg-transparent text-sm font-medium text-gray-900 outline-none"
+                      className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 outline-none"
                     />
                   </EditableRow>
 
@@ -642,103 +649,80 @@ const WorkOrderDetail = ({ user }: any) => {
                           "updated due date",
                         )
                       }
-                      className="w-full bg-transparent text-sm font-medium text-gray-900 outline-none cursor-pointer"
+                      className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 outline-none cursor-pointer"
                     />
                   </EditableRow>
-
-                  <div className="flex items-center py-4 px-6 bg-gray-50/30">
-                    <div className="w-48 text-xs font-bold text-gray-500 tracking-wider shrink-0">
-                      CREATED
-                    </div>
-                    <div className="text-sm font-medium text-gray-600">
-                      {new Date(wo.createdAt).toLocaleString()} by{" "}
-                      {wo.creator
-                        ? `${wo.creator.firstName} ${wo.creator.lastName}`
-                        : wo.requestedByEmail || "System"}
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
 
-            {/* TASKS TAB */}
             {activeTab === "TASKS" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-6">
-                  Tasks & Checklists
+                <h3 className="text-base font-bold text-gray-900 mb-4">
+                  Tasks
                 </h3>
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex gap-3">
                   <input
                     type="text"
-                    placeholder="Add a new checklist item..."
+                    placeholder="Add checklist item..."
                     value={newTaskText}
                     onChange={(e) => setNewTaskText(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
-                    className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-600"
+                    className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm outline-none"
                   />
                   <button
                     onClick={handleAddTask}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold"
                   >
-                    Add Task
+                    Add
                   </button>
                 </div>
-
-                {tasks.length === 0 ? (
-                  <div className="p-12 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
-                    <p className="text-sm font-medium text-gray-500">
-                      No tasks added to this work order
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {tasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={task.completed}
-                            onChange={() => toggleTask(task.id)}
-                            className="w-5 h-5 cursor-pointer accent-blue-600"
-                          />
-                          <span
-                            className={`text-sm font-medium ${task.completed ? "line-through text-gray-400" : "text-gray-800"}`}
-                          >
-                            {task.text}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => removeTask(task.id)}
-                          className="text-gray-400 hover:text-red-600"
+                <div className="space-y-3">
+                  {tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={() => toggleTask(task.id)}
+                          className="w-5 h-5 accent-blue-600"
+                        />
+                        <span
+                          className={`text-sm ${task.completed ? "line-through text-gray-400" : "text-gray-800"}`}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                          {task.text}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <button
+                        onClick={() => removeTask(task.id)}
+                        className="text-gray-400 hover:text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* PARTS TAB */}
             {activeTab === "PARTS" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-6">
+                <h3 className="text-base font-bold text-gray-900 mb-4">
                   Parts
                 </h3>
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex gap-3">
                   <select
                     value={selectedPartId}
                     onChange={(e) => setSelectedPartId(e.target.value)}
-                    className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+                    className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
                   >
-                    <option value="">Select a part from inventory...</option>
+                    <option value="">Select a part...</option>
                     {orgParts.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} ({p.availableQty} available)
+                        {p.name}
                       </option>
                     ))}
                   </select>
@@ -749,155 +733,109 @@ const WorkOrderDetail = ({ user }: any) => {
                     onChange={(e) =>
                       setSelectedPartQty(parseInt(e.target.value) || 1)
                     }
-                    className="w-20 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none text-center"
+                    className="w-16 bg-white border border-gray-300 rounded-lg text-center text-sm"
                   />
                   <button
                     onClick={handleAddPart}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold"
                   >
                     Add
                   </button>
                 </div>
-
-                {parts.length === 0 ? (
-                  <div className="p-12 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
-                    <p className="text-sm font-medium text-gray-500">
-                      No parts added to this work order
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {parts.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+                <div className="space-y-3">
+                  {parts.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
+                    >
+                      <span className="text-sm font-bold">
+                        {p.name} (Qty: {p.qty})
+                      </span>
+                      <button
+                        onClick={() => removePart(p.id)}
+                        className="text-gray-400 hover:text-red-600"
                       >
-                        <span className="text-sm font-bold text-gray-800">
-                          {p.name}
-                        </span>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm font-medium text-gray-600">
-                            Qty: {p.qty}
-                          </span>
-                          <button
-                            onClick={() => removePart(p.id)}
-                            className="text-gray-400 hover:text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* TIME TAB */}
             {activeTab === "TIME" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-6">
+                <h3 className="text-base font-bold text-gray-900 mb-4">
                   Time Log
                 </h3>
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex gap-3 items-center">
-                  <div className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-500 cursor-not-allowed">
-                    Worker: {user.firstName} {user.lastName}
-                  </div>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex gap-3">
                   <input
                     type="number"
                     step="0.5"
-                    min="0"
-                    placeholder="Hours (e.g. 1.5)"
+                    placeholder="Hours"
                     value={newTimeDuration}
                     onChange={(e) => setNewTimeDuration(e.target.value)}
-                    className="w-40 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none text-center focus:ring-2 focus:ring-blue-600"
+                    className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none"
                   />
                   <button
                     onClick={handleAddTime}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold"
                   >
                     Log Time
                   </button>
                 </div>
-
-                {timeEntries.length === 0 ? (
-                  <div className="p-12 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
-                    <p className="text-sm font-medium text-gray-500">
-                      No time entries recorded
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {timeEntries.map((t) => (
-                      <div
-                        key={t.id}
-                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
-                      >
-                        <div>
-                          <span className="block text-sm font-bold text-gray-800">
-                            {t.worker}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {t.date}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm font-black text-gray-700">
-                            {t.duration} hrs
-                          </span>
-                          <button
-                            onClick={() => removeTime(t.id)}
-                            className="text-gray-400 hover:text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                <div className="space-y-3">
+                  {timeEntries.map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
+                    >
+                      <div>
+                        <span className="text-sm font-bold">{t.worker}</span>
+                        <span className="block text-xs text-gray-400">
+                          {t.date}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <span className="text-sm font-black">
+                        {t.duration} hrs
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* FILES TAB */}
             {activeTab === "FILES" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-6">
+                <h3 className="text-base font-bold text-gray-900 mb-4">
                   Files
                 </h3>
-                <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50 hover:bg-gray-100 transition-colors relative cursor-pointer group mb-6">
+                <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center bg-gray-50 relative cursor-pointer mb-6">
                   <input
                     type="file"
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={handleFileUpload}
                   />
-                  <UploadCloud className="w-8 h-8 text-gray-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                  <UploadCloud className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm font-bold text-gray-900">
-                    Click to upload or drag and drop
+                    Upload attachment
                   </p>
                 </div>
-
                 <div className="space-y-3">
                   {(wo.documents || []).map((doc: any) => (
                     <div
                       key={doc.id}
-                      className="flex items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm"
+                      className="flex items-center p-3 bg-white border border-gray-200 rounded-xl"
                     >
-                      <FileText className="w-8 h-8 text-blue-100 bg-blue-600 p-1.5 rounded shrink-0 mr-3" />
-                      <div>
-                        <a
-                          href={`http://localhost:8080${doc.fileUrl}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-bold text-blue-600 hover:underline"
-                        >
-                          {doc.fileName}
-                        </a>
-                        <p className="text-xs text-gray-500">
-                          Uploaded by {doc.uploader?.firstName || "User"} on{" "}
-                          {new Date(doc.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
+                      <FileText className="w-6 h-6 text-blue-600 mr-3" />
+                      <a
+                        href={`http://${API_URL}${doc.fileUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-bold text-blue-600 hover:underline"
+                      >
+                        {doc.fileName}
+                      </a>
                     </div>
                   ))}
                 </div>
@@ -906,29 +844,31 @@ const WorkOrderDetail = ({ user }: any) => {
           </div>
         </div>
 
-        {/* RIGHT SIDEBAR: COMMENTS & ACTIVITY (COLLAPSIBLE) */}
+        {/* RIGHT SIDEBAR: COMMENTS & ACTIVITY (COLLAPSIBLE / FULLSCREEN ON MOBILE) */}
         <div
-          className={`flex flex-col bg-gray-50 shrink-0 border-l border-gray-200 relative transition-all duration-300 ease-in-out ${isActivityOpen ? "w-[400px]" : "w-[50px] overflow-hidden"}`}
+          className={`absolute md:relative inset-0 md:inset-auto z-30 flex flex-col bg-gray-50 shrink-0 border-l border-gray-200 transition-all duration-300 ease-in-out ${isActivityOpen ? "w-full md:w-[400px]" : "w-0 overflow-hidden"}`}
         >
-          <div className="px-4 py-4 border-b border-gray-200 bg-white shrink-0 flex items-center h-14">
+          <div className="px-4 py-4 border-b border-gray-200 bg-white shrink-0 flex items-center justify-between h-14">
+            <div className="flex items-center">
+              <button
+                onClick={() => setIsActivityOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-md text-gray-400 hover:text-gray-900 transition-colors mr-2"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h3 className="text-sm font-black tracking-wide text-gray-900">
+                Comments & Activity
+              </h3>
+            </div>
             <button
-              onClick={() => setIsActivityOpen(!isActivityOpen)}
-              className="p-1 hover:bg-gray-100 rounded-md text-gray-400 hover:text-gray-900 transition-colors shrink-0"
+              onClick={() => setIsActivityOpen(false)}
+              className="md:hidden text-gray-500"
             >
-              <ArrowLeft
-                className={`w-5 h-5 transition-transform duration-300 ${isActivityOpen ? "rotate-180" : "rotate-0"}`}
-              />
+              <X className="w-5 h-5" />
             </button>
-            <h3
-              className={`text-sm font-black tracking-wide text-gray-900 ml-3 transition-opacity duration-200 ${isActivityOpen ? "opacity-100" : "opacity-0 whitespace-nowrap"}`}
-            >
-              Comments
-            </h3>
           </div>
 
-          <div
-            className={`flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth transition-opacity duration-300 ${isActivityOpen ? "opacity-100" : "opacity-0 hidden"}`}
-          >
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
             {activities.length === 0 ? (
               <div className="text-center text-sm text-gray-400 italic mt-10">
                 No activity yet.
@@ -940,95 +880,35 @@ const WorkOrderDetail = ({ user }: any) => {
                 const authorName =
                   item.actor?.firstName || item.author?.firstName || "System";
                 const initial = authorName.charAt(0).toUpperCase();
-
                 const isMyComment = isComment && item.author?.id === user?.id;
 
                 return (
                   <div
                     key={`${item.type}-${item.id}-${idx}`}
-                    className="flex gap-4 group"
+                    className="flex gap-3 group"
                   >
                     <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm ${isSystemLog ? "bg-teal-600" : "bg-blue-600"}`}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 ${isSystemLog ? "bg-teal-600" : "bg-blue-600"}`}
                     >
                       {initial}
                     </div>
-                    <div className="flex-1 min-w-0 pt-1.5">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="font-bold text-sm text-gray-900 truncate">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between">
+                        <span className="font-bold text-xs text-gray-900">
                           {authorName}
                         </span>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isMyComment && (
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white border border-gray-200 rounded-md shadow-sm">
-                              <button
-                                onClick={() => {
-                                  setEditingCommentId(item.id);
-                                  setEditCommentText(item.text);
-                                }}
-                                className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteComment(item.id)}
-                                className="p-1 text-gray-400 hover:text-red-600 transition-colors border-l border-gray-200"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
-                          <span className="text-[11px] font-medium text-gray-400">
-                            {new Date(item.createdAt).toLocaleString()}
-                          </span>
-                        </div>
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(item.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
                       </div>
-
-                      {editingCommentId === item.id ? (
-                        <div className="mt-2">
-                          <input
-                            type="text"
-                            value={editCommentText}
-                            onChange={(e) => setEditCommentText(e.target.value)}
-                            className="w-full border border-blue-300 rounded-md p-2 text-sm outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
-                          />
-                          <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={() => handleUpdateComment(item.id)}
-                              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md font-bold transition-colors"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingCommentId(null)}
-                              className="text-xs text-gray-600 hover:bg-gray-200 bg-gray-100 px-3 py-1.5 rounded-md font-bold transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          className={`mt-1 text-sm ${isSystemLog ? "text-gray-500 italic" : "text-gray-900 bg-white border border-gray-200 p-3 rounded-tr-xl rounded-b-xl shadow-sm leading-relaxed whitespace-pre-wrap"}`}
-                        >
-                          {/* Highlighting @ mentions in the text */}
-                          {(item.action || item.text || "")
-                            .split(/(@\w+\s\w+)/g)
-                            .map((part: string, i: number) =>
-                              part.startsWith("@") ? (
-                                <span
-                                  key={i}
-                                  className="text-blue-600 font-bold bg-blue-50 px-1 rounded"
-                                >
-                                  {part}
-                                </span>
-                              ) : (
-                                part
-                              ),
-                            )}
-                        </div>
-                      )}
+                      <div
+                        className={`mt-1 text-xs md:text-sm ${isSystemLog ? "text-gray-500 italic" : "text-gray-900 bg-white border border-gray-200 p-2.5 rounded-xl shadow-sm"}`}
+                      >
+                        {item.action || item.text}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1036,65 +916,24 @@ const WorkOrderDetail = ({ user }: any) => {
             )}
           </div>
 
-          <div
-            className={`p-4 bg-white border-t border-gray-200 shrink-0 transition-opacity duration-300 relative ${isActivityOpen ? "opacity-100" : "opacity-0 hidden"}`}
-          >
-            {showMentions && (
-              <div className="absolute bottom-full left-4 right-4 mb-2 bg-white border border-gray-200 shadow-2xl rounded-xl max-h-48 overflow-y-auto z-50">
-                <div className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50">
-                  Mention a user
-                </div>
-                {filteredMentions.length > 0 ? (
-                  filteredMentions.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => insertMention(u)}
-                      className="w-full text-left px-4 py-2 text-sm font-medium hover:bg-blue-50 focus:bg-blue-50 outline-none transition-colors"
-                    >
-                      {u.firstName} {u.lastName}
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-sm text-gray-400 italic">
-                    No users found.
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="relative flex items-center bg-white border border-gray-300 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-transparent transition-all overflow-hidden">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-3 text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <Paperclip className="w-5 h-5" />
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-
+          <div className="p-3 bg-white border-t border-gray-200 shrink-0 relative">
+            <div className="flex items-center bg-white border border-gray-300 rounded-xl shadow-sm overflow-hidden">
               <input
                 ref={commentInputRef}
                 type="text"
                 value={newComment}
                 onChange={handleCommentChange}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !showMentions) handlePostComment();
+                  if (e.key === "Enter") handlePostComment();
                 }}
-                placeholder="Write a message... Use @ to mention"
-                className="flex-1 bg-transparent py-3 text-sm outline-none text-gray-900 placeholder-gray-400"
-                autoComplete="off"
+                placeholder="Write a message..."
+                className="flex-1 bg-transparent py-2.5 px-3 text-xs md:text-sm outline-none"
               />
-
               <button
                 onClick={handlePostComment}
-                className={`p-3 transition-colors ${newComment.trim() ? "text-blue-600 hover:text-blue-800 hover:bg-blue-50 cursor-pointer" : "text-gray-300 cursor-not-allowed"}`}
-                disabled={!newComment.trim()}
+                className="p-2.5 text-blue-600 hover:bg-blue-50"
               >
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -1111,8 +950,8 @@ const EditableRow = ({
   label: string;
   children: React.ReactNode;
 }) => (
-  <div className="flex items-center py-3.5 px-6 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
-    <div className="w-48 text-xs font-bold text-gray-500 tracking-wider shrink-0">
+  <div className="flex items-center py-3 px-4 md:px-6 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
+    <div className="w-36 md:w-48 text-[11px] md:text-xs font-bold text-gray-400 tracking-wider shrink-0">
       {label}
     </div>
     <div className="flex-1 min-w-0">{children}</div>

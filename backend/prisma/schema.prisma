@@ -12,7 +12,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- ENUMS ---
+//  ENUMS
 enum UserRole {
   ADMIN
   USER
@@ -65,14 +65,16 @@ enum Category {
   WEEKLY_MONTHLY_CHECKLISTS
 }
 
+// User model 
 model User {
   id                 String   @id @default(uuid())
   firstName          String   @map("first_name") @db.VarChar(50)
   lastName           String   @map("last_name") @db.VarChar(50)
-  email              String   @unique @db.VarChar(100)
+  email              String   @db.VarChar(100)
   password           String   @db.VarChar(255)
   
   phoneNumber        String?  @map("phone_number") @db.VarChar(20)
+  homeAddress        String?        @map("home_address") @db.Text
   profilePicUrl      String?  @map("profile_pic_url") @db.Text
   siteLocation       String?  @map("site_location") @db.VarChar(100)
   designation        String?  @db.VarChar(100)
@@ -96,12 +98,15 @@ model User {
   comments            Comment[]
   activityLogs        ActivityLog[]
   uploadedDocs        Document[]
-  resetCode       String?   @db.VarChar(10)
-  resetCodeExpiry DateTime?
+  resetCode           String?   @db.VarChar(10)
+  resetCodeExpiry     DateTime?
+
+  pin                String?    @db.VarChar(4)
 
   @@map("users")
 }
 
+// Org model
 model Organization {
   orgId      String      @id @default(uuid())
   orgName    String
@@ -116,6 +121,7 @@ model Organization {
   assets     Asset[] 
 }
 
+// model comment
 model Comment {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   text        String   @db.Text
@@ -130,6 +136,7 @@ model Comment {
   @@map("comments")
 }
 
+// Model ActivityLog
 model ActivityLog {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   action      String   @db.VarChar(255)
@@ -167,6 +174,7 @@ model Asset {
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at")
   
   workOrders      WorkOrder[]
+  parts             InventoryPart[] @relation("AssetParts")
   parents         AssetDependency[] @relation("ChildAsset")
   children        AssetDependency[] @relation("ParentAsset")
 
@@ -185,6 +193,7 @@ model AssetDependency {
   @@map("asset_dependencies")
 }
 
+// model workorder
 model WorkOrder {
   id             Int             @id @default(autoincrement())
   upkeepId       String?         @map("upkeep_id") // Maps to CSV 'Work Order ID'
@@ -266,6 +275,7 @@ model WorkOrder {
   @@map("work_orders")
 }
 
+// model project
 model Project {
   id             String           @id @default(uuid())
   projectNumber  Int              @default(autoincrement()) @map("project_number")
@@ -290,6 +300,7 @@ model Project {
   @@map("projects")
 }
 
+// Model Project Comment
 model ProjectComment {
   id        String   @id @default(uuid())
   text      String   @db.Text
@@ -304,6 +315,7 @@ model ProjectComment {
   @@map("project_comments")
 }
 
+// model PM
 model PreventiveMaintenance {
   id             String       @id @default(uuid())
   title          String       @db.VarChar(150)
@@ -318,11 +330,18 @@ model PreventiveMaintenance {
   assigneeId     String?      @map("assignee_id")
   assignee       User?        @relation("PMAssignee", fields: [assigneeId], references: [id])
 
+  // MASTER TEMPLATE FIELDS 
+  assetId        String?      @map("asset_id") @db.Uuid
+  teamId         String?      @map("team_id")
+  taskData       Json?        @map("task_data") // Stores the master checklist
+  partsData      Json?        @map("parts_data") // Stores required parts & quantities
+
   workOrders     WorkOrder[]
 
   @@map("preventive_maintenances")
 }
 
+// model site locatiion
 model Location {
   id                    String   @id @default(uuid())
   name                  String
@@ -343,6 +362,7 @@ model Location {
   teams                 Team[]
 }
 
+// model team
 model Team {
   id             String       @id @default(uuid())
   name           String
@@ -360,6 +380,7 @@ model Team {
   createdAt      DateTime     @default(now())
 }
 
+// model document
 model Document {
   id          String   @id @default(uuid())
   fileName    String
@@ -375,6 +396,7 @@ model Document {
   @@map("documents")
 }
 
+// model InventoryPart
 model InventoryPart {
   id              String   @id @default(uuid())
   name            String
@@ -398,4 +420,17 @@ model InventoryPart {
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  assets          Asset[]         @relation("AssetParts")
+}
+
+// systemAuditlog for Admin and Users(for developer mode debug only)
+model SystemAuditLog {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  userName       String
+  role           String   // 'ADMIN' or 'USER'
+  action         String
+  details        String
+  createdAt      DateTime @default(now())
 }

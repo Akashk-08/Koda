@@ -15,6 +15,7 @@ const Locations = ({ user: propsUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editId, setEditId] = useState(null);
+  const API_URL = "192.168.1.92:8080";
 
   const [formData, setFormData] = useState({
     name: '',
@@ -30,7 +31,7 @@ const Locations = ({ user: propsUser }) => {
         setLoading(false);
         return;
       }
-      const res = await fetch(`http://localhost:8080/api/locations?orgId=${user.organizationId}`);
+      const res = await fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`);
       if (res.ok) {
         setLocations(await res.json());
       }
@@ -74,8 +75,8 @@ const Locations = ({ user: propsUser }) => {
     setIsSubmitting(true);
     try {
       const url = editId
-        ? `http://localhost:8080/api/locations/${editId}`
-        : `http://localhost:8080/api/locations`;
+        ? `http://${API_URL}/api/locations/${editId}`
+        : `http://${API_URL}/api/locations`;
 
       const method = editId ? "PUT" : "POST";
 
@@ -104,7 +105,7 @@ const Locations = ({ user: propsUser }) => {
     if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
 
     try {
-      const res = await fetch(`http://localhost:8080/api/locations/${id}`, { method: "DELETE" });
+      const res = await fetch(`http://${API_URL}/api/locations/${id}`, { method: "DELETE" });
       if (res.ok) {
         fetchLocations();
       } else {
@@ -136,7 +137,7 @@ const Locations = ({ user: propsUser }) => {
             <p className="text-sm text-gray-500 font-medium mt-1">Manage and view all registered facilities and sites.</p>
           </div>
           {isAdmin && (
-            <button onClick={handleCreateClick} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95 flex items-center gap-2 mb-2">
+            <button onClick={handleCreateClick} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all">
               <Plus className="w-4 h-4" /> Add Location
             </button>
           )}

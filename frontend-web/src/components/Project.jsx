@@ -9,16 +9,17 @@ const Project = ({ user }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [orgUsers, setOrgUsers] = useState([]);
+  const API_URL = "192.168.1.92:8080";
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const projRes = await fetch(`http://localhost:8080/api/projects?orgId=${user?.organizationId}`);
+        const projRes = await fetch(`http://${API_URL}/api/projects?orgId=${user?.organizationId}`);
         if (projRes.ok) setProjects(await projRes.json());
 
         if (user?.organizationId) {
-          const userRes = await fetch(`http://localhost:8080/api/users/${user.organizationId}`);
+          const userRes = await fetch(`http://${API_URL}/api/users/${user.organizationId}`);
           if (userRes.ok) setOrgUsers(await userRes.json());
         }
       } catch (error) {
@@ -31,7 +32,7 @@ const Project = ({ user }) => {
   }, [user]);
 
   const refreshProjects = async () => {
-    const res = await fetch(`http://localhost:8080/api/projects?orgId=${user?.organizationId}`);
+    const res = await fetch(`http://${API_URL}/api/projects?orgId=${user?.organizationId}`);
     if (res.ok) setProjects(await res.json());
   };
 
@@ -60,7 +61,7 @@ const Project = ({ user }) => {
         <h1 className="text-2xl font-bold text-gray-900">Organization Projects</h1>
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all"
         >
           <Plus className="w-4 h-4" /> Create Project
         </button>
@@ -73,7 +74,7 @@ const Project = ({ user }) => {
           <p className="text-gray-500 mb-6 max-w-md">Get started by creating a new project to track work orders, manage your team's goals, and centralize documentation.</p>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all"
           >
             Create your first project
           </button>
@@ -132,7 +133,7 @@ const CreateProjectModal = ({ user, orgUsers, onClose, onCreated }) => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('http://localhost:8080/api/projects', {
+      const res = await fetch('http://${API_URL}/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -209,7 +210,7 @@ const CreateProjectModal = ({ user, orgUsers, onClose, onCreated }) => {
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="px-6 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50">
+            <button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all">
               {isSubmitting ? 'Creating...' : 'Create Project'}
             </button>
           </div>
@@ -219,7 +220,6 @@ const CreateProjectModal = ({ user, orgUsers, onClose, onCreated }) => {
   );
 };
 
-//  JIRA STYLE DETAIL VIEW 
 const ProjectDetail = ({ project, onBack, user, onProjectUpdated, formatProjectNumber }) => {
   const [activeTab, setActiveTab] = useState('About');
   const [comments, setComments] = useState(project.comments || []);
@@ -257,7 +257,7 @@ const ProjectDetail = ({ project, onBack, user, onProjectUpdated, formatProjectN
 
   const handleUpdateProject = async (field, value) => {
     try {
-      const res = await fetch(`http://localhost:8080/api/projects/${project.id}`, {
+      const res = await fetch(`http://${API_URL}/api/projects/${project.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: value })
@@ -313,7 +313,7 @@ const ProjectDetail = ({ project, onBack, user, onProjectUpdated, formatProjectN
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/projects/${project.id}/comments`, {
+      const res = await fetch(`http://${API_URL}/api/projects/${project.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: newComment, authorId: user.id })

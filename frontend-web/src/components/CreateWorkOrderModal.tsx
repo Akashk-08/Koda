@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useRef } from "react";
@@ -38,7 +39,16 @@ const SectionHeader = ({ title, icon: Icon }: any) => (
   </div>
 );
 
-const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated }: any) => {
+const API_URL = "192.168.1.92:8080";
+
+// ADDED preSelectedAsset to props
+const CreateWorkOrderModal = ({
+  isOpen,
+  onClose,
+  user,
+  onCreated,
+  preSelectedAsset,
+}: any) => {
   // 1. Basic Info
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
@@ -97,15 +107,22 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated }: any) => {
   const partsRef = useRef<HTMLDivElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
 
+  // Auto-fill asset if passed from parent component
+  useEffect(() => {
+    if (isOpen && preSelectedAsset) {
+      setSelectedAssetId(preSelectedAsset.id);
+    }
+  }, [isOpen, preSelectedAsset]);
+
   useEffect(() => {
     const fetchData = async () => {
       if (!isOpen || !user.organizationId) return;
       try {
         // Fetch Users & Work Orders
         const [usersRes, woRes] = await Promise.all([
-          fetch(`http://localhost:8080/api/users/${user.organizationId}`),
+          fetch(`http://${API_URL}/api/users/${user.organizationId}`),
           fetch(
-            `http://localhost:8080/api/workorders?orgId=${user.organizationId}`,
+            `http://${API_URL}/api/workorders?orgId=${user.organizationId}`,
           ),
         ]);
 
@@ -120,23 +137,23 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated }: any) => {
         // Fetch Assets, Teams, Parts, and Locations
         try {
           const assetsRes = await fetch(
-            `http://localhost:8080/api/assets?orgId=${user.organizationId}`,
+            `http://${API_URL}/api/assets?orgId=${user.organizationId}`,
           );
           if (assetsRes.ok) setOrgAssets(await assetsRes.json());
 
           const teamsRes = await fetch(
-            `http://localhost:8080/api/teams?orgId=${user.organizationId}`,
+            `http://${API_URL}/api/teams?orgId=${user.organizationId}`,
           );
           if (teamsRes.ok) setOrgTeams(await teamsRes.json());
 
           const partsRes = await fetch(
-            `http://localhost:8080/api/inventory?orgId=${user.organizationId}`,
+            `http://${API_URL}/api/inventory?orgId=${user.organizationId}`,
           );
           if (partsRes.ok) setOrgParts(await partsRes.json());
 
           // Fetch Locations
           const locRes = await fetch(
-            `http://localhost:8080/api/locations?orgId=${user.organizationId}`,
+            `http://${API_URL}/api/locations?orgId=${user.organizationId}`,
           );
           if (locRes.ok) setOrgLocations(await locRes.json());
         } catch (e) {
@@ -202,7 +219,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated }: any) => {
         tasks,
       };
 
-      const response = await fetch("http://localhost:8080/api/workorders", {
+      const response = await fetch("http://${API_URL}/api/workorders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -218,7 +235,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated }: any) => {
             formData.append("file", file);
             formData.append("uploaderId", user.id);
             await fetch(
-              `http://localhost:8080/api/workorders/${newWo.id}/documents`,
+              `http://${API_URL}/api/workorders/${newWo.id}/documents`,
               { method: "POST", body: formData },
             );
           }
@@ -471,10 +488,16 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated }: any) => {
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
                   Target Asset
                 </label>
+                {/* ADDED: disabled logic and specific grayed-out styling when locked */}
                 <select
                   value={selectedAssetId}
                   onChange={(e) => setSelectedAssetId(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-all"
+                  disabled={!!preSelectedAsset}
+                  className={`w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none transition-all ${
+                    preSelectedAsset
+                      ? "bg-gray-100 cursor-not-allowed opacity-70 text-gray-600"
+                      : "bg-gray-50 focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer"
+                  }`}
                 >
                   <option value="">No specific asset</option>
                   {orgAssets.map((asset) => (
@@ -482,6 +505,14 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated }: any) => {
                       {asset.name}
                     </option>
                   ))}
+
+                  {/* Failsafe to ensure the preSelectedAsset name shows up even if orgAssets hasn't loaded fully */}
+                  {preSelectedAsset &&
+                    !orgAssets.some((a) => a.id === preSelectedAsset.id) && (
+                      <option value={preSelectedAsset.id}>
+                        {preSelectedAsset.name}
+                      </option>
+                    )}
                 </select>
               </div>
             </div>

@@ -41,17 +41,14 @@ const PartsInventory = ({ user }: any) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState<any | null>(null);
   const [debugMode, setDebugMode] = useState(false); // Diagnostic Tool
+  const API_URL = "192.168.1.92:8080";
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const [partsRes, locRes] = await Promise.all([
-        fetch(
-          `http://localhost:8080/api/inventory?orgId=${user?.organizationId}`,
-        ),
-        fetch(
-          `http://localhost:8080/api/locations?orgId=${user?.organizationId}`,
-        ),
+        fetch(`http://${API_URL}/api/inventory?orgId=${user?.organizationId}`),
+        fetch(`http://${API_URL}/api/locations?orgId=${user?.organizationId}`),
       ]);
 
       if (partsRes.ok) setParts(await partsRes.json());
@@ -123,7 +120,7 @@ const PartsInventory = ({ user }: any) => {
       {/* DEBUG DIAGNOSTICS VIEW */}
       {debugMode && (
         <div className="bg-gray-900 text-green-400 p-4 rounded-xl mb-6 text-xs font-mono whitespace-pre-wrap shadow-lg">
-          === DIAGNOSTIC X-RAY ===
+          DIAGNOSTIC X-RAY
           <br />• User ID: {user?.id || "N/A"}
           <br />• User Role: {user?.role || "N/A"}
           <br />• User Location: "{user?.siteLocation || "UNDEFINED"}"<br />•
@@ -155,7 +152,7 @@ const PartsInventory = ({ user }: any) => {
 
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 active:scale-95"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all"
           >
             <Plus className="w-5 h-5" /> Create Part
           </button>
@@ -411,7 +408,7 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
         organizationId: user.organizationId,
       };
 
-      const response = await fetch("http://localhost:8080/api/inventory", {
+      const response = await fetch("http://${API_URL}/api/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -792,9 +789,10 @@ const EditPartModal = ({
         siteLocation,
         area,
       };
+      const API_URL = "192.168.1.92:8080";
 
       const response = await fetch(
-        `http://localhost:8080/api/inventory/${part.id}`,
+        `http://${API_URL}/api/inventory/${part.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -818,10 +816,11 @@ const EditPartModal = ({
     )
       return;
     setIsDeleting(true);
+    const API_URL = "192.168.1.92:8080";
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/inventory/${part.id}`,
+        `http://${API_URL}/api/inventory/${part.id}`,
         {
           method: "DELETE",
         },

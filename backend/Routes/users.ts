@@ -9,7 +9,6 @@ router.get("/accessrequests", async (req, res) => {
   const { orgId, requesterId } = req.query;
 
   try {
-    // SECURITY CHECK: Verify the person making the request is an Admin
     if (!requesterId)
       return res.status(401).json({ error: "Missing requester ID" });
 
@@ -21,7 +20,6 @@ router.get("/accessrequests", async (req, res) => {
       return res.status(403).json({ error: "Access denied. Admins only." });
     }
 
-    // If they pass the check, fetch the pending users
     const pendingUsers = await prisma.user.findMany({
       where: {
         organizationId: orgId as string,
@@ -48,15 +46,36 @@ router.get("/accessrequests", async (req, res) => {
   }
 });
 
-// 2. GET ALL USERS IN AN ORG
+// 2. GET SINGLE USER PROFILE WITH ORG & TEAMS (MOVED UP TO AVOID CONFLICTS)
+router.get("/profile/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: String(id) },
+      include: {
+        organization: true,
+        teams: true,
+      },
+    });
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const { password, ...userWithoutPassword } = user;
+    res.status(200).json(userWithoutPassword);
+  } catch (error) {
+    console.error("Failed to fetch profile details:", error);
+    res.status(500).json({ error: "Failed to fetch profile details" });
+  }
+});
+
+// 3. GET ALL USERS IN AN ORG
 router.get("/:orgId", async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { organizationId: req.params.orgId },
-      // Remove the restrictive select block so it returns approvalStatus, siteLocation, role, email, etc.
     });
 
-    // Strip out passwords for security
     const usersWithoutPasswords = users.map(({ password, ...rest }) => rest);
     res.json(usersWithoutPasswords);
   } catch (error) {
@@ -65,7 +84,7 @@ router.get("/:orgId", async (req, res) => {
   }
 });
 
-// 3. UPDATE USER PROFILE
+// 4. UPDATE USER PROFILE
 router.put("/:id/profile", async (req, res) => {
   const { id } = req.params;
   const {
@@ -73,16 +92,12 @@ router.put("/:id/profile", async (req, res) => {
     lastName,
     phoneNumber,
     siteLocation,
+    homeAddress,
     designation,
     profilePicUrl,
   } = req.body;
 
   try {
-    const currentUser = await prisma.user.findUnique({ where: { id } });
-    if (!currentUser) return res.status(404).json({ error: "User not found" });
-
-    const newStatus = currentUser.role === "ADMIN" ? "APPROVED" : "PENDING";
-
     const updatedUser = await prisma.user.update({
       where: { id },
       data: {
@@ -90,11 +105,13 @@ router.put("/:id/profile", async (req, res) => {
         lastName,
         phoneNumber,
         siteLocation,
+        homeAddress,
         designation,
         profilePicUrl,
-        approvalStatus: newStatus,
       },
+      include: { organization: true, teams: true },
     });
+
     const { password, ...userWithoutPassword } = updatedUser;
     res.status(200).json(userWithoutPassword);
   } catch (error) {
@@ -103,7 +120,7 @@ router.put("/:id/profile", async (req, res) => {
   }
 });
 
-// 4. APPROVE OR REJECT A USER
+// 5. APPROVE OR REJECT A USER
 router.put("/:id/approve", async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -119,7 +136,7 @@ router.put("/:id/approve", async (req, res) => {
   }
 });
 
-// 5. Add permissions for users
+// 6. Add permissions for users
 router.put("/:id/permissions", async (req, res) => {
   const { id } = req.params;
   const { role, locationId } = req.body;
@@ -129,7 +146,6 @@ router.put("/:id/permissions", async (req, res) => {
       where: { id },
       data: {
         role: role,
-        // Map the locationId from the frontend to your actual database column "siteLocation"
         siteLocation: locationId || null,
       },
     });

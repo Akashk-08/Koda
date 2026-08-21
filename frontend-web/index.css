@@ -1,0 +1,11 @@
+body {
+  -webkit-touch-callout: none; /* Disable iOS long-press popups */
+  -webkit-user-select: none;   /* Disable text selection */
+  user-select: none;
+}
+
+/* Allow text selection only inside actual input fields */
+input, textarea {
+  -webkit-user-select: auto;
+  user-select: auto;
+}

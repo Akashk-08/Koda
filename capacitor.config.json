@@ -1,0 +1,9 @@
+{
+  "appId": "com.pulseworks.cmms",
+  "appName": "Pulseworks CMMS",
+  "webDir": "frontend-web/dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}

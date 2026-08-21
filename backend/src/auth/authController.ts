@@ -45,8 +45,9 @@ export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   try {
-    // 1. Force Prisma to fetch specific columns, INCLUDING siteLocation
-    const user = await prisma.user.findUnique({
+    // 1. Use findMany instead of findUnique to support multiple profiles under one email
+    // NOTE: Make sure `email String @unique` is changed to `email String` in schema.prisma if you allow duplicates!
+    const users = await prisma.user.findMany({
       where: { email },
       select: {
         id: true,
@@ -57,27 +58,76 @@ export const login = async (req: Request, res: Response) => {
         organizationId: true,
         siteLocation: true,
         password: true, // Required for bcrypt to compare
+        pin: true,
       },
     });
 
-    if (!user) {
+    // 2. If no users are found with that email
+    if (!users || users.length === 0) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // 3. Validate password against the first user found
+    // (Assuming all users sharing an email share the same terminal password)
+    const isPasswordValid = await bcrypt.compare(password, users[0].password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // 2. Strip the password out before sending to frontend
-    const { password: _, ...safeUser } = user;
+    // 4. KIOSK MODE CHECK: If multiple users share this email, return the profile list
+    if (users.length > 1) {
+      const profiles = users.map((u) => ({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+      }));
 
-    // ADD THIS LINE TO VERIFY:
+      return res.status(200).json({ profiles }); // Frontend will switch to "select_profile" mode
+    }
+
+    // 5. STANDARD LOGIN: Only one user found, strip password and log them in directly
+    const { password: _, ...safeUser } = users[0];
+
     console.log("Backend is sending this user data to React:", safeUser);
 
-    res.json({ message: "Login successful", user: safeUser });
+    return res.json({ message: "Login successful", user: safeUser });
   } catch (error) {
     console.error("LOGIN DB ERROR:", error);
     res.status(500).json({ error: "Login failed" });
+  }
+};
+
+// Verify PIN after selecting a profile in shared Mode
+export const verifyPin = async (req: Request, res: Response) => {
+  const { email, profileId, pin } = req.body;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: profileId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        organizationId: true,
+        siteLocation: true,
+        pin: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+
+    if ((user as any).pin === pin) {
+      console.log(`PIN verified for ${user.firstName}. Sending data to React.`);
+      return res.status(200).json({ message: "PIN verified", user });
+    }
+
+    return res.status(401).json({ error: "Incorrect PIN. Please try again." });
+  } catch (error) {
+    console.error("VERIFY PIN DB ERROR:", error);
+    res.status(500).json({ error: "PIN verification failed" });
   }
 };
