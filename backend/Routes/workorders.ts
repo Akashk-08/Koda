@@ -13,8 +13,7 @@ const calculateNextDate = (currentDate: Date, scheduleType: string): Date => {
   if (scheduleType === "WEEKLY") nextDate.setDate(nextDate.getDate() + 7);
   if (scheduleType === "MONTHLY") nextDate.setMonth(nextDate.getMonth() + 1);
   if (scheduleType === "QUARTERLY") nextDate.setMonth(nextDate.getMonth() + 3);
-  if (scheduleType === "YEARLY")
-    nextDate.setFullYear(nextDate.getFullYear() + 1);
+  if (scheduleType === "YEARLY") nextDate.setFullYear(nextDate.getFullYear() + 1);
   return nextDate;
 };
 
@@ -34,28 +33,24 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // 1. Upload Document
-router.post(
-  "/:id/documents",
-  upload.single("file"),
-  async (req: any, res: any) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+router.post("/:id/documents", upload.single("file"), async (req: any, res: any) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-      const document = await prisma.document.create({
-        data: {
-          fileName: req.file.originalname,
-          fileUrl: `/uploads/${req.file.filename}`,
-          workOrderId: parseInt(req.params.id),
-          uploaderId: req.body.uploaderId,
-        },
-      });
+    const document = await prisma.document.create({
+      data: {
+        fileName: req.file.originalname,
+        fileUrl: `/uploads/${req.file.filename}`,
+        workOrderId: parseInt(req.params.id),
+        uploaderId: req.body.uploaderId,
+      },
+    });
 
-      res.status(201).json(document);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to upload document" });
-    }
-  },
-);
+    res.status(201).json(document);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to upload document" });
+  }
+});
 
 // 2. Get All Work Orders (Server-Side Pagination & Filtering Support)
 router.get("/", async (req, res) => {
@@ -72,18 +67,8 @@ router.get("/", async (req, res) => {
       teamId,
     } = req.query;
 
-    if (!orgId || !userId) {
-      return res
-        .status(400)
-        .json({ error: "Organization ID and User ID are required" });
-    }
-
-    const requestingUser = await prisma.user.findUnique({
-      where: { id: String(userId) },
-    });
-
-    if (!requestingUser) {
-      return res.status(404).json({ error: "User not found" });
+    if (!orgId) {
+      return res.status(400).json({ error: "Organization ID is required" });
     }
 
     // Build the dynamic WHERE clause based on frontend filters
@@ -91,24 +76,47 @@ router.get("/", async (req, res) => {
       organizationId: String(orgId),
     };
 
-    // Location-based Access Control for standard users
-    if (requestingUser.role === "USER" && requestingUser.siteLocation) {
-      queryConditions.locationName = {
-        contains: requestingUser.siteLocation,
-        mode: "insensitive",
-      };
+    // Location-based Access Control
+    if (userId) {
+      const requestingUser = await prisma.user.findUnique({
+        where: { id: String(userId) },
+      });
+
+      if (requestingUser) {
+        const userLoc = requestingUser.siteLocation || "";
+
+        // Check if full access is granted (Admin, or includes Shop / Warehouse)
+        const isFullAccessUser =
+          requestingUser.role === "ADMIN" ||
+          userLoc.toLowerCase().includes("pulseworks shop") ||
+          userLoc.toLowerCase().includes("pulseworks warehouse");
+
+        // If NOT a full-access user, restrict view to their specific site location
+        if (!isFullAccessUser && userLoc) {
+          queryConditions.locationName = {
+            contains: userLoc,
+            mode: "insensitive",
+          };
+        }
+      }
     }
 
     // Apply Filters if they exist and aren't "ALL"
     if (status && status !== "ALL") queryConditions.status = status;
     if (category && category !== "ALL") queryConditions.category = category;
-    if (locationName && locationName !== "ALL")
-      queryConditions.locationName = locationName;
+
+    if (locationName && locationName !== "ALL") {
+      queryConditions.locationName = {
+        contains: String(locationName),
+        mode: "insensitive",
+      };
+    }
+
     if (teamId && teamId !== "ALL") queryConditions.teamId = teamId;
 
     // Apply Search (Search by Title or exact ID)
     if (search && typeof search === "string" && search.trim() !== "") {
-      const searchNum = parseInt(search.replace(/\D/g, "")); // Extract numbers if they typed "WO-123"
+      const searchNum = parseInt(search.replace(/\D/g, ""));
 
       queryConditions.OR = [
         { title: { contains: search.trim(), mode: "insensitive" } },
@@ -158,8 +166,7 @@ router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const numericId = parseInt(id);
-    if (isNaN(numericId))
-      return res.status(400).json({ error: "Invalid ID format" });
+    if (isNaN(numericId)) return res.status(400).json({ error: "Invalid ID format" });
 
     const workOrder = await prisma.workOrder.findUnique({
       where: { id: numericId },
@@ -177,8 +184,7 @@ router.get("/:id", async (req, res) => {
       },
     });
 
-    if (!workOrder)
-      return res.status(404).json({ error: "Work order not found" });
+    if (!workOrder) return res.status(404).json({ error: "Work order not found" });
     res.status(200).json(workOrder);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch work order details" });
@@ -223,9 +229,7 @@ router.post("/", async (req, res) => {
         assignedTo: assignedTo || null,
         assetId: assetId || null,
         locationName: siteLocation || null,
-        parentWorkOrderId: parentWorkOrderId
-          ? parseInt(parentWorkOrderId)
-          : null,
+        parentWorkOrderId: parentWorkOrderId ? parseInt(parentWorkOrderId) : null,
         dueDate: dueDate ? new Date(dueDate) : null,
         estimatedHours: parsedHours,
       },
@@ -272,23 +276,17 @@ router.put("/:id", async (req, res) => {
         updateData.status === "COMPLETE") &&
       updatedWorkOrder.pmId
     ) {
-      // Explicitly fetch the full PM template with all new fields
       const pm: any = await prisma.preventiveMaintenance.findUnique({
         where: { id: updatedWorkOrder.pmId },
       });
 
       if (pm) {
         const nextDate = new Date(pm.nextDueDate);
-        if (pm.scheduleType === "DAILY")
-          nextDate.setDate(nextDate.getDate() + 1);
-        if (pm.scheduleType === "WEEKLY")
-          nextDate.setDate(nextDate.getDate() + 7);
-        if (pm.scheduleType === "MONTHLY")
-          nextDate.setMonth(nextDate.getMonth() + 1);
-        if (pm.scheduleType === "QUARTERLY")
-          nextDate.setMonth(nextDate.getMonth() + 3);
-        if (pm.scheduleType === "YEARLY")
-          nextDate.setFullYear(nextDate.getFullYear() + 1);
+        if (pm.scheduleType === "DAILY") nextDate.setDate(nextDate.getDate() + 1);
+        if (pm.scheduleType === "WEEKLY") nextDate.setDate(nextDate.getDate() + 7);
+        if (pm.scheduleType === "MONTHLY") nextDate.setMonth(nextDate.getMonth() + 1);
+        if (pm.scheduleType === "QUARTERLY") nextDate.setMonth(nextDate.getMonth() + 3);
+        if (pm.scheduleType === "YEARLY") nextDate.setFullYear(nextDate.getFullYear() + 1);
 
         await prisma.preventiveMaintenance.update({
           where: { id: pm.id },
@@ -329,8 +327,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const numericId = parseInt(req.params.id);
-    if (isNaN(numericId))
-      return res.status(400).json({ error: "Invalid ID format" });
+    if (isNaN(numericId)) return res.status(400).json({ error: "Invalid ID format" });
 
     await prisma.workOrder.delete({
       where: { id: numericId },

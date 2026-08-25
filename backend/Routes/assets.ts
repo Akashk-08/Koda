@@ -66,9 +66,7 @@ router.put("/:id", async (req, res) => {
       ? req.body.subassets
       : req.body.subassets?.set || [];
 
-    const partsList = Array.isArray(req.body.parts)
-      ? req.body.parts
-      : req.body.parts?.set || [];
+    const partsList = Array.isArray(req.body.parts) ? req.body.parts : req.body.parts?.set || [];
 
     // 1. Create a copy of the incoming data
     const cleanData = { ...req.body };

@@ -59,9 +59,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
     const fetchLocations = async () => {
       if (isOpen && user?.organizationId) {
         try {
-          const res = await fetch(
-            `http://${API_URL}/api/assets?orgId=${user.organizationId}`,
-          );
+          const res = await fetch(`http://${API_URL}/api/assets?orgId=${user.organizationId}`);
           if (res.ok) {
             const assets = await res.json();
             const locationNames = new Set<string>(DEFAULT_LOCATIONS);
@@ -148,10 +146,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
           </button>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex-1 flex flex-col overflow-hidden"
-        >
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto bg-gray-50/30 p-6 sm:p-8 space-y-6">
             {/* Basic Info */}
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-5">
@@ -164,9 +159,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                   type="text"
                   placeholder="e.g. FANA-509 Galaxy"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className={inputClasses}
                 />
               </div>
@@ -178,9 +171,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                   </label>
                   <select
                     value={formData.locationName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, locationName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
                     className={`${inputClasses} cursor-pointer`}
                   >
                     <option value="">Select a location...</option>
@@ -195,9 +186,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                   <label className={labelClasses}>Category</label>
                   <select
                     value={formData.category}
-                    onChange={(e) =>
-                      setFormData({ ...formData, category: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className={`${inputClasses} cursor-pointer`}
                   >
                     <option value="">Select category...</option>
@@ -222,9 +211,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                     type="text"
                     placeholder="e.g. SN-009"
                     value={formData.serialNumber}
-                    onChange={(e) =>
-                      setFormData({ ...formData, serialNumber: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
                     className={inputClasses}
                   />
                 </div>
@@ -236,9 +223,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                     type="text"
                     placeholder="e.g. BC-009"
                     value={formData.barcode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, barcode: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
                     className={inputClasses}
                   />
                 </div>
@@ -250,9 +235,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                     type="text"
                     placeholder="e.g. Galaxy Pro"
                     value={formData.model}
-                    onChange={(e) =>
-                      setFormData({ ...formData, model: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                     className={inputClasses}
                   />
                 </div>
@@ -260,9 +243,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                   <label className={labelClasses}>Initial Status</label>
                   <select
                     value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                     className={`${inputClasses} cursor-pointer font-bold ${formData.status === "OPERATIONAL" ? "text-green-700" : "text-red-700"}`}
                   >
                     <option value="OPERATIONAL">🟢 Operational</option>
@@ -286,9 +267,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                     type="text"
                     placeholder="e.g. 99.8%"
                     value={formData.uptime}
-                    onChange={(e) =>
-                      setFormData({ ...formData, uptime: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, uptime: e.target.value })}
                     className={inputClasses}
                   />
                 </div>
@@ -300,9 +279,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                     type="text"
                     placeholder="e.g. 1.2 hrs"
                     value={formData.downtime}
-                    onChange={(e) =>
-                      setFormData({ ...formData, downtime: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, downtime: e.target.value })}
                     className={inputClasses}
                   />
                 </div>
@@ -335,9 +312,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated }: any) => {
                 rows={3}
                 placeholder="Add any technical specs or notes..."
                 value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className={`${inputClasses} resize-y min-h-[100px]`}
               />
             </div>

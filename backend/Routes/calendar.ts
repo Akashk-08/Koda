@@ -39,9 +39,8 @@ router.get("/", async (req, res) => {
         organizer: item.organizer?.email || email,
         location: item.location || "Virtual Meeting",
         isTomorrow:
-          new Date(
-            item.start?.dateTime || item.start?.date || "",
-          ).toDateString() === new Date(Date.now() + 86400000).toDateString(),
+          new Date(item.start?.dateTime || item.start?.date || "").toDateString() ===
+          new Date(Date.now() + 86400000).toDateString(),
       })) || [];
 
     return res.status(200).json(realEvents);

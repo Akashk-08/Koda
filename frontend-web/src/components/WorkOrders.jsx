@@ -5,7 +5,7 @@ import { Plus, Search, Filter, LayoutGrid, X, ChevronLeft, ChevronRight, MapPin,
 import { useNavigate } from "react-router-dom";
 
 const ITEMS_PER_PAGE = 50;
-const API_URL = "192.168.1.92:8080";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const WorkOrders = ({ user, onOpenModal }) => {
   const navigate = useNavigate();
@@ -13,6 +13,11 @@ const WorkOrders = ({ user, onOpenModal }) => {
   const [locations, setLocations] = useState([]);
   const [teams, setTeams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Determine user access level based on location
+  const isFullAccess = user?.role === 'ADMIN' ||
+    user?.siteLocation === 'Pulseworks Shop' ||
+    user?.siteLocation === 'Pulseworks Warehouse';
 
   // Advanced Filter States
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,7 +54,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
     try {
       const params = new URLSearchParams({
         orgId,
-        userId,
+        userId, // <--- Restored to prevent 400 Bad Request error
         page: currentPage.toString(),
         limit: ITEMS_PER_PAGE.toString()
       });
@@ -57,7 +62,12 @@ const WorkOrders = ({ user, onOpenModal }) => {
       if (debouncedSearch) params.append("search", debouncedSearch);
       if (statusFilter !== "ALL") params.append("status", statusFilter);
       if (categoryFilter !== "ALL") params.append("category", categoryFilter);
-      if (locationFilter !== "ALL") params.append("locationName", locationFilter);
+
+      // Let backend handle security for restricted users. Only send explicit location if Admin uses dropdown.
+      if (isFullAccess && locationFilter !== "ALL") {
+        params.append("locationName", locationFilter);
+      }
+
       if (teamFilter !== "ALL") params.append("teamId", teamFilter);
 
       const [woRes, locRes, teamsRes] = await Promise.all([
@@ -108,7 +118,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-gray-50 p-4 md:p-8 overflow-y-auto font-sans pb-24 md:pb-8">
+    <div className="flex-1 flex flex-col h-full bg-gray-50 p-4 md:p-8 overflow-y-auto font-sans pb-24 md:pb-8 relative z-0">
 
       {/* HEADER */}
       <div className="flex justify-between items-end mb-6">
@@ -127,7 +137,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
       </div>
 
       {/* SEARCH & FILTER DASHBOARD */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6 p-4 shrink-0">
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6 p-4 shrink-0 relative z-10">
         <div className="relative mb-4">
           <Search className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" />
           <input
@@ -147,9 +157,6 @@ const WorkOrders = ({ user, onOpenModal }) => {
           >
             <option value="ALL">Status: All</option>
             <option value="OPEN">Open</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="REVIEW">Review</option>
-            <option value="onHOLD">On Hold</option>
             <option value="COMPLETE">Complete</option>
             <option value="CLOSED">Closed</option>
           </select>
@@ -166,23 +173,26 @@ const WorkOrders = ({ user, onOpenModal }) => {
             <option value="PROJECT_UPGRADE">Project Upgrade</option>
           </select>
 
-          <select
-            value={locationFilter}
-            onChange={(e) => setLocationFilter(e.target.value)}
-            className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="ALL">Locations</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.name}>{loc.name}</option>
-            ))}
-          </select>
+          {/* Hide location dropdown if they are a restricted user */}
+          {isFullAccess && (
+            <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-600"
+            >
+              <option value="ALL">Locations</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.name}>{loc.name}</option>
+              ))}
+            </select>
+          )}
 
-          {(statusFilter !== "ALL" || categoryFilter !== "ALL" || locationFilter !== "ALL" || searchQuery !== "") && (
+          {(statusFilter !== "ALL" || categoryFilter !== "ALL" || (isFullAccess && locationFilter !== "ALL") || searchQuery !== "") && (
             <button
               onClick={() => {
                 setStatusFilter("ALL");
                 setCategoryFilter("ALL");
-                setLocationFilter("ALL");
+                if (isFullAccess) setLocationFilter("ALL");
                 setSearchQuery("");
               }}
               className="text-xs font-bold text-red-600 hover:text-red-800 transition-colors ml-auto flex items-center gap-1"
@@ -210,7 +220,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
       ) : (
         <>
           {/* MOBILE CARD VIEW (Visible only on Mobile) */}
-          <div className="md:hidden space-y-3">
+          <div className="md:hidden space-y-3 relative z-0">
             {workOrders.map((wo) => {
               const assigneeName = wo.assignee ? `${wo.assignee.firstName || ''} ${wo.assignee.lastName || ''}`.trim() : 'Unassigned';
 
@@ -252,7 +262,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
           </div>
 
           {/* DESKTOP TABLE VIEW (Visible only on Desktop) */}
-          <div className="hidden md:flex bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex-1 flex-col">
+          <div className="hidden md:flex bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex-1 flex-col relative z-0">
             <div className="overflow-x-auto flex-1">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
@@ -322,7 +332,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
 
       {/* PAGINATION FOOTER */}
       {!isLoading && totalRecords > 0 && (
-        <div className="px-6 py-4 mt-4 border border-gray-200 bg-white rounded-2xl flex items-center justify-between shrink-0 shadow-sm">
+        <div className="px-6 py-4 mt-4 border border-gray-200 bg-white rounded-2xl flex items-center justify-between shrink-0 shadow-sm relative z-0">
           <span className="text-xs md:text-sm text-gray-500 font-medium">
             <span className="font-bold text-gray-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>-
             <span className="font-bold text-gray-900">{Math.min(currentPage * ITEMS_PER_PAGE, totalRecords)}</span> of

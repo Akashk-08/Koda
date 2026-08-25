@@ -31,9 +31,7 @@ const combineAndSortActivity = (logs: any[] = [], comments: any[] = []) => {
     ...logs.map((log) => ({ ...log, type: "log" })),
     ...comments.map((comment) => ({ ...comment, type: "comment" })),
   ];
-  return combined.sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
+  return combined.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 };
 
 const WorkOrderDetail = ({ user }: any) => {
@@ -47,14 +45,12 @@ const WorkOrderDetail = ({ user }: any) => {
   const [orgLocations, setOrgLocations] = useState<any[]>([]);
   const [orgParts, setOrgParts] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<
-    "DETAILS" | "TASKS" | "TIME" | "PARTS" | "FILES"
-  >("DETAILS");
+  const [activeTab, setActiveTab] = useState<"DETAILS" | "TASKS" | "TIME" | "PARTS" | "FILES">(
+    "DETAILS",
+  );
 
   // Default sidebar closed on mobile so details show up first!
-  const [isActivityOpen, setIsActivityOpen] = useState(
-    window.innerWidth >= 768,
-  );
+  const [isActivityOpen, setIsActivityOpen] = useState(window.innerWidth >= 768);
 
   const [isEditingHeader, setIsEditingHeader] = useState(false);
   const [headerTitle, setHeaderTitle] = useState("");
@@ -69,14 +65,12 @@ const WorkOrderDetail = ({ user }: any) => {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
 
-  const [tasks, setTasks] = useState<
-    { id: number; text: string; completed: boolean }[]
-  >([]);
+  const [tasks, setTasks] = useState<{ id: number; text: string; completed: boolean }[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
 
-  const [parts, setParts] = useState<
-    { id: number; partId: string; name: string; qty: number }[]
-  >([]);
+  const [parts, setParts] = useState<{ id: number; partId: string; name: string; qty: number }[]>(
+    [],
+  );
   const [selectedPartId, setSelectedPartId] = useState("");
   const [selectedPartQty, setSelectedPartQty] = useState(1);
 
@@ -84,8 +78,7 @@ const WorkOrderDetail = ({ user }: any) => {
     { id: number; worker: string; duration: number; date: string }[]
   >([]);
   const [newTimeDuration, setNewTimeDuration] = useState("");
-  const API_URL = "192.168.1.92:8080";
-
+  const API_URL = import.meta.env.VITE_API_URL;
   const fetchWO = async () => {
     try {
       const res = await fetch(`http://${API_URL}/api/workorders/${id}`);
@@ -146,9 +139,7 @@ const WorkOrderDetail = ({ user }: any) => {
   };
 
   const filteredMentions = orgUsers.filter((u) =>
-    (u.firstName + " " + u.lastName)
-      .toLowerCase()
-      .includes(mentionQuery.toLowerCase()),
+    (u.firstName + " " + u.lastName).toLowerCase().includes(mentionQuery.toLowerCase()),
   );
 
   const startEditingHeader = () => {
@@ -216,11 +207,7 @@ const WorkOrderDetail = ({ user }: any) => {
     }
   };
 
-  const handleInlineUpdate = async (
-    field: string,
-    value: any,
-    logMessage: string,
-  ) => {
+  const handleInlineUpdate = async (field: string, value: any, logMessage: string) => {
     try {
       const res = await fetch(`http://${API_URL}/api/workorders/${id}`, {
         method: "PUT",
@@ -240,14 +227,11 @@ const WorkOrderDetail = ({ user }: any) => {
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
     try {
-      const res = await fetch(
-        `http://${API_URL}/api/workorders/${id}/comments`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: newComment, authorId: user.id }),
-        },
-      );
+      const res = await fetch(`http://${API_URL}/api/workorders/${id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: newComment, authorId: user.id }),
+      });
       if (res.ok) {
         setNewComment("");
         setShowMentions(false);
@@ -261,14 +245,11 @@ const WorkOrderDetail = ({ user }: any) => {
   const handleUpdateComment = async (commentId: string) => {
     if (!editCommentText.trim()) return;
     try {
-      const res = await fetch(
-        `http://${API_URL}/api/workorders/${id}/comments/${commentId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: editCommentText }),
-        },
-      );
+      const res = await fetch(`http://${API_URL}/api/workorders/${id}/comments/${commentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: editCommentText }),
+      });
       if (res.ok) {
         setEditingCommentId(null);
         fetchWO();
@@ -279,15 +260,11 @@ const WorkOrderDetail = ({ user }: any) => {
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!window.confirm("Are you sure you want to delete this comment?"))
-      return;
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
     try {
-      const res = await fetch(
-        `http://${API_URL}/api/workorders/${id}/comments/${commentId}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const res = await fetch(`http://${API_URL}/api/workorders/${id}/comments/${commentId}`, {
+        method: "DELETE",
+      });
       if (res.ok) fetchWO();
     } catch (err) {
       alert("Failed to delete comment");
@@ -302,10 +279,10 @@ const WorkOrderDetail = ({ user }: any) => {
     formData.append("uploaderId", user.id);
 
     try {
-      const res = await fetch(
-        `http://${API_URL}/api/workorders/${id}/documents`,
-        { method: "POST", body: formData },
-      );
+      const res = await fetch(`http://${API_URL}/api/workorders/${id}/documents`, {
+        method: "POST",
+        body: formData,
+      });
       if (res.ok) fetchWO();
     } catch (error) {
       alert("An error occurred during upload");
@@ -314,20 +291,12 @@ const WorkOrderDetail = ({ user }: any) => {
 
   const handleAddTask = () => {
     if (!newTaskText.trim()) return;
-    setTasks([
-      ...tasks,
-      { id: Date.now(), text: newTaskText, completed: false },
-    ]);
+    setTasks([...tasks, { id: Date.now(), text: newTaskText, completed: false }]);
     setNewTaskText("");
   };
   const toggleTask = (taskId: number) =>
-    setTasks(
-      tasks.map((t) =>
-        t.id === taskId ? { ...t, completed: !t.completed } : t,
-      ),
-    );
-  const removeTask = (taskId: number) =>
-    setTasks(tasks.filter((t) => t.id !== taskId));
+    setTasks(tasks.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t)));
+  const removeTask = (taskId: number) => setTasks(tasks.filter((t) => t.id !== taskId));
 
   const handleAddPart = () => {
     if (!selectedPartId) return;
@@ -361,13 +330,9 @@ const WorkOrderDetail = ({ user }: any) => {
     ]);
     setNewTimeDuration("");
   };
-  const removeTime = (id: number) =>
-    setTimeEntries(timeEntries.filter((t) => t.id !== id));
+  const removeTime = (id: number) => setTimeEntries(timeEntries.filter((t) => t.id !== id));
 
-  const activities = useMemo(
-    () => combineAndSortActivity(wo?.activityLogs, wo?.comments),
-    [wo],
-  );
+  const activities = useMemo(() => combineAndSortActivity(wo?.activityLogs, wo?.comments), [wo]);
 
   if (loading)
     return (
@@ -380,9 +345,9 @@ const WorkOrderDetail = ({ user }: any) => {
   const isCompleted = wo.status === "COMPLETE" || wo.status === "CLOSED";
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 font-sans overflow-hidden pb-20 md:pb-0">
+    <div className="flex flex-col h-full bg-gray-50 font-sans overflow-hidden pb-20 md:pb-0 relative z-0">
       {/* HEADER */}
-      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between shrink-0 shadow-sm relative z-10">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/workspace/workorders")}
@@ -390,9 +355,7 @@ const WorkOrderDetail = ({ user }: any) => {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <span className="font-bold text-gray-900 text-base md:text-lg">
-            WO-{wo.id}
-          </span>
+          <span className="font-bold text-gray-900 text-base md:text-lg">WO-{wo.id}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -406,21 +369,20 @@ const WorkOrderDetail = ({ user }: any) => {
             }`}
           >
             <option value="OPEN">Open</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="onHOLD">On Hold</option>
             <option value="COMPLETE">Complete</option>
             <option value="CLOSED">Closed</option>
           </select>
 
-          {/* MOBILE TOGGLE COMMENTS BUTTON */}
+          {/* TOGGLE COMMENTS BUTTON */}
           <button
             onClick={() => setIsActivityOpen(!isActivityOpen)}
-            className="md:hidden p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 relative"
+            className="p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 relative flex items-center gap-1.5 font-bold text-xs shadow-sm hover:bg-blue-100 transition-colors"
             title="Toggle Comments"
           >
-            <MessageSquare className="w-5 h-5" />
+            <MessageSquare className="w-4 h-4" />
+            <span className="hidden sm:inline">Comments</span>
             {activities.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+              <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
                 {activities.length}
               </span>
             )}
@@ -428,10 +390,10 @@ const WorkOrderDetail = ({ user }: any) => {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden relative z-0">
         {/* CENTER CONTENT */}
         <div
-          className={`flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200 transition-all ${isActivityOpen ? "hidden md:flex" : "flex"}`}
+          className={`flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200 transition-all`}
         >
           <div className="px-4 md:px-10 pt-6 md:pt-8 pb-4 md:pb-6 shrink-0 relative group">
             {isEditingHeader ? (
@@ -512,19 +474,13 @@ const WorkOrderDetail = ({ user }: any) => {
           <div className="flex-1 overflow-y-auto px-4 md:px-10 py-6 md:py-8 bg-white">
             {activeTab === "DETAILS" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-4">
-                  Details
-                </h3>
+                <h3 className="text-base font-bold text-gray-900 mb-4">Details</h3>
                 <div className="border border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-100 shadow-sm">
                   <EditableRow label="LOCATION">
                     <select
                       value={wo.locationName || ""}
                       onChange={(e) =>
-                        handleInlineUpdate(
-                          "locationName",
-                          e.target.value,
-                          "updated the location",
-                        )
+                        handleInlineUpdate("locationName", e.target.value, "updated the location")
                       }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
                     >
@@ -541,11 +497,7 @@ const WorkOrderDetail = ({ user }: any) => {
                     <select
                       value={wo.assetId || ""}
                       onChange={(e) =>
-                        handleInlineUpdate(
-                          "assetId",
-                          e.target.value || null,
-                          "updated the asset",
-                        )
+                        handleInlineUpdate("assetId", e.target.value || null, "updated the asset")
                       }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
                     >
@@ -583,11 +535,7 @@ const WorkOrderDetail = ({ user }: any) => {
                     <select
                       value={wo.category || ""}
                       onChange={(e) =>
-                        handleInlineUpdate(
-                          "category",
-                          e.target.value || null,
-                          "updated category",
-                        )
+                        handleInlineUpdate("category", e.target.value || null, "updated category")
                       }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 cursor-pointer outline-none"
                     >
@@ -604,11 +552,7 @@ const WorkOrderDetail = ({ user }: any) => {
                     <select
                       value={wo.priority || "MEDIUM"}
                       onChange={(e) =>
-                        handleInlineUpdate(
-                          "priority",
-                          e.target.value,
-                          "updated priority",
-                        )
+                        handleInlineUpdate("priority", e.target.value, "updated priority")
                       }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 cursor-pointer outline-none"
                     >
@@ -643,9 +587,7 @@ const WorkOrderDetail = ({ user }: any) => {
                       onChange={(e) =>
                         handleInlineUpdate(
                           "dueDate",
-                          e.target.value
-                            ? new Date(e.target.value).toISOString()
-                            : null,
+                          e.target.value ? new Date(e.target.value).toISOString() : null,
                           "updated due date",
                         )
                       }
@@ -658,9 +600,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
             {activeTab === "TASKS" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-4">
-                  Tasks
-                </h3>
+                <h3 className="text-base font-bold text-gray-900 mb-4">Tasks</h3>
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex gap-3">
                   <input
                     type="text"
@@ -710,9 +650,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
             {activeTab === "PARTS" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-4">
-                  Parts
-                </h3>
+                <h3 className="text-base font-bold text-gray-900 mb-4">Parts</h3>
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex gap-3">
                   <select
                     value={selectedPartId}
@@ -730,9 +668,7 @@ const WorkOrderDetail = ({ user }: any) => {
                     type="number"
                     min="1"
                     value={selectedPartQty}
-                    onChange={(e) =>
-                      setSelectedPartQty(parseInt(e.target.value) || 1)
-                    }
+                    onChange={(e) => setSelectedPartQty(parseInt(e.target.value) || 1)}
                     className="w-16 bg-white border border-gray-300 rounded-lg text-center text-sm"
                   />
                   <button
@@ -765,9 +701,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
             {activeTab === "TIME" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-4">
-                  Time Log
-                </h3>
+                <h3 className="text-base font-bold text-gray-900 mb-4">Time Log</h3>
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 flex gap-3">
                   <input
                     type="number"
@@ -792,13 +726,9 @@ const WorkOrderDetail = ({ user }: any) => {
                     >
                       <div>
                         <span className="text-sm font-bold">{t.worker}</span>
-                        <span className="block text-xs text-gray-400">
-                          {t.date}
-                        </span>
+                        <span className="block text-xs text-gray-400">{t.date}</span>
                       </div>
-                      <span className="text-sm font-black">
-                        {t.duration} hrs
-                      </span>
+                      <span className="text-sm font-black">{t.duration} hrs</span>
                     </div>
                   ))}
                 </div>
@@ -807,9 +737,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
             {activeTab === "FILES" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-4">
-                  Files
-                </h3>
+                <h3 className="text-base font-bold text-gray-900 mb-4">Files</h3>
                 <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center bg-gray-50 relative cursor-pointer mb-6">
                   <input
                     type="file"
@@ -817,9 +745,7 @@ const WorkOrderDetail = ({ user }: any) => {
                     onChange={handleFileUpload}
                   />
                   <UploadCloud className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-gray-900">
-                    Upload attachment
-                  </p>
+                  <p className="text-sm font-bold text-gray-900">Upload attachment</p>
                 </div>
                 <div className="space-y-3">
                   {(wo.documents || []).map((doc: any) => (
@@ -844,15 +770,18 @@ const WorkOrderDetail = ({ user }: any) => {
           </div>
         </div>
 
-        {/* RIGHT SIDEBAR: COMMENTS & ACTIVITY (COLLAPSIBLE / FULLSCREEN ON MOBILE) */}
+        {/* RIGHT SIDEBAR: COMMENTS & ACTIVITY (FLEX SIBLING INSTEAD OF ABSOLUTE OVERLAY) */}
         <div
-          className={`absolute md:relative inset-0 md:inset-auto z-30 flex flex-col bg-gray-50 shrink-0 border-l border-gray-200 transition-all duration-300 ease-in-out ${isActivityOpen ? "w-full md:w-[400px]" : "w-0 overflow-hidden"}`}
+          className={`flex flex-col bg-gray-50 shrink-0 border-l border-gray-200 transition-all duration-300 ease-in-out overflow-hidden ${
+            isActivityOpen ? "w-full md:w-[380px]" : "w-0 border-l-0"
+          }`}
         >
-          <div className="px-4 py-4 border-b border-gray-200 bg-white shrink-0 flex items-center justify-between h-14">
+          <div className="px-4 py-4 border-b border-gray-200 bg-white shrink-0 flex items-center justify-between h-14 w-[380px]">
             <div className="flex items-center">
               <button
                 onClick={() => setIsActivityOpen(false)}
                 className="p-1 hover:bg-gray-100 rounded-md text-gray-400 hover:text-gray-900 transition-colors mr-2"
+                title="Close sidebar"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -862,31 +791,24 @@ const WorkOrderDetail = ({ user }: any) => {
             </div>
             <button
               onClick={() => setIsActivityOpen(false)}
-              className="md:hidden text-gray-500"
+              className="text-gray-400 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 w-[380px]">
             {activities.length === 0 ? (
-              <div className="text-center text-sm text-gray-400 italic mt-10">
-                No activity yet.
-              </div>
+              <div className="text-center text-sm text-gray-400 italic mt-10">No activity yet.</div>
             ) : (
               activities.map((item: any, idx: number) => {
                 const isSystemLog = item.type === "log";
                 const isComment = item.type === "comment";
-                const authorName =
-                  item.actor?.firstName || item.author?.firstName || "System";
+                const authorName = item.actor?.firstName || item.author?.firstName || "System";
                 const initial = authorName.charAt(0).toUpperCase();
-                const isMyComment = isComment && item.author?.id === user?.id;
 
                 return (
-                  <div
-                    key={`${item.type}-${item.id}-${idx}`}
-                    className="flex gap-3 group"
-                  >
+                  <div key={`${item.type}-${item.id}-${idx}`} className="flex gap-3 group">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 ${isSystemLog ? "bg-teal-600" : "bg-blue-600"}`}
                     >
@@ -894,9 +816,7 @@ const WorkOrderDetail = ({ user }: any) => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between">
-                        <span className="font-bold text-xs text-gray-900">
-                          {authorName}
-                        </span>
+                        <span className="font-bold text-xs text-gray-900">{authorName}</span>
                         <span className="text-[10px] text-gray-400">
                           {new Date(item.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
@@ -916,7 +836,7 @@ const WorkOrderDetail = ({ user }: any) => {
             )}
           </div>
 
-          <div className="p-3 bg-white border-t border-gray-200 shrink-0 relative">
+          <div className="p-3 bg-white border-t border-gray-200 shrink-0 w-[380px]">
             <div className="flex items-center bg-white border border-gray-300 rounded-xl shadow-sm overflow-hidden">
               <input
                 ref={commentInputRef}
@@ -929,10 +849,7 @@ const WorkOrderDetail = ({ user }: any) => {
                 placeholder="Write a message..."
                 className="flex-1 bg-transparent py-2.5 px-3 text-xs md:text-sm outline-none"
               />
-              <button
-                onClick={handlePostComment}
-                className="p-2.5 text-blue-600 hover:bg-blue-50"
-              >
+              <button onClick={handlePostComment} className="p-2.5 text-blue-600 hover:bg-blue-50">
                 <Send className="w-4 h-4" />
               </button>
             </div>
@@ -943,13 +860,7 @@ const WorkOrderDetail = ({ user }: any) => {
   );
 };
 
-const EditableRow = ({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) => (
+const EditableRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="flex items-center py-3 px-4 md:px-6 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
     <div className="w-36 md:w-48 text-[11px] md:text-xs font-bold text-gray-400 tracking-wider shrink-0">
       {label}

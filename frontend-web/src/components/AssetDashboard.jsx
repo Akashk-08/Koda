@@ -6,8 +6,7 @@ const AssetDashboard = () => {
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const API_URL = "192.168.1.92:8080";
-
+  const API_URL = import.meta.env.VITE_API_URL;
   useEffect(() => {
     fetchAssets();
   }, []);

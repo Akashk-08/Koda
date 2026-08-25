@@ -8,8 +8,7 @@ const prisma = new PrismaClient();
 router.get("/", async (req, res) => {
   const { orgId } = req.query;
 
-  if (!orgId)
-    return res.status(400).json({ error: "Organization ID is required" });
+  if (!orgId) return res.status(400).json({ error: "Organization ID is required" });
 
   try {
     const parts = await prisma.inventoryPart.findMany({
@@ -19,9 +18,7 @@ router.get("/", async (req, res) => {
     res.json(parts);
   } catch (error: any) {
     console.error(error);
-    res
-      .status(500)
-      .json({ error: error.message || "Failed to fetch inventory parts" });
+    res.status(500).json({ error: error.message || "Failed to fetch inventory parts" });
   }
 });
 
@@ -76,9 +73,7 @@ router.post("/", async (req, res) => {
     res.status(201).json(newPart);
   } catch (error: any) {
     console.error("PRISMA CREATE ERROR:", error);
-    res
-      .status(500)
-      .json({ error: error.message || "Database error while creating part." });
+    res.status(500).json({ error: error.message || "Database error while creating part." });
   }
 });
 

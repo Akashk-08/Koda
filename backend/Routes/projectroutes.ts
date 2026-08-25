@@ -6,8 +6,7 @@ const prisma = new PrismaClient();
 
 // 1. CREATE A NEW PROJECT
 router.post("/", async (req, res) => {
-  const { title, description, organizationId, ownerId, contributorIds } =
-    req.body;
+  const { title, description, organizationId, ownerId, contributorIds } = req.body;
 
   try {
     const newProject = await prisma.project.create({
@@ -96,10 +95,8 @@ router.put("/:id", async (req, res) => {
     const updateData: any = {};
 
     if (status !== undefined) updateData.status = status;
-    if (startDate !== undefined)
-      updateData.startDate = startDate ? new Date(startDate) : null;
-    if (endDate !== undefined)
-      updateData.endDate = endDate ? new Date(endDate) : null;
+    if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
+    if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
 
     // Prisma requires { set: array } syntax to completely update scalar lists
     if (risks !== undefined) updateData.risks = { set: risks };

@@ -11,7 +11,7 @@ DB_CONFIG = {
     "port": "5434"
 }
 
-DEFAULT_ORG_ID = "5df74865-c2e6-43e9-a270-41dca24f32dc"
+DEFAULT_ORG_ID = "b263d052-265f-4da1-82c6-4706a7de9955"
 
 CSV_FILE_PATH = "upkeep-people.csv" 
 TABLE_NAME = "users"

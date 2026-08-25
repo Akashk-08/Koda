@@ -81,9 +81,7 @@ router.post("/", async (req, res) => {
         taskData: taskData || [], // Clone the master checklist!
         // We inject the required parts straight into the WO description for easy visibility
         partsNames:
-          partsData && partsData.length > 0
-            ? partsData.map((p: any) => p.name).join(", ")
-            : null,
+          partsData && partsData.length > 0 ? partsData.map((p: any) => p.name).join(", ") : null,
       },
     });
 

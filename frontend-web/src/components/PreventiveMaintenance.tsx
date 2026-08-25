@@ -31,9 +31,9 @@ const PreventiveMaintenance = ({ user }: any) => {
 
   // Centered Inspection Modal State (Restored normal view)
   const [selectedPM, setSelectedPM] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "details" | "assignment" | "tasks" | "activity"
-  >("details");
+  const [activeTab, setActiveTab] = useState<"details" | "assignment" | "tasks" | "activity">(
+    "details",
+  );
 
   const orgId = user?.organizationId;
   const userId = user?.id;
@@ -41,27 +41,23 @@ const PreventiveMaintenance = ({ user }: any) => {
   const fetchPMs = useCallback(async () => {
     if (!orgId || !userId) return;
     try {
-      const res = await fetch(
-        `http://${API_URL}/api/pm?orgId=${orgId}&userId=${userId}`,
-      );
+      const res = await fetch(`http://${API_URL}/api/pm?orgId=${orgId}&userId=${userId}`);
       if (res.ok) setPms(await res.json());
     } catch (err) {
       console.error(err);
     }
   }, [orgId, userId]);
-  const API_URL = "192.168.1.92:8080";
-
+  const API_URL = import.meta.env.VITE_API_URL;
   const fetchDependencies = useCallback(async () => {
     if (!orgId) return;
     try {
-      const [usersRes, assetsRes, teamsRes, partsRes, locRes] =
-        await Promise.all([
-          fetch(`http://${API_URL}/api/users/${orgId}`),
-          fetch(`http://${API_URL}/api/assets?orgId=${orgId}`),
-          fetch(`http://${API_URL}/api/teams?orgId=${orgId}`),
-          fetch(`http://${API_URL}/api/inventory?orgId=${orgId}`),
-          fetch(`http://${API_URL}/api/locations?orgId=${orgId}`),
-        ]);
+      const [usersRes, assetsRes, teamsRes, partsRes, locRes] = await Promise.all([
+        fetch(`http://${API_URL}/api/users/${orgId}`),
+        fetch(`http://${API_URL}/api/assets?orgId=${orgId}`),
+        fetch(`http://${API_URL}/api/teams?orgId=${orgId}`),
+        fetch(`http://${API_URL}/api/inventory?orgId=${orgId}`),
+        fetch(`http://${API_URL}/api/locations?orgId=${orgId}`),
+      ]);
       if (usersRes.ok) setOrgUsers(await usersRes.json());
       if (assetsRes.ok) setOrgAssets(await assetsRes.json());
       if (teamsRes.ok) setOrgTeams(await teamsRes.json());
@@ -85,12 +81,9 @@ const PreventiveMaintenance = ({ user }: any) => {
             <span>Workspace</span> <span className="mx-2">/</span>{" "}
             <span>Preventive Maintenance</span>
           </div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-            PM Schedules
-          </h1>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">PM Schedules</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Automated recurring work orders based on UpKeep-grade master
-            templates.
+            Automated recurring work orders based on UpKeep-grade master templates.
           </p>
         </div>
         <button
@@ -124,9 +117,7 @@ const PreventiveMaintenance = ({ user }: any) => {
               <tr>
                 <td colSpan={4} className="py-16 text-center text-gray-500">
                   <ShieldCheck className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-lg font-bold text-gray-900">
-                    No schedules configured
-                  </p>
+                  <p className="text-lg font-bold text-gray-900">No schedules configured</p>
                   <p className="text-sm mt-1">
                     Create a template to automate your maintenance cycles.
                   </p>
@@ -213,17 +204,15 @@ const PreventiveMaintenance = ({ user }: any) => {
             </div>
 
             <div className="flex border-b border-gray-200 bg-white px-8 gap-8 shrink-0 overflow-x-auto">
-              {(["details", "assignment", "tasks", "activity"] as const).map(
-                (tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`py-4 text-xs font-extrabold uppercase tracking-wider border-b-2 transition-all capitalize whitespace-nowrap ${activeTab === tab ? "border-purple-600 text-purple-700" : "border-transparent text-gray-400 hover:text-gray-700"}`}
-                  >
-                    {tab}
-                  </button>
-                ),
-              )}
+              {(["details", "assignment", "tasks", "activity"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`py-4 text-xs font-extrabold uppercase tracking-wider border-b-2 transition-all capitalize whitespace-nowrap ${activeTab === tab ? "border-purple-600 text-purple-700" : "border-transparent text-gray-400 hover:text-gray-700"}`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
 
             <div className="p-8 flex-1 overflow-y-auto space-y-6 bg-gray-50/50">
@@ -235,29 +224,20 @@ const PreventiveMaintenance = ({ user }: any) => {
                     </h4>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-xs text-gray-400 block mb-1">
-                          Next Due Date
-                        </span>
+                        <span className="text-xs text-gray-400 block mb-1">Next Due Date</span>
                         <span className="font-bold text-gray-800 text-base">
-                          📅{" "}
-                          {new Date(
-                            selectedPM.nextDueDate,
-                          ).toLocaleDateString()}
+                          📅 {new Date(selectedPM.nextDueDate).toLocaleDateString()}
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-gray-400 block mb-1">
-                          Frequency
-                        </span>
+                        <span className="text-xs text-gray-400 block mb-1">Frequency</span>
                         <span className="font-bold text-purple-700 uppercase text-base">
                           {selectedPM.scheduleType}
                         </span>
                       </div>
                     </div>
                     <div>
-                      <span className="text-xs text-gray-400 block mb-1">
-                        Description
-                      </span>
+                      <span className="text-xs text-gray-400 block mb-1">Description</span>
                       <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-200">
                         {selectedPM.description || "No description provided."}
                       </p>
@@ -276,8 +256,7 @@ const PreventiveMaintenance = ({ user }: any) => {
                   {selectedPM.taskData &&
                     !Array.isArray(selectedPM.taskData) &&
                     selectedPM.taskData.primaryAssigneeEmail &&
-                    selectedPM.taskData.primaryAssigneeEmail !==
-                      "Unassigned" && (
+                    selectedPM.taskData.primaryAssigneeEmail !== "Unassigned" && (
                       <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl mb-4">
                         <h5 className="text-xs font-black text-blue-800 uppercase tracking-wider mb-2">
                           📦 Imported UpKeep Assignments
@@ -292,17 +271,15 @@ const PreventiveMaintenance = ({ user }: any) => {
                             </span>
                           </div>
                           <div>
-                            <span className="text-xs text-blue-600/80 block">
-                              Legacy Team Name
-                            </span>
+                            <span className="text-xs text-blue-600/80 block">Legacy Team Name</span>
                             <span className="font-bold text-blue-900 truncate block">
                               {selectedPM.taskData.teamName || "None"}
                             </span>
                           </div>
                         </div>
                         <p className="text-xs text-blue-600 mt-3 font-medium bg-blue-100/50 p-2 rounded-lg">
-                          Please select the corresponding Koda users from the
-                          dropdowns below to officially map these assignments.
+                          Please select the corresponding Koda users from the dropdowns below to
+                          officially map these assignments.
                         </p>
                       </div>
                     )}
@@ -376,8 +353,7 @@ const PreventiveMaintenance = ({ user }: any) => {
                       <span className="font-bold text-gray-800 block mb-0.5">
                         System Automated Trigger
                       </span>
-                      PM schedule successfully initialized and synchronized with
-                      database.
+                      PM schedule successfully initialized and synchronized with database.
                     </div>
                   </div>
                   <div className="pt-2">
@@ -438,9 +414,7 @@ const CreatePMModal = ({
   onClose,
   onCreated,
 }: any) => {
-  const [activeTab, setActiveTab] = useState<"details" | "schedule" | "assets">(
-    "details",
-  );
+  const [activeTab, setActiveTab] = useState<"details" | "schedule" | "assets">("details");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -498,15 +472,11 @@ const CreatePMModal = ({
     ]);
   };
 
-  const removeAssetRow = (id: number) =>
-    setAssetRows(assetRows.filter((r) => r.id !== id));
+  const removeAssetRow = (id: number) => setAssetRows(assetRows.filter((r) => r.id !== id));
 
   const handleAddTask = () => {
     if (!newTaskText.trim()) return;
-    setTasks([
-      ...tasks,
-      { id: Date.now(), text: newTaskText, type: "Inspection" },
-    ]);
+    setTasks([...tasks, { id: Date.now(), text: newTaskText, type: "Inspection" }]);
     setNewTaskText("");
   };
 
@@ -549,8 +519,7 @@ const CreatePMModal = ({
 
   const inputClass =
     "w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white transition-all";
-  const labelClass =
-    "block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5";
+  const labelClass = "block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
@@ -561,8 +530,7 @@ const CreatePMModal = ({
               Create Preventive Maintenance Trigger
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Configure work order templates, recurrence schedules, and asset
-              mapping.
+              Configure work order templates, recurrence schedules, and asset mapping.
             </p>
           </div>
           <button
@@ -597,10 +565,7 @@ const CreatePMModal = ({
           </button>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="p-8 space-y-6 overflow-y-auto flex-1"
-        >
+        <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto flex-1">
           {activeTab === "details" && (
             <div className="space-y-6 animate-in fade-in duration-200">
               <div className="grid grid-cols-2 gap-5">
@@ -611,16 +576,12 @@ const CreatePMModal = ({
                     type="text"
                     className={inputClass}
                     value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="e.g., Monthly MX4D Inspection"
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>
-                    Generated Work Order Title
-                  </label>
+                  <label className={labelClass}>Generated Work Order Title</label>
                   <input
                     type="text"
                     className={inputClass}
@@ -641,9 +602,7 @@ const CreatePMModal = ({
                 <textarea
                   className={`${inputClass} min-h-[90px]`}
                   value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Describe safety checks and procedures..."
                 />
               </div>
@@ -654,9 +613,7 @@ const CreatePMModal = ({
                   <select
                     className={inputClass}
                     value={formData.priority}
-                    onChange={(e) =>
-                      setFormData({ ...formData, priority: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                   >
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
@@ -669,13 +626,9 @@ const CreatePMModal = ({
                   <select
                     className={inputClass}
                     value={formData.category}
-                    onChange={(e) =>
-                      setFormData({ ...formData, category: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   >
-                    <option value="WEEKLY_MONTHLY_CHECKLISTS">
-                      Weekly/Monthly Checklists
-                    </option>
+                    <option value="WEEKLY_MONTHLY_CHECKLISTS">Weekly/Monthly Checklists</option>
                     <option value="ANNUAL_PREVENTIVE_MAINTENANCE">
                       Annual Preventive Maintenance
                     </option>
@@ -683,9 +636,7 @@ const CreatePMModal = ({
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>
-                    Estimated Duration (Hours)
-                  </label>
+                  <label className={labelClass}>Estimated Duration (Hours)</label>
                   <input
                     type="number"
                     step="0.5"
@@ -718,9 +669,7 @@ const CreatePMModal = ({
                       className="flex items-center gap-3 bg-white p-3 border border-gray-200 rounded-xl shadow-sm"
                     >
                       <div className="w-4 h-4 rounded border-2 border-purple-500 bg-purple-50"></div>
-                      <span className="text-sm font-medium flex-1 text-gray-800">
-                        {task.text}
-                      </span>
+                      <span className="text-sm font-medium flex-1 text-gray-800">{task.text}</span>
                       <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-bold">
                         {task.type}
                       </span>
@@ -739,9 +688,7 @@ const CreatePMModal = ({
                     type="text"
                     value={newTaskText}
                     onChange={(e) => setNewTaskText(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && (e.preventDefault(), handleAddTask())
-                    }
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTask())}
                     className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-600"
                     placeholder="Add checklist step..."
                   />
@@ -764,8 +711,8 @@ const CreatePMModal = ({
                   Calendar Recurrence Engine
                 </h3>
                 <p className="text-xs text-purple-700 mb-6">
-                  Configure how often this preventive maintenance triggers new
-                  work orders automatically.
+                  Configure how often this preventive maintenance triggers new work orders
+                  automatically.
                 </p>
 
                 <div className="grid grid-cols-2 gap-6">
@@ -968,11 +915,7 @@ const CreatePMModal = ({
               {activeTab !== "details" && (
                 <button
                   type="button"
-                  onClick={() =>
-                    setActiveTab(
-                      activeTab === "assets" ? "schedule" : "details",
-                    )
-                  }
+                  onClick={() => setActiveTab(activeTab === "assets" ? "schedule" : "details")}
                   className="px-6 py-3 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold transition-all"
                 >
                   Back
@@ -981,11 +924,7 @@ const CreatePMModal = ({
               {activeTab !== "assets" ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    setActiveTab(
-                      activeTab === "details" ? "schedule" : "assets",
-                    )
-                  }
+                  onClick={() => setActiveTab(activeTab === "details" ? "schedule" : "assets")}
                   className="px-8 py-3 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-black shadow-md transition-all flex items-center gap-2"
                 >
                   Next Step <ArrowRight className="w-4 h-4" />

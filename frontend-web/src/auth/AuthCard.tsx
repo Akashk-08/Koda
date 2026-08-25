@@ -60,9 +60,7 @@ const AuthCard = ({ onAuthSuccess }: AuthCardProps) => {
             <span className="text-white font-bold text-xl">PW</span>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">
-            {isLogin
-              ? "Sign in to Pulseworks CMMS"
-              : "Create your Pulseworks CMMS account"}
+            {isLogin ? "Sign in to Pulseworks CMMS" : "Create your Pulseworks CMMS account"}
           </h2>
           <p className="text-sm text-gray-500 mt-1">
             {isLogin ? "Enter your details below to continue" : "."}
@@ -99,31 +97,23 @@ const AuthCard = ({ onAuthSuccess }: AuthCardProps) => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    First Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                   <input
                     required
                     className="w-full p-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
                     type="text"
                     placeholder="First Name"
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                   <input
                     required
                     className="w-full p-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
                     type="text"
                     placeholder="Last Name"
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   />
                 </div>
               </div>
@@ -132,32 +122,24 @@ const AuthCard = ({ onAuthSuccess }: AuthCardProps) => {
 
           {/* SHARED FIELDS (Email & Password) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Work Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Work Email</label>
             <input
               required
               className="w-full p-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
               type="email"
               placeholder="name@company.com"
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               required
               className="w-full p-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
               type="password"
               placeholder="••••••••"
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
           </div>
 
@@ -172,9 +154,7 @@ const AuthCard = ({ onAuthSuccess }: AuthCardProps) => {
                 className="w-full p-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
                 type="password"
                 placeholder="••••••••"
-                onChange={(e) =>
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               />
             </div>
           )}

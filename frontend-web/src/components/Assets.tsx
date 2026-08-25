@@ -40,16 +40,14 @@ const CATEGORIES = [
 const Assets = ({ user }: any) => {
   const navigate = useNavigate();
   const [assets, setAssets] = useState<any[]>([]);
-  const [orgParts, setOrgParts] = useState<any[]>([]); // Holds inventory catalog
-  const [orgLocations, setOrgLocations] = useState<any[]>([]); // Holds location list
+  const [orgParts, setOrgParts] = useState<any[]>([]);
+  const [orgLocations, setOrgLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const API_URL = "192.168.1.92:8080";
+  const API_URL = import.meta.env.VITE_API_URL;
 
   // Filtering & Search
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    "ALL" | "OPERATIONAL" | "DAMAGED"
-  >("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "OPERATIONAL" | "DAMAGED">("ALL");
 
   // UI States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -61,12 +59,7 @@ const Assets = ({ user }: any) => {
   const [isCompletingWO, setIsCompletingWO] = useState(false);
 
   const [assetTab, setAssetTab] = useState<
-    | "DETAILS"
-    | "SUBASSETS"
-    | "RELIABILITY"
-    | "WORKORDERS"
-    | "PARTS"
-    | "ACTIVITY"
+    "DETAILS" | "SUBASSETS" | "RELIABILITY" | "WORKORDERS" | "PARTS" | "ACTIVITY"
   >("DETAILS");
 
   // QR Modal State
@@ -84,7 +77,6 @@ const Assets = ({ user }: any) => {
 
   const fetchData = async () => {
     try {
-      // NEW: Fetching Assets, Inventory Parts, and Locations simultaneously
       const [assetsRes, partsRes, locRes] = await Promise.all([
         fetch(`http://${API_URL}/api/assets?orgId=${user?.organizationId}`),
         fetch(`http://${API_URL}/api/inventory?orgId=${user?.organizationId}`),
@@ -95,9 +87,7 @@ const Assets = ({ user }: any) => {
         const freshAssets = await assetsRes.json();
         setAssets(freshAssets);
         if (selectedAsset) {
-          const updatedSelected = freshAssets.find(
-            (a: any) => a.id === selectedAsset.id,
-          );
+          const updatedSelected = freshAssets.find((a: any) => a.id === selectedAsset.id);
           if (updatedSelected) setSelectedAsset(updatedSelected);
         }
       }
@@ -117,7 +107,6 @@ const Assets = ({ user }: any) => {
 
   const handleRowClick = (asset: any) => {
     setSelectedAsset(asset);
-    // Initialize edit form arrays safely so they don't crash when searching
     setEditForm({
       ...asset,
       subassets: asset.subassets || [],
@@ -130,18 +119,9 @@ const Assets = ({ user }: any) => {
   const handleUpdateAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // 1. Strip out deep relations and read-only fields
-      const {
-        id,
-        workOrders,
-        organization,
-        createdAt,
-        updatedAt,
-        parentAsset, // Strip this too just in case!
-        ...safePayload
-      } = editForm;
+      const { id, workOrders, organization, createdAt, updatedAt, parentAsset, ...safePayload } =
+        editForm;
 
-      // 2. Wrap relation arrays in Prisma's required { set: [] } syntax
       safePayload.subassets = {
         set: editForm.subassets?.map((s: any) => ({ id: s.id })) || [],
       };
@@ -150,26 +130,19 @@ const Assets = ({ user }: any) => {
         set: editForm.parts?.map((p: any) => ({ id: p.id })) || [],
       };
 
-      // 3. Send the cleaned, Prisma-ready payload
-      const res = await fetch(
-        `http://${API_URL}/api/assets/${selectedAsset.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(safePayload),
-        },
-      );
+      const res = await fetch(`http://${API_URL}/api/assets/${selectedAsset.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(safePayload),
+      });
 
       if (res.ok) {
         setIsEditing(false);
         fetchData();
       } else {
-        // Capture the exact backend error message for easier debugging
         const errBody = await res.json().catch(() => ({}));
         console.error("Backend DB Error:", errBody);
-        alert(
-          `Failed to update asset. Check the console for exact Prisma error.`,
-        );
+        alert(`Failed to update asset.`);
       }
     } catch (err) {
       console.error(err);
@@ -199,14 +172,11 @@ const Assets = ({ user }: any) => {
     setIsCompletingWO(true);
     try {
       const payload = { ...previewWO, status: "COMPLETE" };
-      const res = await fetch(
-        `http://${API_URL}/api/workorders/${previewWO.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
+      const res = await fetch(`http://${API_URL}/api/workorders/${previewWO.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       if (res.ok) {
         const updatedWO = await res.json();
@@ -225,8 +195,7 @@ const Assets = ({ user }: any) => {
 
   const filteredAssets = assets.filter((asset) => {
     let matches = true;
-    if (statusFilter !== "ALL")
-      matches = matches && asset.status === statusFilter;
+    if (statusFilter !== "ALL") matches = matches && asset.status === statusFilter;
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       matches =
@@ -238,12 +207,10 @@ const Assets = ({ user }: any) => {
     return matches;
   });
 
-  const operationalCount = assets.filter(
-    (a) => a.status === "OPERATIONAL",
-  ).length;
+  const operationalCount = assets.filter((a) => a.status === "OPERATIONAL").length;
   const damagedCount = assets.filter((a) => a.status === "DAMAGED").length;
 
-  //  FULL SCREEN DETAIL VIEW
+  // FULL SCREEN DETAIL VIEW
   if (selectedAsset) {
     const relatedWorkOrders = selectedAsset.workOrders || [];
 
@@ -261,8 +228,7 @@ const Assets = ({ user }: any) => {
       }
       if (
         asset.updatedAt &&
-        new Date(asset.updatedAt).getTime() >
-          new Date(asset.createdAt).getTime() + 5000
+        new Date(asset.updatedAt).getTime() > new Date(asset.createdAt).getTime() + 5000
       ) {
         logs.push({
           id: "update",
@@ -283,9 +249,7 @@ const Assets = ({ user }: any) => {
             ) : (
               <Wrench className="w-4 h-4 text-orange-600" />
             ),
-            title: isMovement
-              ? "Asset Location Moved"
-              : `Work Order Opened: WO-${wo.id}`,
+            title: isMovement ? "Asset Location Moved" : `Work Order Opened: WO-${wo.id}`,
             subtitle: wo.title,
             date: new Date(wo.createdAt).getTime(),
             bgColor: isMovement
@@ -313,23 +277,22 @@ const Assets = ({ user }: any) => {
 
     return (
       <div className="flex flex-col h-full bg-gray-50 font-sans overflow-hidden relative">
-        {/* HEADER */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
-          <div className="flex items-center gap-4">
+        <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setSelectedAsset(null)}
               className="p-1.5 hover:bg-gray-100 rounded-md text-gray-500 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <span className="font-bold text-gray-900 text-lg">
+            <span className="font-bold text-gray-900 text-base md:text-lg truncate max-w-[200px] md:max-w-none">
               Asset: {selectedAsset.name}
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span
-              className={`px-3 py-1 rounded-lg text-xs font-bold ${selectedAsset.status === "OPERATIONAL" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}
+              className={`px-2.5 py-1 rounded-lg text-[10px] md:text-xs font-bold ${selectedAsset.status === "OPERATIONAL" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}
             >
               {selectedAsset.status}
             </span>
@@ -343,33 +306,25 @@ const Assets = ({ user }: any) => {
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden pb-20 md:pb-0">
           <div className="flex-1 flex flex-col bg-white overflow-hidden">
-            {/* Title / Edit Area */}
-            <div className="px-10 pt-8 pb-6 shrink-0 relative border-b border-gray-100">
+            <div className="px-6 md:px-10 pt-6 md:pt-8 pb-6 shrink-0 relative border-b border-gray-100">
               {isEditing ? (
-                <form
-                  onSubmit={handleUpdateAsset}
-                  className="space-y-4 max-w-4xl"
-                >
+                <form onSubmit={handleUpdateAsset} className="space-y-4 max-w-4xl">
                   <input
-                    className="w-full text-2xl font-black text-gray-900 border border-blue-300 rounded-lg p-3 outline-none bg-blue-50/30 shadow-sm focus:ring-2 focus:ring-blue-600 transition-all"
+                    className="w-full text-xl md:text-2xl font-black text-gray-900 border border-blue-300 rounded-lg p-3 outline-none bg-blue-50/35 shadow-sm focus:ring-2 focus:ring-blue-600 transition-all"
                     value={editForm.name || ""}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, name: e.target.value })
-                    }
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   />
                   <textarea
-                    className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-3 outline-none min-h-[100px] bg-blue-50/30 shadow-sm focus:ring-2 focus:ring-blue-600 transition-all"
+                    className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-3 outline-none min-h-[90px] bg-blue-50/35 shadow-sm focus:ring-2 focus:ring-blue-600 transition-all"
                     value={editForm.description || ""}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, description: e.target.value })
-                    }
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   />
                   <div className="flex gap-3">
                     <button
                       type="submit"
-                      className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md hover:shadow-lg transition-all active:scale-95"
+                      className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md transition-all active:scale-95"
                     >
                       Save All Changes
                     </button>
@@ -377,7 +332,7 @@ const Assets = ({ user }: any) => {
                       type="button"
                       onClick={() => {
                         setIsEditing(false);
-                        setEditForm({ ...selectedAsset }); // Reset changes if cancelled
+                        setEditForm({ ...selectedAsset });
                       }}
                       className="bg-gray-100 text-gray-600 px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors"
                     >
@@ -386,9 +341,9 @@ const Assets = ({ user }: any) => {
                   </div>
                 </form>
               ) : (
-                <div className="flex justify-between items-start max-w-4xl">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4 max-w-4xl">
                   <div>
-                    <h1 className="text-2xl font-black text-gray-900 mb-1">
+                    <h1 className="text-xl md:text-2xl font-black text-gray-900 mb-1">
                       {selectedAsset.name}
                     </h1>
                     <p className="text-sm text-gray-500 whitespace-pre-wrap">
@@ -397,7 +352,7 @@ const Assets = ({ user }: any) => {
                   </div>
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                   >
                     <Pencil className="w-4 h-4" /> Edit Asset
                   </button>
@@ -406,43 +361,33 @@ const Assets = ({ user }: any) => {
             </div>
 
             {/* Tabs */}
-            <div className="px-10 border-b border-gray-200 flex gap-8 shrink-0">
-              {[
-                "DETAILS",
-                "SUBASSETS",
-                "RELIABILITY",
-                "WORKORDERS",
-                "PARTS",
-                "ACTIVITY",
-              ].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setAssetTab(tab as any)}
-                  className={`pb-3 text-sm font-bold tracking-wide transition-colors relative ${assetTab === tab ? "text-blue-600" : "text-gray-500 hover:text-gray-900"}`}
-                >
-                  {tab === "WORKORDERS"
-                    ? "Work Orders"
-                    : tab.charAt(0) + tab.slice(1).toLowerCase()}
-                  {assetTab === tab && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>
-                  )}
-                </button>
-              ))}
+            <div className="px-6 md:px-10 border-b border-gray-200 flex gap-6 md:gap-8 shrink-0 overflow-x-auto no-scrollbar">
+              {["DETAILS", "SUBASSETS", "RELIABILITY", "WORKORDERS", "PARTS", "ACTIVITY"].map(
+                (tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setAssetTab(tab as any)}
+                    className={`pb-3 text-sm font-bold tracking-wide transition-colors relative whitespace-nowrap ${assetTab === tab ? "text-blue-600" : "text-gray-500 hover:text-gray-900"}`}
+                  >
+                    {tab === "WORKORDERS"
+                      ? "Work Orders"
+                      : tab.charAt(0) + tab.slice(1).toLowerCase()}
+                    {assetTab === tab && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>
+                    )}
+                  </button>
+                ),
+              )}
             </div>
 
             {/* Tab Contents */}
-            <div className="flex-1 overflow-y-auto px-10 py-8 bg-white">
-              {/*  UPDATED: DETAILS TAB (WITH EDIT MODE)  */}
+            <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 bg-white">
               {assetTab === "DETAILS" && (
                 <div className="max-w-3xl space-y-4">
-                  <h3 className="text-base font-bold text-gray-900 mb-4">
-                    Asset Specifications
-                  </h3>
+                  <h3 className="text-base font-bold text-gray-900 mb-4">Asset Specifications</h3>
                   <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100">
-                    <div className="flex items-center py-3 px-6 bg-gray-50/30">
-                      <div className="w-48 text-xs font-bold text-gray-500">
-                        LOCATION
-                      </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center py-3 px-4 sm:px-6 bg-gray-50/30 gap-1 sm:gap-0">
+                      <div className="w-full sm:w-48 text-xs font-bold text-gray-500">LOCATION</div>
                       <div className="flex-1 text-sm font-medium text-gray-900">
                         {isEditing ? (
                           <select
@@ -453,7 +398,7 @@ const Assets = ({ user }: any) => {
                                 locationName: e.target.value,
                               })
                             }
-                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-white"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none bg-white"
                           >
                             <option value="">Select location...</option>
                             {orgLocations.map((loc: any) => (
@@ -468,10 +413,8 @@ const Assets = ({ user }: any) => {
                       </div>
                     </div>
 
-                    <div className="flex items-center py-3 px-6 bg-gray-50/30">
-                      <div className="w-48 text-xs font-bold text-gray-500">
-                        CATEGORY
-                      </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center py-3 px-4 sm:px-6 bg-gray-50/30 gap-1 sm:gap-0">
+                      <div className="w-full sm:w-48 text-xs font-bold text-gray-500">CATEGORY</div>
                       <div className="flex-1 text-sm font-medium text-gray-900">
                         {isEditing ? (
                           <select
@@ -482,7 +425,7 @@ const Assets = ({ user }: any) => {
                                 category: e.target.value,
                               })
                             }
-                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-white"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none bg-white"
                           >
                             <option value="">Select category...</option>
                             {CATEGORIES.map((cat) => (
@@ -497,8 +440,8 @@ const Assets = ({ user }: any) => {
                       </div>
                     </div>
 
-                    <div className="flex items-center py-3 px-6 bg-gray-50/30">
-                      <div className="w-48 text-xs font-bold text-gray-500">
+                    <div className="flex flex-col sm:flex-row sm:items-center py-3 px-4 sm:px-6 bg-gray-50/30 gap-1 sm:gap-0">
+                      <div className="w-full sm:w-48 text-xs font-bold text-gray-500">
                         SERIAL NUMBER
                       </div>
                       <div className="flex-1 text-sm font-mono font-medium text-gray-900">
@@ -512,7 +455,7 @@ const Assets = ({ user }: any) => {
                                 serialNumber: e.target.value,
                               })
                             }
-                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none font-mono"
                           />
                         ) : (
                           selectedAsset.serialNumber || "—"
@@ -520,10 +463,8 @@ const Assets = ({ user }: any) => {
                       </div>
                     </div>
 
-                    <div className="flex items-center py-3 px-6 bg-gray-50/30">
-                      <div className="w-48 text-xs font-bold text-gray-500">
-                        BARCODE
-                      </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center py-3 px-4 sm:px-6 bg-gray-50/30 gap-1 sm:gap-0">
+                      <div className="w-full sm:w-48 text-xs font-bold text-gray-500">BARCODE</div>
                       <div className="flex-1 text-sm font-mono font-medium text-gray-900">
                         {isEditing ? (
                           <input
@@ -535,7 +476,7 @@ const Assets = ({ user }: any) => {
                                 barcode: e.target.value,
                               })
                             }
-                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none font-mono"
                           />
                         ) : (
                           selectedAsset.barcode || "—"
@@ -543,10 +484,8 @@ const Assets = ({ user }: any) => {
                       </div>
                     </div>
 
-                    <div className="flex items-center py-3 px-6 bg-gray-50/30">
-                      <div className="w-48 text-xs font-bold text-gray-500">
-                        MODEL
-                      </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center py-3 px-4 sm:px-6 bg-gray-50/30 gap-1 sm:gap-0">
+                      <div className="w-full sm:w-48 text-xs font-bold text-gray-500">MODEL</div>
                       <div className="flex-1 text-sm font-medium text-gray-900">
                         {isEditing ? (
                           <input
@@ -558,7 +497,7 @@ const Assets = ({ user }: any) => {
                                 model: e.target.value,
                               })
                             }
-                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 outline-none"
                           />
                         ) : (
                           selectedAsset.model || "—"
@@ -569,7 +508,6 @@ const Assets = ({ user }: any) => {
                 </div>
               )}
 
-              {/*  UPDATED: SUBASSETS TAB (WITH SEARCH AND LINKING)  */}
               {assetTab === "SUBASSETS" && (
                 <div className="max-w-3xl space-y-4">
                   {isEditing && (
@@ -587,11 +525,9 @@ const Assets = ({ user }: any) => {
                             setIsSubDropdownOpen(true);
                           }}
                           onFocus={() => setIsSubDropdownOpen(true)}
-                          onBlur={() =>
-                            setTimeout(() => setIsSubDropdownOpen(false), 200)
-                          }
+                          onBlur={() => setTimeout(() => setIsSubDropdownOpen(false), 200)}
                           placeholder="Search assets by name or barcode..."
-                          className="w-full pl-10 pr-4 py-2.5 border border-blue-200 shadow-sm rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-600 outline-none transition-all"
+                          className="w-full pl-10 pr-4 py-2.5 border border-blue-200 shadow-sm rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-600 outline-none"
                         />
                         {isSubDropdownOpen && subassetSearch && (
                           <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 shadow-2xl rounded-xl z-20 max-h-48 overflow-y-auto">
@@ -599,9 +535,7 @@ const Assets = ({ user }: any) => {
                               .filter(
                                 (a) =>
                                   a.id !== selectedAsset.id &&
-                                  (a.name
-                                    ?.toLowerCase()
-                                    .includes(subassetSearch.toLowerCase()) ||
+                                  (a.name?.toLowerCase().includes(subassetSearch.toLowerCase()) ||
                                     a.barcode
                                       ?.toLowerCase()
                                       .includes(subassetSearch.toLowerCase())),
@@ -611,27 +545,18 @@ const Assets = ({ user }: any) => {
                                   type="button"
                                   key={a.id}
                                   onClick={() => {
-                                    if (
-                                      !editForm.subassets?.find(
-                                        (s: any) => s.id === a.id,
-                                      )
-                                    ) {
+                                    if (!editForm.subassets?.find((s: any) => s.id === a.id)) {
                                       setEditForm({
                                         ...editForm,
-                                        subassets: [
-                                          ...(editForm.subassets || []),
-                                          a,
-                                        ],
+                                        subassets: [...(editForm.subassets || []), a],
                                       });
                                     }
                                     setSubassetSearch("");
                                     setIsSubDropdownOpen(false);
                                   }}
-                                  className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-50 last:border-0 flex justify-between items-center transition-colors"
+                                  className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-50 flex justify-between items-center"
                                 >
-                                  <span className="text-sm font-bold text-gray-900">
-                                    {a.name}
-                                  </span>
+                                  <span className="text-sm font-bold text-gray-900">{a.name}</span>
                                   <span className="text-xs font-mono font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
                                     {a.barcode || "N/A"}
                                   </span>
@@ -643,46 +568,40 @@ const Assets = ({ user }: any) => {
                     </div>
                   )}
 
-                  <h3 className="text-base font-bold text-gray-900 mb-4">
-                    Linked Subassets
-                  </h3>
-                  {(isEditing ? editForm.subassets : selectedAsset.subassets)
-                    ?.length > 0 ? (
+                  <h3 className="text-base font-bold text-gray-900 mb-4">Linked Subassets</h3>
+                  {(isEditing ? editForm.subassets : selectedAsset.subassets)?.length > 0 ? (
                     <div className="space-y-3">
-                      {(isEditing
-                        ? editForm.subassets
-                        : selectedAsset.subassets
-                      ).map((sub: any) => (
-                        <div
-                          key={sub.id}
-                          className="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-white shadow-sm hover:border-blue-300 transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-50 rounded-lg">
-                              <Layers className="w-5 h-5 text-blue-600" />
+                      {(isEditing ? editForm.subassets : selectedAsset.subassets).map(
+                        (sub: any) => (
+                          <div
+                            key={sub.id}
+                            className="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-white shadow-sm"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-blue-50 rounded-lg">
+                                <Layers className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <span className="font-bold text-sm text-gray-900">{sub.name}</span>
                             </div>
-                            <span className="font-bold text-sm text-gray-900">
-                              {sub.name}
-                            </span>
+                            {isEditing && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditForm({
+                                    ...editForm,
+                                    subassets: editForm.subassets.filter(
+                                      (s: any) => s.id !== sub.id,
+                                    ),
+                                  });
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
-                          {isEditing && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditForm({
-                                  ...editForm,
-                                  subassets: editForm.subassets.filter(
-                                    (s: any) => s.id !== sub.id,
-                                  ),
-                                });
-                              }}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                        ),
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
@@ -695,7 +614,6 @@ const Assets = ({ user }: any) => {
                 </div>
               )}
 
-              {/*  UPDATED: PARTS TAB (WITH SEARCH AND LINKING)  */}
               {assetTab === "PARTS" && (
                 <div className="max-w-3xl space-y-4">
                   {isEditing && (
@@ -713,30 +631,22 @@ const Assets = ({ user }: any) => {
                             setIsPartDropdownOpen(true);
                           }}
                           onFocus={() => setIsPartDropdownOpen(true)}
-                          onBlur={() =>
-                            setTimeout(() => setIsPartDropdownOpen(false), 200)
-                          }
+                          onBlur={() => setTimeout(() => setIsPartDropdownOpen(false), 200)}
                           placeholder="Search parts catalog by name..."
-                          className="w-full pl-10 pr-4 py-2.5 border border-blue-200 shadow-sm rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-600 outline-none transition-all"
+                          className="w-full pl-10 pr-4 py-2.5 border border-blue-200 shadow-sm rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-600 outline-none"
                         />
                         {isPartDropdownOpen && partSearch && (
                           <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 shadow-2xl rounded-xl z-20 max-h-48 overflow-y-auto">
                             {orgParts
                               .filter((p) =>
-                                p.name
-                                  ?.toLowerCase()
-                                  .includes(partSearch.toLowerCase()),
+                                p.name?.toLowerCase().includes(partSearch.toLowerCase()),
                               )
                               .map((p) => (
                                 <button
                                   type="button"
                                   key={p.id}
                                   onClick={() => {
-                                    if (
-                                      !editForm.parts?.find(
-                                        (x: any) => x.id === p.id,
-                                      )
-                                    ) {
+                                    if (!editForm.parts?.find((x: any) => x.id === p.id)) {
                                       setEditForm({
                                         ...editForm,
                                         parts: [...(editForm.parts || []), p],
@@ -745,11 +655,9 @@ const Assets = ({ user }: any) => {
                                     setPartSearch("");
                                     setIsPartDropdownOpen(false);
                                   }}
-                                  className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-50 last:border-0 flex justify-between items-center transition-colors"
+                                  className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-50 flex justify-between items-center"
                                 >
-                                  <span className="text-sm font-bold text-gray-900">
-                                    {p.name}
-                                  </span>
+                                  <span className="text-sm font-bold text-gray-900">{p.name}</span>
                                   <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded">
                                     In Stock: {p.availableQty || 0}
                                   </span>
@@ -761,45 +669,36 @@ const Assets = ({ user }: any) => {
                     </div>
                   )}
 
-                  <h3 className="text-base font-bold text-gray-900 mb-4">
-                    Assigned Parts
-                  </h3>
-                  {(isEditing ? editForm.parts : selectedAsset.parts)?.length >
-                  0 ? (
+                  <h3 className="text-base font-bold text-gray-900 mb-4">Assigned Parts</h3>
+                  {(isEditing ? editForm.parts : selectedAsset.parts)?.length > 0 ? (
                     <div className="space-y-3">
-                      {(isEditing ? editForm.parts : selectedAsset.parts).map(
-                        (p: any) => (
-                          <div
-                            key={p.id}
-                            className="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-white shadow-sm hover:border-blue-300 transition-colors"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-blue-50 rounded-lg">
-                                <Box className="w-5 h-5 text-blue-600" />
-                              </div>
-                              <span className="font-bold text-sm text-gray-900">
-                                {p.name}
-                              </span>
+                      {(isEditing ? editForm.parts : selectedAsset.parts).map((p: any) => (
+                        <div
+                          key={p.id}
+                          className="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-white shadow-sm"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-50 rounded-lg">
+                              <Box className="w-5 h-5 text-blue-600" />
                             </div>
-                            {isEditing && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditForm({
-                                    ...editForm,
-                                    parts: editForm.parts.filter(
-                                      (x: any) => x.id !== p.id,
-                                    ),
-                                  });
-                                }}
-                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
+                            <span className="font-bold text-sm text-gray-900">{p.name}</span>
                           </div>
-                        ),
-                      )}
+                          {isEditing && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditForm({
+                                  ...editForm,
+                                  parts: editForm.parts.filter((x: any) => x.id !== p.id),
+                                });
+                              }}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
@@ -812,14 +711,11 @@ const Assets = ({ user }: any) => {
                 </div>
               )}
 
-              {/*  UPDATED: RELIABILITY TAB (WITH EDIT MODE)  */}
               {assetTab === "RELIABILITY" && (
                 <div className="max-w-3xl space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-base font-bold text-gray-900">
-                      Uptime & Reliability Metrics
-                    </h3>
-                  </div>
+                  <h3 className="text-base font-bold text-gray-900">
+                    Uptime & Reliability Metrics
+                  </h3>
 
                   {isEditing && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/30 p-5 rounded-2xl border border-blue-100 mb-6">
@@ -831,10 +727,8 @@ const Assets = ({ user }: any) => {
                           type="text"
                           placeholder="e.g. 99.8%"
                           value={editForm.uptime || ""}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, uptime: e.target.value })
-                          }
-                          className="w-full border border-blue-200 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-600"
+                          onChange={(e) => setEditForm({ ...editForm, uptime: e.target.value })}
+                          className="w-full border border-blue-200 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold outline-none"
                         />
                       </div>
                       <div>
@@ -851,7 +745,7 @@ const Assets = ({ user }: any) => {
                               downtime: e.target.value,
                             })
                           }
-                          className="w-full border border-blue-200 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-600"
+                          className="w-full border border-blue-200 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold outline-none"
                         />
                       </div>
                       <div>
@@ -868,20 +762,19 @@ const Assets = ({ user }: any) => {
                               reliabilityScore: e.target.value,
                             })
                           }
-                          className="w-full border border-blue-200 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-600"
+                          className="w-full border border-blue-200 shadow-sm rounded-xl px-4 py-2.5 text-sm font-bold outline-none"
                         />
                       </div>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-6 bg-green-50 border border-green-100 rounded-xl shadow-sm">
                       <span className="text-xs font-bold text-green-700 uppercase tracking-wider">
                         Uptime Recorded
                       </span>
                       <h4 className="text-3xl font-black text-green-800 mt-1">
-                        {(isEditing ? editForm.uptime : selectedAsset.uptime) ||
-                          "100%"}
+                        {(isEditing ? editForm.uptime : selectedAsset.uptime) || "100%"}
                       </h4>
                     </div>
                     <div className="p-6 bg-orange-50 border border-orange-100 rounded-xl shadow-sm">
@@ -889,32 +782,26 @@ const Assets = ({ user }: any) => {
                         Downtime Recorded
                       </span>
                       <h4 className="text-3xl font-black text-orange-800 mt-1">
-                        {(isEditing
-                          ? editForm.downtime
-                          : selectedAsset.downtime) || "0 hrs"}
+                        {(isEditing ? editForm.downtime : selectedAsset.downtime) || "0 hrs"}
                       </h4>
                     </div>
-                    <div className="p-6 bg-blue-50 border border-blue-100 rounded-xl col-span-2 shadow-sm">
+                    <div className="p-6 bg-blue-50 border border-blue-100 rounded-xl sm:col-span-2 shadow-sm">
                       <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
                         Reliability Score
                       </span>
                       <h4 className="text-3xl font-black text-blue-800 mt-1">
-                        {(isEditing
-                          ? editForm.reliabilityScore
-                          : selectedAsset.reliabilityScore) || "A+"}
+                        {(isEditing ? editForm.reliabilityScore : selectedAsset.reliabilityScore) ||
+                          "A+"}
                       </h4>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* WORK ORDERS TAB */}
               {assetTab === "WORKORDERS" && (
                 <div className="max-w-3xl space-y-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-base font-bold text-gray-900">
-                      Related Work Orders
-                    </h3>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                    <h3 className="text-base font-bold text-gray-900">Related Work Orders</h3>
                     <button
                       onClick={() => setIsCreateWOModalOpen(true)}
                       className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95"
@@ -951,14 +838,11 @@ const Assets = ({ user }: any) => {
                 </div>
               )}
 
-              {/* ACTIVITY LOG TAB */}
               {assetTab === "ACTIVITY" && (
                 <div className="max-w-3xl space-y-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-base font-bold text-gray-900">
-                      Asset History & Timeline
-                    </h3>
-                  </div>
+                  <h3 className="text-base font-bold text-gray-900 mb-2">
+                    Asset History & Timeline
+                  </h3>
 
                   <div className="space-y-3">
                     {generateActivityLog(selectedAsset).map((log) => (
@@ -966,15 +850,11 @@ const Assets = ({ user }: any) => {
                         key={log.id}
                         className={`p-4 border rounded-xl flex items-start gap-4 transition-all shadow-sm ${log.bgColor}`}
                       >
-                        <div
-                          className={`mt-0.5 p-2 rounded-lg border shadow-sm ${log.iconBg}`}
-                        >
+                        <div className={`mt-0.5 p-2 rounded-lg border shadow-sm ${log.iconBg}`}>
                           {log.icon}
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-gray-900">
-                            {log.title}
-                          </p>
+                          <p className="text-sm font-bold text-gray-900">{log.title}</p>
                           {log.subtitle && (
                             <p className="text-[13px] font-medium text-gray-600 mt-0.5">
                               {log.subtitle}
@@ -988,9 +868,7 @@ const Assets = ({ user }: any) => {
                     ))}
 
                     {generateActivityLog(selectedAsset).length === 0 && (
-                      <p className="text-gray-500 text-sm">
-                        No activity recorded yet.
-                      </p>
+                      <p className="text-gray-500 text-sm">No activity recorded yet.</p>
                     )}
                   </div>
                 </div>
@@ -1010,15 +888,12 @@ const Assets = ({ user }: any) => {
           }}
         />
 
-        {/* WORK ORDER QUICK VIEW MODAL */}
         {previewWO && (
           <div className="absolute inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-2xl rounded-[20px] shadow-2xl flex flex-col overflow-hidden transform transition-all">
+            <div className="bg-white w-full max-w-2xl rounded-[20px] shadow-2xl flex flex-col overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                 <div>
-                  <h3 className="text-lg font-black text-gray-900">
-                    WO-{previewWO.id}
-                  </h3>
+                  <h3 className="text-lg font-black text-gray-900">WO-{previewWO.id}</h3>
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-md mt-1 inline-block uppercase tracking-wider ${previewWO.status === "OPEN" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}
                   >
@@ -1027,7 +902,7 @@ const Assets = ({ user }: any) => {
                 </div>
                 <button
                   onClick={() => setPreviewWO(null)}
-                  className="p-2 text-gray-400 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-full transition-colors shadow-sm border border-gray-200"
+                  className="p-2 text-gray-400 hover:text-gray-900 bg-white rounded-full shadow-sm border border-gray-200"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1038,11 +913,8 @@ const Assets = ({ user }: any) => {
                   <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
                     Title
                   </h4>
-                  <p className="text-sm font-bold text-gray-900">
-                    {previewWO.title}
-                  </p>
+                  <p className="text-sm font-bold text-gray-900">{previewWO.title}</p>
                 </div>
-
                 {previewWO.description && (
                   <div>
                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
@@ -1053,59 +925,25 @@ const Assets = ({ user }: any) => {
                     </p>
                   </div>
                 )}
-
-                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <div>
-                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                      Priority
-                    </h4>
-                    <p className="text-sm font-medium text-gray-900">
-                      {previewWO.priority || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                      Date Created
-                    </h4>
-                    <p className="text-sm font-medium text-gray-900">
-                      {new Date(
-                        previewWO.createdAt || Date.now(),
-                      ).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
+              <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100 pb-8 md:pb-4">
                 <button
                   onClick={() => setPreviewWO(null)}
-                  className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-200 bg-gray-100 rounded-xl transition-colors"
+                  className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-200 bg-gray-100 rounded-xl"
                 >
                   Close
                 </button>
-
                 {previewWO.status !== "COMPLETE" && (
                   <button
                     onClick={handleQuickCompleteWO}
                     disabled={isCompletingWO}
-                    className="px-5 py-2.5 text-sm font-extrabold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
+                    className="px-5 py-2.5 text-sm font-extrabold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-md flex items-center gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     {isCompletingWO ? "Updating..." : "Mark Complete"}
                   </button>
                 )}
-
-                <button
-                  onClick={() =>
-                    window.open(
-                      `/workspace/workorder/${previewWO.id}`,
-                      "_blank",
-                    )
-                  }
-                  className="px-6 py-2.5 text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
-                >
-                  Open Full Screen <ExternalLink className="w-4 h-4" />
-                </button>
               </div>
             </div>
           </div>
@@ -1115,22 +953,20 @@ const Assets = ({ user }: any) => {
   }
 
   return (
-    <main className="flex-1 flex flex-col h-full bg-gray-50 overflow-hidden font-sans">
-      <div className="p-8 pb-0 shrink-0">
+    <main className="flex-1 flex flex-col h-full bg-gray-50 overflow-hidden font-sans pb-20 md:pb-0">
+      <div className="p-4 md:p-8 pb-0 shrink-0">
         <div className="flex justify-between items-end mb-6">
           <div>
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-              Assets
-            </h1>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Assets</h1>
 
-            <div className="flex gap-6 mt-4 text-sm font-bold border-b border-gray-200">
+            <div className="flex gap-4 md:gap-6 mt-4 text-xs md:text-sm font-bold border-b border-gray-200 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setStatusFilter("ALL")}
-                className={`pb-3 relative transition-colors ${statusFilter === "ALL" ? "text-blue-600" : "text-gray-500 hover:text-gray-900"}`}
+                className={`pb-3 relative transition-colors whitespace-nowrap ${statusFilter === "ALL" ? "text-blue-600" : "text-gray-500 hover:text-gray-900"}`}
               >
                 Total assets{" "}
                 <span
-                  className={`ml-1.5 px-2 py-0.5 rounded-full text-[11px] ${statusFilter === "ALL" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                  className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] md:text-[11px] ${statusFilter === "ALL" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
                 >
                   {assets.length}
                 </span>
@@ -1141,11 +977,11 @@ const Assets = ({ user }: any) => {
 
               <button
                 onClick={() => setStatusFilter("OPERATIONAL")}
-                className={`pb-3 relative transition-colors ${statusFilter === "OPERATIONAL" ? "text-green-600" : "text-gray-500 hover:text-gray-900"}`}
+                className={`pb-3 relative transition-colors whitespace-nowrap ${statusFilter === "OPERATIONAL" ? "text-green-600" : "text-gray-500 hover:text-gray-900"}`}
               >
                 Operational{" "}
                 <span
-                  className={`ml-1.5 px-2 py-0.5 rounded-full text-[11px] ${statusFilter === "OPERATIONAL" ? "bg-green-100 text-green-700" : "bg-green-50 text-green-600"}`}
+                  className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] md:text-[11px] ${statusFilter === "OPERATIONAL" ? "bg-green-100 text-green-700" : "bg-green-50 text-green-600"}`}
                 >
                   {operationalCount}
                 </span>
@@ -1156,11 +992,11 @@ const Assets = ({ user }: any) => {
 
               <button
                 onClick={() => setStatusFilter("DAMAGED")}
-                className={`pb-3 relative transition-colors ${statusFilter === "DAMAGED" ? "text-red-600" : "text-gray-500 hover:text-gray-900"}`}
+                className={`pb-3 relative transition-colors whitespace-nowrap ${statusFilter === "DAMAGED" ? "text-red-600" : "text-gray-500 hover:text-gray-900"}`}
               >
                 Not Operational{" "}
                 <span
-                  className={`ml-1.5 px-2 py-0.5 rounded-full text-[11px] ${statusFilter === "DAMAGED" ? "bg-red-100 text-red-700" : "bg-red-50 text-red-600"}`}
+                  className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] md:text-[11px] ${statusFilter === "DAMAGED" ? "bg-red-100 text-red-700" : "bg-red-50 text-red-600"}`}
                 >
                   {damagedCount}
                 </span>
@@ -1173,17 +1009,16 @@ const Assets = ({ user }: any) => {
 
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all"
+            className="hidden md:flex bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-2 rounded-xl text-sm font-bold items-center gap-2 shadow-sm transition-all"
           >
             <Plus className="w-4 h-4" /> Create Asset
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden px-8 pb-8 flex flex-col">
+      <div className="flex-1 overflow-auto px-4 md:px-8 pb-8 flex flex-col">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex-1 flex flex-col overflow-hidden">
-          {/* SEARCH BOX ON THE LEFT */}
-          <div className="p-4 border-b border-gray-100 flex justify-start bg-white shrink-0">
+          <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
             <div className="relative w-full max-w-md">
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
               <input
@@ -1191,126 +1026,181 @@ const Assets = ({ user }: any) => {
                 placeholder="Search by name, barcode, serial..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 bg-gray-50 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all shadow-sm"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 bg-gray-50 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all shadow-sm"
               />
             </div>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="md:hidden ml-3 bg-blue-600 text-white p-2.5 rounded-xl shadow-md shrink-0 flex items-center justify-center"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
           </div>
 
-          <div className="flex-1 overflow-auto bg-gray-50/30">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-white sticky top-0 z-10 shadow-sm">
-                <tr>
-                  <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
-                    Asset Name
-                  </th>
-                  <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
-                    Barcode
-                  </th>
-                  <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
-                    Serial Number
-                  </th>
-                  <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="text-center py-16 text-gray-500 font-medium"
-                    >
-                      Loading assets...
-                    </td>
-                  </tr>
-                ) : filteredAssets.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-20">
-                      <div className="mx-auto w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-3 border border-gray-100">
-                        <Box className="w-8 h-8 text-gray-300" />
-                      </div>
-                      <p className="text-gray-500 font-medium">
-                        No assets found matching your criteria.
-                      </p>
-                      <button
-                        onClick={() => {
-                          setSearchQuery("");
-                          setStatusFilter("ALL");
-                        }}
-                        className="mt-3 text-sm text-blue-600 font-bold hover:underline"
-                      >
-                        Clear search
-                      </button>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAssets.map((asset) => (
-                    <tr
+          <div className="flex-1 overflow-auto p-4 md:p-0 bg-gray-50/30">
+            {loading ? (
+              <div className="text-center py-16 text-gray-500 font-medium">Loading assets...</div>
+            ) : filteredAssets.length === 0 ? (
+              <div className="text-center py-20">
+                <div className="mx-auto w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-3 border border-gray-100">
+                  <Box className="w-8 h-8 text-gray-300" />
+                </div>
+                <p className="text-gray-500 font-medium">No assets found matching your criteria.</p>
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("ALL");
+                  }}
+                  className="mt-3 text-sm text-blue-600 font-bold hover:underline"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* MOBILE CARD VIEW */}
+                <div className="md:hidden space-y-4">
+                  {filteredAssets.map((asset) => (
+                    <div
                       key={asset.id}
                       onClick={() => handleRowClick(asset)}
-                      className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+                      className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col gap-3 cursor-pointer active:scale-[0.99] transition-all"
                     >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-blue-100 group-hover:scale-105 transition-transform">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-inner border border-blue-100">
                             <Box className="w-5 h-5" />
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-black text-gray-900 group-hover:text-blue-600 transition-colors truncate max-w-[220px]">
+                          <div>
+                            <h3 className="text-base font-extrabold text-gray-900 leading-snug">
                               {asset.name}
-                            </span>
-                            <span className="text-xs text-gray-400 font-medium truncate max-w-[220px]">
-                              {asset.category?.replace(/_/g, " ") ||
-                                "Uncategorized"}
+                            </h3>
+                            <span className="text-xs font-semibold text-gray-400">
+                              {asset.category?.replace(/_/g, " ") || "Uncategorized"}
                             </span>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600 font-semibold">
-                        {asset.locationName || "—"}
-                      </td>
 
-                      <td className="px-6 py-4 text-sm text-gray-500 font-mono bg-gray-50/50">
-                        <div className="flex items-center gap-3">
-                          <span>{asset.barcode || "—"}</span>
+                        {asset.status === "OPERATIONAL" ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
+                            Operational
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                            Damaged
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="bg-gray-50/60 p-3 rounded-xl border border-gray-100 space-y-1.5 text-xs text-gray-600">
+                        <div className="flex items-center">
+                          <MapPin className="w-3.5 h-3.5 mr-2 text-blue-500 shrink-0" />
+                          <span className="truncate">Location: {asset.locationName || "—"}</span>
+                        </div>
+                        <div className="flex justify-between pt-1 border-t border-gray-200/50">
+                          <span className="font-mono text-gray-500">
+                            Barcode: {asset.barcode || "—"}
+                          </span>
                           {(asset.barcode || asset.serialNumber) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedQrAsset(asset);
                               }}
-                              className="text-gray-400 hover:text-blue-600 transition-colors"
-                              title="View QR Code"
+                              className="text-blue-600 font-bold flex items-center gap-1"
                             >
-                              <QrCode className="w-5 h-5" />
+                              <QrCode className="w-4 h-4" /> QR
                             </button>
                           )}
                         </div>
-                      </td>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-                      <td className="px-6 py-4 text-sm text-gray-500 font-mono bg-gray-50/50">
-                        {asset.serialNumber || "—"}
-                      </td>
-                      <td className="px-6 py-4">
-                        {asset.status === "OPERATIONAL" ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-green-50 text-green-700 border border-green-200 shadow-sm">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Operational
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200 shadow-sm">
-                            <AlertCircle className="w-3.5 h-3.5" /> Damaged
-                          </span>
-                        )}
-                      </td>
+                {/* DESKTOP TABLE VIEW */}
+                <table className="hidden md:table min-w-full divide-y divide-gray-200">
+                  <thead className="bg-white sticky top-0 z-10 shadow-sm">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                        Asset Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                        Location
+                      </th>
+                      <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                        Barcode
+                      </th>
+                      <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                        Serial Number
+                      </th>
+                      <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                        Status
+                      </th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {filteredAssets.map((asset) => (
+                      <tr
+                        key={asset.id}
+                        onClick={() => handleRowClick(asset)}
+                        className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-blue-100 group-hover:scale-105 transition-transform">
+                              <Box className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-black text-gray-900 group-hover:text-blue-600 transition-colors truncate max-w-[220px]">
+                                {asset.name}
+                              </span>
+                              <span className="text-xs text-gray-400 font-medium truncate max-w-[220px]">
+                                {asset.category?.replace(/_/g, " ") || "Uncategorized"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 font-semibold">
+                          {asset.locationName || "—"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 font-mono bg-gray-50/50">
+                          <div className="flex items-center gap-3">
+                            <span>{asset.barcode || "—"}</span>
+                            {(asset.barcode || asset.serialNumber) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedQrAsset(asset);
+                                }}
+                                className="text-gray-400 hover:text-blue-600 transition-colors"
+                                title="View QR Code"
+                              >
+                                <QrCode className="w-5 h-5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 font-mono bg-gray-50/50">
+                          {asset.serialNumber || "—"}
+                        </td>
+                        <td className="px-6 py-4">
+                          {asset.status === "OPERATIONAL" ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-green-50 text-green-700 border border-green-200 shadow-sm">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Operational
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200 shadow-sm">
+                              <AlertCircle className="w-3.5 h-3.5" /> Damaged
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1322,13 +1212,12 @@ const Assets = ({ user }: any) => {
         onCreated={fetchData}
       />
 
-      {/* QR CODE MODAL OVERLAY */}
       {selectedQrAsset && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl relative w-full max-w-sm flex flex-col items-center p-8 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl relative w-full max-w-sm flex flex-col items-center p-8 animate-in fade-in zoom-in duration-200">
             <button
               onClick={() => setSelectedQrAsset(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-1 transition-colors"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1340,9 +1229,7 @@ const Assets = ({ user }: any) => {
 
             <AssetQRCode
               assetName={selectedQrAsset.name}
-              barcodeValue={
-                selectedQrAsset.barcode || selectedQrAsset.serialNumber
-              }
+              barcodeValue={selectedQrAsset.barcode || selectedQrAsset.serialNumber}
             />
           </div>
         </div>

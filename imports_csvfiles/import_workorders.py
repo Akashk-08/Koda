@@ -11,7 +11,7 @@ DB_CONFIG = {
     "port": "5434"
 }
 
-DEFAULT_ORG_ID = "5df74865-c2e6-43e9-a270-41dca24f32dc"
+DEFAULT_ORG_ID = "b263d052-265f-4da1-82c6-4706a7de9955"
 CSV_FILE_PATH = "upkeep-workorders.csv" 
 TABLE_NAME = "work_orders"
 
@@ -95,7 +95,14 @@ def import_workorders():
             matched_assignees = 0
             
             for row in reader:
-                row_dict = dict(zip(csv_headers, row))
+                # FIX: Slice the row to match the exact length of the headers to ignore trailing commas
+                safe_row = row[:len(csv_headers)]
+                
+                # If a row is shorter than the headers, pad it with empty strings
+                if len(safe_row) < len(csv_headers):
+                    safe_row.extend([''] * (len(csv_headers) - len(safe_row)))
+                    
+                row_dict = dict(zip(csv_headers, safe_row))
                 
                 # Title parsing (Required)
                 raw_title = row_dict.get("Work Order Title", "").strip()
@@ -107,10 +114,10 @@ def import_workorders():
                 priority = row_dict.get("Priority", "").strip().upper()
                 if priority not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]: priority = "MEDIUM"
 
+                # Status mapping logic updated to only accept OPEN, COMPLETE, and CLOSED
                 status = row_dict.get("Work Order Status", "").strip().upper().replace(" ", "_")
-                if status == "ON_HOLD": status = "onHOLD"
-                elif status == "COMPLETED": status = "COMPLETE"
-                if status not in ["OPEN", "IN_PROGRESS", "onHOLD", "COMPLETE", "REVIEW", "CLOSED"]: status = "OPEN"
+                if status == "COMPLETED": status = "COMPLETE"
+                if status not in ["OPEN", "COMPLETE", "CLOSED"]: status = "OPEN"
 
                 # Assignee mapping
                 assigned_email = row_dict.get("Assigned To Email", "").strip().lower()

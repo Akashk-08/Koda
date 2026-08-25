@@ -33,17 +33,9 @@ router.get("/", async (req, res) => {
 
 // CREATE A NEW TEAM (ADMIN ONLY)
 router.post("/", async (req, res) => {
-  const {
-    name,
-    description,
-    locationId,
-    organizationId,
-    userIds,
-    requesterId,
-  } = req.body;
+  const { name, description, locationId, organizationId, userIds, requesterId } = req.body;
 
   try {
-    // Security Check
     const requester = await prisma.user.findUnique({
       where: { id: requesterId },
     });
@@ -51,15 +43,16 @@ router.post("/", async (req, res) => {
       return res.status(403).json({ error: "Access denied. Admins only." });
     }
 
-    // Create the team and connect the selected users
+    const userConnections = Array.isArray(userIds) ? userIds.map((id: string) => ({ id })) : [];
+
     const newTeam = await prisma.team.create({
       data: {
         name,
         description,
         organizationId,
-        locationId,
+        locationId: locationId || null,
         users: {
-          connect: userIds.map((id: string) => ({ id })),
+          connect: userConnections,
         },
       },
       include: {
@@ -75,26 +68,24 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ADD USERS TO AN EXISTING TEAM (ADMIN ONLY)
-router.put("/:id/users", async (req, res) => {
+// UPDATE TEAM DETAILS (ADMIN ONLY) - FIXED TO SAVE LOCATION AND MEMBERS PROPERLY
+router.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const { userIds, requesterId } = req.body;
+  const { name, description, locationId, userIds } = req.body;
 
   try {
-    // Security Check
-    const requester = await prisma.user.findUnique({
-      where: { id: requesterId },
-    });
-    if (!requester || requester.role !== "ADMIN") {
-      return res.status(403).json({ error: "Access denied. Admins only." });
-    }
+    const userConnections = Array.isArray(userIds)
+      ? userIds.map((userId: string) => ({ id: userId }))
+      : [];
 
-    // Update the team by connecting the new users
     const updatedTeam = await prisma.team.update({
       where: { id },
       data: {
+        name,
+        description,
+        locationId: locationId || null,
         users: {
-          connect: userIds.map((userId: string) => ({ id: userId })),
+          set: userConnections,
         },
       },
       include: {
@@ -106,74 +97,25 @@ router.put("/:id/users", async (req, res) => {
     res.status(200).json(updatedTeam);
   } catch (error) {
     console.error("Error updating team:", error);
-    res.status(500).json({ error: "Failed to add team members" });
-  }
-});
-
-// UPDATE TEAM DETAILS (ADMIN ONLY)
-router.put("/:id", async (req, res) => {
-  const { id } = req.params;
-  const { name, description, memberIds } = req.body;
-
-  try {
-    // Ensure memberIds is an array, default to empty if not provided
-    const userConnections = Array.isArray(memberIds)
-      ? memberIds.map((userId: string) => ({ id: userId }))
-      : [];
-
-    const updatedTeam = await prisma.team.update({
-      where: { id },
-      data: {
-        name,
-        description,
-        // This 'set' command tells Prisma to replace the current members
-        // with the exact list of IDs sent from the frontend checklist
-        users: {
-          set: userConnections,
-        },
-      },
-      include: {
-        users: true, // Return the updated users list to the frontend
-      },
-    });
-
-    res.status(200).json(updatedTeam);
-  } catch (error) {
-    console.error("Error updating team:", error);
     res.status(500).json({ error: "Failed to update team" });
-  }
-});
-
-// DELETE a team
-router.delete("/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    await prisma.team.delete({
-      where: { id },
-    });
-    res.status(200).json({ message: "Team deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting team:", error);
-    res.status(500).json({ error: "Failed to delete team" });
   }
 });
 
 // DELETE A TEAM (ADMIN ONLY)
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  const { requesterId } = req.query; // Using query parameters for DELETE requests is best practice
+  const { requesterId } = req.query;
 
   try {
-    // Security Check
-    const requester = await prisma.user.findUnique({
-      where: { id: requesterId as string },
-    });
-    if (!requester || requester.role !== "ADMIN") {
-      return res.status(403).json({ error: "Access denied. Admins only." });
+    if (requesterId) {
+      const requester = await prisma.user.findUnique({
+        where: { id: requesterId as string },
+      });
+      if (!requester || requester.role !== "ADMIN") {
+        return res.status(403).json({ error: "Access denied. Admins only." });
+      }
     }
 
-    // Prisma automatically handles detaching the users when the team is deleted
     await prisma.team.delete({
       where: { id },
     });

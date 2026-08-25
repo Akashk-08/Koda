@@ -31,9 +31,7 @@ const Scheduler = ({ user }: any) => {
 
   // View & Filter States
   const [viewMode, setViewMode] = useState<"Day" | "Week">("Week");
-  const [currentDate, setCurrentDate] = useState(
-    new Date("2026-08-17T12:00:00"),
-  ); // Defaulting to your data date
+  const [currentDate, setCurrentDate] = useState(new Date("2026-08-17T12:00:00")); // Defaulting to your data date
   const [searchQuery, setSearchQuery] = useState("");
 
   // Editable Toolbar Filters
@@ -43,14 +41,13 @@ const Scheduler = ({ user }: any) => {
 
   // Centered Inspection Modal State
   const [selectedPM, setSelectedPM] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "details" | "assignment" | "tasks" | "activity"
-  >("details");
+  const [activeTab, setActiveTab] = useState<"details" | "assignment" | "tasks" | "activity">(
+    "details",
+  );
 
   const orgId = user?.organizationId;
   const userId = user?.id;
-  const API_URL = "192.168.1.92:8080";
-
+  const API_URL = import.meta.env.VITE_API_URL;
   const fetchSchedulerData = useCallback(async () => {
     if (!orgId || !userId) return;
     setIsLoading(true);
@@ -86,12 +83,9 @@ const Scheduler = ({ user }: any) => {
     if (frequencyFilter === "ALL") return true;
 
     const schedType = pm.scheduleType?.toUpperCase() || "";
-    if (frequencyFilter === "YEARLY")
-      return schedType === "YEARLY" || title.includes("annual");
-    if (frequencyFilter === "MONTHLY")
-      return schedType === "MONTHLY" || title.includes("monthly");
-    if (frequencyFilter === "WEEKLY")
-      return schedType === "WEEKLY" || title.includes("weekly");
+    if (frequencyFilter === "YEARLY") return schedType === "YEARLY" || title.includes("annual");
+    if (frequencyFilter === "MONTHLY") return schedType === "MONTHLY" || title.includes("monthly");
+    if (frequencyFilter === "WEEKLY") return schedType === "WEEKLY" || title.includes("weekly");
     if (frequencyFilter === "QUARTERLY") return schedType === "QUARTERLY";
 
     return schedType === frequencyFilter;
@@ -112,15 +106,7 @@ const Scheduler = ({ user }: any) => {
     "4:00 PM",
     "5:00 PM",
   ];
-  const weekDays = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
+  const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const timelineColumns = viewMode === "Day" ? hours : weekDays;
 
   return (
@@ -325,22 +311,15 @@ const Scheduler = ({ user }: any) => {
                   className="py-24 text-center text-gray-500"
                 >
                   <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-base font-bold text-gray-900">
-                    No team members found
-                  </p>
+                  <p className="text-base font-bold text-gray-900">No team members found</p>
                 </td>
               </tr>
             ) : (
               teamMembers.map((member) => {
-                const memberPMs = assignedPMs.filter(
-                  (pm) => pm.assigneeId === member.id,
-                );
+                const memberPMs = assignedPMs.filter((pm) => pm.assigneeId === member.id);
 
                 return (
-                  <tr
-                    key={member.id}
-                    className="hover:bg-blue-50/30 transition-colors"
-                  >
+                  <tr key={member.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="px-6 py-4 border-r border-gray-100 bg-gray-50/40">
                       <div className="flex items-center gap-3">
                         {/* GRADIENT AVATAR */}
@@ -353,8 +332,7 @@ const Scheduler = ({ user }: any) => {
                             {member.firstName} {member.lastName}
                           </span>
                           <span className="text-[11px] text-gray-500 font-medium">
-                            {member.role || "Technician"} • {memberPMs.length}{" "}
-                            PMs
+                            {member.role || "Technician"} • {memberPMs.length} PMs
                           </span>
                         </div>
                       </div>
@@ -366,11 +344,7 @@ const Scheduler = ({ user }: any) => {
                       memberPMs.forEach((pm) => {
                         const pmDate = new Date(pm.nextDueDate);
                         if (viewMode === "Day") {
-                          if (
-                            pmDate.toDateString() ===
-                              currentDate.toDateString() &&
-                            colIdx === 1
-                          )
+                          if (pmDate.toDateString() === currentDate.toDateString() && colIdx === 1)
                             matchingPM = pm;
                         } else {
                           const jsDay = pmDate.getDay();
@@ -393,9 +367,7 @@ const Scheduler = ({ user }: any) => {
                                 <span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded uppercase font-bold">
                                   {matchingPM.scheduleType}
                                 </span>
-                                <span className="text-[10px] opacity-90">
-                                  🛡️ PM
-                                </span>
+                                <span className="text-[10px] opacity-90">🛡️ PM</span>
                               </div>
                               <p className="text-xs font-bold truncate text-white">
                                 {matchingPM.title}
@@ -436,17 +408,15 @@ const Scheduler = ({ user }: any) => {
             </div>
 
             <div className="flex border-b border-gray-200 bg-white px-8 gap-8 shrink-0 overflow-x-auto">
-              {(["details", "assignment", "tasks", "activity"] as const).map(
-                (tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`py-4 text-xs font-extrabold uppercase tracking-wider border-b-2 transition-all capitalize whitespace-nowrap ${activeTab === tab ? "border-blue-600 text-blue-700" : "border-transparent text-gray-400 hover:text-gray-700"}`}
-                  >
-                    {tab}
-                  </button>
-                ),
-              )}
+              {(["details", "assignment", "tasks", "activity"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`py-4 text-xs font-extrabold uppercase tracking-wider border-b-2 transition-all capitalize whitespace-nowrap ${activeTab === tab ? "border-blue-600 text-blue-700" : "border-transparent text-gray-400 hover:text-gray-700"}`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
 
             <div className="p-8 flex-1 overflow-y-auto space-y-6 bg-gray-50/50">
@@ -458,20 +428,13 @@ const Scheduler = ({ user }: any) => {
                     </h4>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-xs text-gray-400 block mb-1">
-                          Next Due Date
-                        </span>
+                        <span className="text-xs text-gray-400 block mb-1">Next Due Date</span>
                         <span className="font-bold text-gray-800 text-base">
-                          📅{" "}
-                          {new Date(
-                            selectedPM.nextDueDate,
-                          ).toLocaleDateString()}
+                          📅 {new Date(selectedPM.nextDueDate).toLocaleDateString()}
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-gray-400 block mb-1">
-                          Frequency
-                        </span>
+                        <span className="text-xs text-gray-400 block mb-1">Frequency</span>
                         {/* GRADIENT TEXT IN MODAL */}
                         <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 uppercase text-base">
                           {selectedPM.scheduleType}
@@ -479,9 +442,7 @@ const Scheduler = ({ user }: any) => {
                       </div>
                     </div>
                     <div>
-                      <span className="text-xs text-gray-400 block mb-1">
-                        Description
-                      </span>
+                      <span className="text-xs text-gray-400 block mb-1">Description</span>
                       <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-200">
                         {selectedPM.description || "No description provided."}
                       </p>
@@ -500,8 +461,7 @@ const Scheduler = ({ user }: any) => {
                   {selectedPM.taskData &&
                     !Array.isArray(selectedPM.taskData) &&
                     selectedPM.taskData.primaryAssigneeEmail &&
-                    selectedPM.taskData.primaryAssigneeEmail !==
-                      "Unassigned" && (
+                    selectedPM.taskData.primaryAssigneeEmail !== "Unassigned" && (
                       <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl mb-4">
                         <h5 className="text-xs font-black text-blue-800 uppercase tracking-wider mb-2">
                           📦 Imported UpKeep Assignments
@@ -516,17 +476,15 @@ const Scheduler = ({ user }: any) => {
                             </span>
                           </div>
                           <div>
-                            <span className="text-xs text-blue-600/80 block">
-                              Legacy Team Name
-                            </span>
+                            <span className="text-xs text-blue-600/80 block">Legacy Team Name</span>
                             <span className="font-bold text-blue-900 truncate block">
                               {selectedPM.taskData.teamName || "None"}
                             </span>
                           </div>
                         </div>
                         <p className="text-xs text-blue-600 mt-3 font-medium bg-blue-100/50 p-2 rounded-lg">
-                          Please select the corresponding Koda users from the
-                          dropdowns below to officially map these assignments.
+                          Please select the corresponding Koda users from the dropdowns below to
+                          officially map these assignments.
                         </p>
                       </div>
                     )}
@@ -602,8 +560,7 @@ const Scheduler = ({ user }: any) => {
                       <span className="font-bold text-gray-800 block mb-0.5">
                         System Automated Trigger
                       </span>
-                      PM schedule successfully initialized and synchronized with
-                      database.
+                      PM schedule successfully initialized and synchronized with database.
                     </div>
                   </div>
                   <div className="pt-2">

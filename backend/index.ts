@@ -31,6 +31,7 @@ const corsOptions = {
     "http://localhost:5173", // Your React Web App
     "capacitor://localhost", // Capacitor iOS App
     "http://localhost", // Capacitor Android App
+    "http://192.168.1.49:5173",
   ],
   credentials: true,
 };
@@ -46,9 +47,7 @@ const loginLimiter = rateLimit({
   },
   keyGenerator: (req, res) => {
     // If there is an email, track that. Otherwise, safely track the IP using the default helper.
-    return req.body.email
-      ? req.body.email.toLowerCase()
-      : defaultKeyGenerator(req, res);
+    return req.body.email ? req.body.email.toLowerCase() : defaultKeyGenerator(req, res);
   },
 });
 
@@ -67,8 +66,7 @@ app.post("/api/auth/signup", async (req, res) => {
     // you might need to adjust this check.
     // Currently checks if ANY user exists with this email for signup.
     const existingUsers = await prisma.user.findMany({ where: { email } });
-    if (existingUsers.length > 0)
-      return res.status(400).json({ error: "Email already in use" });
+    if (existingUsers.length > 0) return res.status(400).json({ error: "Email already in use" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const normalizedOrgName = organizationName.trim();
@@ -158,9 +156,7 @@ app.post("/api/auth/login", async (req, res) => {
     const user = users[0];
 
     if (user.approvalStatus === "PENDING") {
-      return res
-        .status(403)
-        .json({ error: "Your account is pending admin approval." });
+      return res.status(403).json({ error: "Your account is pending admin approval." });
     }
     if (user.approvalStatus === "REJECTED") {
       return res.status(403).json({ error: "Your account access was denied." });
@@ -197,14 +193,10 @@ app.post("/api/auth/verify-pin", async (req, res) => {
 
     if (user.pin === pin) {
       if (user.approvalStatus === "PENDING") {
-        return res
-          .status(403)
-          .json({ error: "Your account is pending admin approval." });
+        return res.status(403).json({ error: "Your account is pending admin approval." });
       }
       if (user.approvalStatus === "REJECTED") {
-        return res
-          .status(403)
-          .json({ error: "Your account access was denied." });
+        return res.status(403).json({ error: "Your account access was denied." });
       }
 
       return res.status(200).json({
@@ -244,9 +236,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     // If multiple users share an email, findFirst ensures we update at least the primary account holder
     const user = await prisma.user.findFirst({ where: { email } });
     if (!user) {
-      return res
-        .status(200)
-        .json({ message: "If an account exists, a code has been sent." });
+      return res.status(200).json({ message: "If an account exists, a code has been sent." });
     }
 
     // Generate a random 4-digit code
@@ -273,9 +263,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       await transporter.sendMail(mailOptions);
       console.log(`📧 Email successfully sent to ${email}`);
     } catch (emailErr) {
-      console.warn(
-        `⚠️ Warning: Could not send actual email via Gmail, code is in terminal!`,
-      );
+      console.warn(`⚠️ Warning: Could not send actual email via Gmail, code is in terminal!`);
     }
 
     res.status(200).json({ message: "Code sent successfully." });
@@ -296,9 +284,7 @@ app.post("/api/auth/verify-code", async (req, res) => {
     }
 
     if (!users[0].resetCodeExpiry || users[0].resetCodeExpiry < new Date()) {
-      return res
-        .status(400)
-        .json({ error: "Code has expired. Please request a new one." });
+      return res.status(400).json({ error: "Code has expired. Please request a new one." });
     }
 
     res.status(200).json({ message: "Code verified successfully." });
@@ -373,8 +359,7 @@ app.post("/api/auth/add-shared-profile", async (req, res) => {
     const baseUser = await prisma.user.findFirst({
       where: { email: baseEmail },
     });
-    if (!baseUser)
-      return res.status(404).json({ error: "Base email not found in system." });
+    if (!baseUser) return res.status(404).json({ error: "Base email not found in system." });
 
     const newSharedUser = await prisma.user.create({
       data: {
@@ -389,9 +374,7 @@ app.post("/api/auth/add-shared-profile", async (req, res) => {
       },
     });
 
-    res
-      .status(201)
-      .json({ message: "Shared profile added!", user: newSharedUser });
+    res.status(201).json({ message: "Shared profile added!", user: newSharedUser });
   } catch (error) {
     console.error("Add Shared Profile Error:", error);
     res.status(500).json({ error: "Failed to add shared profile." });
@@ -429,13 +412,7 @@ app.use("/api/assets", assetRoutes);
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
 
 function defaultKeyGenerator(
-  req: express.Request<
-    ParamsDictionary,
-    any,
-    any,
-    ParsedQs,
-    Record<string, any>
-  >,
+  req: express.Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>,
   res: express.Response<any, Record<string, any>>,
 ): string | Promise<string> {
   throw new Error("Function not implemented.");

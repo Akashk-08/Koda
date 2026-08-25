@@ -10,9 +10,7 @@ export const signup = async (req: Request, res: Response) => {
 
   // 2. Safety check: Reject the request if no organization is provided
   if (!organizationId) {
-    return res
-      .status(400)
-      .json({ error: "organizationId is required to create a user." });
+    return res.status(400).json({ error: "organizationId is required to create a user." });
   }
 
   try {

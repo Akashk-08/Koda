@@ -26,8 +26,7 @@ import {
 const getStockStatusColor = (status: any, qty: number, minQty: number) => {
   if (status === "OUT_OF_STOCK" || qty === 0)
     return "bg-red-50 text-red-700 ring-1 ring-red-600/20";
-  if (qty <= minQty)
-    return "bg-orange-50 text-orange-700 ring-1 ring-orange-600/20";
+  if (qty <= minQty) return "bg-orange-50 text-orange-700 ring-1 ring-orange-600/20";
   return "bg-green-50 text-green-700 ring-1 ring-green-600/20";
 };
 
@@ -41,7 +40,7 @@ const PartsInventory = ({ user }: any) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState<any | null>(null);
   const [debugMode, setDebugMode] = useState(false); // Diagnostic Tool
-  const API_URL = "192.168.1.92:8080";
+  const API_URL = import.meta.env.VITE_API_URL;
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -64,29 +63,19 @@ const PartsInventory = ({ user }: any) => {
     if (user?.organizationId) fetchData();
   }, [user]);
 
-  //  ACCESS CONTROL LOGIC
-  const globalLocations = [
-    "Pulseworks Shop",
-    "Pulseworks Warehouse",
-    "Global",
-    "",
-  ];
+  // ACCESS CONTROL LOGIC
+  const globalLocations = ["Pulseworks Shop", "Pulseworks Warehouse", "Global", ""];
 
   const filteredParts = parts.filter((part) => {
-    // 1. DEBUG MODE: Show everything if debug toggle is on
     if (debugMode) return true;
-
-    // 2. STRICT ADMIN OVERRIDE: Only true organization admins see everything globally
     if (user?.role === "ADMIN") return true;
 
-    // 3. LOCATION & GLOBAL ACCESS: Standard users see their exact site location AND global locations
     const partLocation = part.siteLocation || part.location || "";
     const matchesUserSite = partLocation === user?.siteLocation;
     const matchesGlobal = globalLocations.includes(partLocation);
 
     const matchesLocation = matchesUserSite || matchesGlobal;
 
-    // 4. SEARCH QUERY FILTER
     const matchesSearch = searchQuery
       ? part.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         part.partNumber?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -97,11 +86,10 @@ const PartsInventory = ({ user }: any) => {
 
   const thClass =
     "px-6 py-4 text-left text-[11px] font-bold text-gray-400 uppercase tracking-[0.1em] border-b border-gray-100 bg-white/50 whitespace-nowrap";
-  const tdClass =
-    "px-6 py-4 whitespace-nowrap text-[13px] font-medium text-gray-700";
+  const tdClass = "px-6 py-4 whitespace-nowrap text-[13px] font-medium text-gray-700";
 
   return (
-    <main className="flex-1 flex flex-col h-full bg-[#fafafa] p-6 sm:p-10 overflow-hidden">
+    <main className="flex-1 flex flex-col h-full bg-[#fafafa] p-4 md:p-10 overflow-hidden font-sans pb-24 md:pb-10">
       {/* MISSING LOCATION WARNING */}
       {!user?.siteLocation && user?.role !== "ADMIN" && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl mb-6 text-[14px] font-bold flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -109,9 +97,8 @@ const PartsInventory = ({ user }: any) => {
           <div>
             <p>WARNING: Your user profile is missing a Site Location!</p>
             <p className="text-[12px] font-medium mt-0.5">
-              The frontend does not know where you are stationed. Check your
-              backend login/auth API to ensure 'siteLocation' is being included
-              in the response.
+              The frontend does not know where you are stationed. Check your backend login/auth API
+              to ensure 'siteLocation' is being included in the response.
             </p>
           </div>
         </div>
@@ -123,26 +110,25 @@ const PartsInventory = ({ user }: any) => {
           DIAGNOSTIC X-RAY
           <br />• User ID: {user?.id || "N/A"}
           <br />• User Role: {user?.role || "N/A"}
-          <br />• User Location: "{user?.siteLocation || "UNDEFINED"}"<br />•
-          Total Parts Fetched From API: {parts.length}
+          <br />• User Location: "{user?.siteLocation || "UNDEFINED"}"<br />• Total Parts Fetched
+          From API: {parts.length}
           <br />• Parts Matching Filter: {filteredParts.length}
         </div>
       )}
 
-      <div className="flex justify-between items-end mb-8 shrink-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4 shrink-0">
         <div>
-          <div className="flex items-center text-[13px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+          <div className="hidden md:flex items-center text-[13px] font-bold text-gray-400 uppercase tracking-wider mb-2">
             <span>Procurement</span>
             <span className="mx-2">/</span>
             <span className="text-blue-600">Parts Inventory</span>
           </div>
-          <h1 className="text-[28px] font-extrabold text-gray-900 tracking-tight">
+          <h1 className="text-2xl md:text-[28px] font-extrabold text-gray-900 tracking-tight">
             Parts & Inventory
           </h1>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* DEBUG TOGGLE BUTTON */}
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           <button
             onClick={() => setDebugMode(!debugMode)}
             className={`px-4 py-2.5 rounded-xl text-[14px] font-bold transition-all flex items-center gap-2 ${debugMode ? "bg-red-100 text-red-600" : "bg-gray-200 text-gray-600 hover:bg-gray-300"}`}
@@ -152,157 +138,207 @@ const PartsInventory = ({ user }: any) => {
 
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all"
+            className="hidden md:flex bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-2 rounded-xl text-sm font-bold items-center gap-2 shadow-sm transition-all"
           >
             <Plus className="w-5 h-5" /> Create Part
           </button>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-t-2xl border border-gray-200/80 border-b-0 flex gap-4 items-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] shrink-0">
+      <div className="bg-white p-4 rounded-t-2xl border border-gray-200/80 border-b-0 flex justify-between items-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] shrink-0">
         <div className="relative flex-1 w-full max-w-md">
           <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-[11px]" />
           <input
             type="text"
-            placeholder="Search by part name or part number..."
+            placeholder="Search by part name or number..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-50/50 border border-gray-200/80 rounded-xl text-[14px] font-medium text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-[4px] focus:ring-blue-500/15 focus:border-blue-500 transition-all duration-200"
+            className="w-full pl-10 pr-4 py-2.5 bg-gray-50/50 border border-gray-200/80 rounded-xl text-[14px] font-medium text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-[4px] focus:ring-blue-500/15 focus:border-blue-500 transition-all duration-200 shadow-sm"
           />
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-gray-50/50 border border-gray-200/80 rounded-xl text-[14px] font-bold text-gray-600 hover:bg-gray-100 transition-colors">
-          <Filter className="w-4 h-4" /> Filters
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="md:hidden ml-3 bg-blue-600 text-white p-2.5 rounded-xl shadow-md shrink-0 flex items-center justify-center"
+        >
+          <Plus className="w-5 h-5" />
         </button>
       </div>
 
       <div className="bg-white border border-gray-200/80 rounded-b-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex-1 flex flex-col relative">
-        <div className="overflow-x-auto custom-scrollbar flex-1">
-          <table className="min-w-full divide-y divide-gray-100 relative">
-            <thead className="sticky top-0 z-10 backdrop-blur-md">
-              <tr>
-                <th
-                  className={`${thClass} sticky left-0 z-20 bg-white/90 shadow-[1px_0_0_0_#f3f4f6]`}
-                >
-                  Image / Name
-                </th>
-                <th className={thClass}>Part Number</th>
-                <th className={thClass}>Status</th>
-                <th className={thClass}>Category</th>
-                <th className={thClass}>Available QTY</th>
-                <th className={thClass}>On Hand QTY</th>
-                <th className={thClass}>Allocated QTY</th>
-                <th className={thClass}>Incoming</th>
-                <th className={thClass}>Site Location</th>
-                <th className={thClass}>Area</th>
-                <th className={thClass}>Date Created</th>
-                <th className={thClass}>Description</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50/80 bg-white">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={12} className="px-6 py-16 text-center">
-                    <div className="flex flex-col items-center justify-center space-y-3">
-                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-[13px] font-medium text-gray-500">
-                        Loading inventory...
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredParts.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="px-6 py-20 text-center">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="w-12 h-12 bg-gray-50 border border-gray-100 rounded-2xl flex items-center justify-center mb-4">
-                        <Box className="w-6 h-6 text-gray-400" />
-                      </div>
-                      <p className="text-[15px] font-bold text-gray-900">
-                        No parts found
-                      </p>
-                      <p className="text-[13px] text-gray-500 mt-1">
-                        {user?.role === "ADMIN"
-                          ? "Create a new part to start building your inventory."
-                          : "No inventory items are currently assigned to your site location or global inventory."}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredParts.map((part) => (
-                  <tr
+        <div className="overflow-auto custom-scrollbar flex-1 p-4 md:p-0">
+          {isLoading ? (
+            <div className="px-6 py-16 text-center">
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-[13px] font-medium text-gray-500">Loading inventory...</span>
+              </div>
+            </div>
+          ) : filteredParts.length === 0 ? (
+            <div className="px-6 py-20 text-center">
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-12 h-12 bg-gray-50 border border-gray-100 rounded-2xl flex items-center justify-center mb-4">
+                  <Box className="w-6 h-6 text-gray-400" />
+                </div>
+                <p className="text-[15px] font-bold text-gray-900">No parts found</p>
+                <p className="text-[13px] text-gray-500 mt-1">
+                  {user?.role === "ADMIN"
+                    ? "Create a new part to start building your inventory."
+                    : "No inventory items are currently assigned to your site location or global inventory."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* ================= MOBILE CARD VIEW ================= */}
+              <div className="md:hidden space-y-4">
+                {filteredParts.map((part) => (
+                  <div
                     key={part.id}
                     onClick={() => setSelectedPart(part)}
-                    className="hover:bg-blue-50/50 transition-colors duration-200 group cursor-pointer"
+                    className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex flex-col gap-3 cursor-pointer active:scale-[0.99] transition-all"
                   >
-                    <td
-                      className={`${tdClass} sticky left-0 z-10 bg-white group-hover:bg-blue-50/50 shadow-[1px_0_0_0_#f3f4f6] transition-colors flex items-center gap-3`}
-                    >
-                      <div className="relative w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 overflow-hidden flex items-center justify-center shrink-0 shadow-sm">
-                        {part.imageUrls && part.imageUrls.length > 0 ? (
-                          <>
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 overflow-hidden flex items-center justify-center shrink-0 shadow-sm">
+                          {part.imageUrls && part.imageUrls.length > 0 ? (
                             <img
                               src={part.imageUrls[0]}
                               alt={part.name}
                               className="w-full h-full object-cover"
                             />
-                            {part.imageUrls.length > 1 && (
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[10px] font-bold backdrop-blur-[1px]">
-                                +{part.imageUrls.length - 1}
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <Camera className="w-4 h-4 text-gray-400" />
-                        )}
+                          ) : (
+                            <Camera className="w-5 h-5 text-gray-400" />
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="text-base font-extrabold text-gray-900 leading-snug">
+                            {part.name}
+                          </h3>
+                          <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded inline-block mt-0.5">
+                            {part.partNumber || "N/A"}
+                          </span>
+                        </div>
                       </div>
-                      <span className="font-bold text-gray-900">
-                        {part.name}
-                      </span>
-                    </td>
-                    <td className={tdClass}>
-                      <span className="font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded-md text-xs">
-                        {part.partNumber || "N/A"}
-                      </span>
-                    </td>
-                    <td className={tdClass}>
+
                       <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase ${getStockStatusColor(part.status, part.availableQty, part.minQty)}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase shrink-0 ${getStockStatusColor(part.status, part.availableQty, part.minQty)}`}
                       >
                         {part.availableQty > 0 ? "IN STOCK" : "OUT OF STOCK"}
                       </span>
-                    </td>
-                    <td className={tdClass}>
-                      {part.category || "Uncategorized"}
-                    </td>
-                    <td className={tdClass}>
-                      <span className="font-bold text-gray-900">
-                        {part.availableQty || 0}
-                      </span>
-                    </td>
-                    <td className={tdClass}>{part.onHandQty || 0}</td>
-                    <td className={tdClass}>{part.allocatedQty || 0}</td>
-                    <td className={tdClass}>{part.incomingQty || 0}</td>
-                    <td className={tdClass}>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-gray-400" />{" "}
-                        {part.siteLocation || "Global"}
+                    </div>
+
+                    <div className="bg-gray-50/60 p-3 rounded-xl border border-gray-100 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">
+                          Available Qty
+                        </span>
+                        <span className="font-extrabold text-gray-900 text-sm">
+                          {part.availableQty || 0}
+                        </span>
                       </div>
-                    </td>
-                    <td className={tdClass}>{part.area || "—"}</td>
-                    <td className={tdClass}>
-                      {new Date(
-                        part.createdAt || Date.now(),
-                      ).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-[13px] font-medium text-gray-500 max-w-[200px] truncate">
-                      {part.description || "—"}
-                    </td>
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">
+                          Location
+                        </span>
+                        <span className="font-bold text-gray-700 truncate block">
+                          {part.siteLocation || "Global"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ================= DESKTOP TABLE VIEW ================= */}
+              <table className="hidden md:table min-w-full divide-y divide-gray-100 relative">
+                <thead className="sticky top-0 z-10 backdrop-blur-md">
+                  <tr>
+                    <th
+                      className={`${thClass} sticky left-0 z-20 bg-white/90 shadow-[1px_0_0_0_#f3f4f6]`}
+                    >
+                      Image / Name
+                    </th>
+                    <th className={thClass}>Part Number</th>
+                    <th className={thClass}>Status</th>
+                    <th className={thClass}>Category</th>
+                    <th className={thClass}>Available QTY</th>
+                    <th className={thClass}>On Hand QTY</th>
+                    <th className={thClass}>Allocated QTY</th>
+                    <th className={thClass}>Incoming</th>
+                    <th className={thClass}>Site Location</th>
+                    <th className={thClass}>Area</th>
+                    <th className={thClass}>Date Created</th>
+                    <th className={thClass}>Description</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-gray-50/80 bg-white">
+                  {filteredParts.map((part) => (
+                    <tr
+                      key={part.id}
+                      onClick={() => setSelectedPart(part)}
+                      className="hover:bg-blue-50/50 transition-colors duration-200 group cursor-pointer"
+                    >
+                      <td
+                        className={`${tdClass} sticky left-0 z-10 bg-white group-hover:bg-blue-50/50 shadow-[1px_0_0_0_#f3f4f6] transition-colors flex items-center gap-3`}
+                      >
+                        <div className="relative w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 overflow-hidden flex items-center justify-center shrink-0 shadow-sm">
+                          {part.imageUrls && part.imageUrls.length > 0 ? (
+                            <>
+                              <img
+                                src={part.imageUrls[0]}
+                                alt={part.name}
+                                className="w-full h-full object-cover"
+                              />
+                              {part.imageUrls.length > 1 && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[10px] font-bold backdrop-blur-[1px]">
+                                  +{part.imageUrls.length - 1}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <Camera className="w-4 h-4 text-gray-400" />
+                          )}
+                        </div>
+                        <span className="font-bold text-gray-900">{part.name}</span>
+                      </td>
+                      <td className={tdClass}>
+                        <span className="font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded-md text-xs">
+                          {part.partNumber || "N/A"}
+                        </span>
+                      </td>
+                      <td className={tdClass}>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase ${getStockStatusColor(part.status, part.availableQty, part.minQty)}`}
+                        >
+                          {part.availableQty > 0 ? "IN STOCK" : "OUT OF STOCK"}
+                        </span>
+                      </td>
+                      <td className={tdClass}>{part.category || "Uncategorized"}</td>
+                      <td className={tdClass}>
+                        <span className="font-bold text-gray-900">{part.availableQty || 0}</span>
+                      </td>
+                      <td className={tdClass}>{part.onHandQty || 0}</td>
+                      <td className={tdClass}>{part.allocatedQty || 0}</td>
+                      <td className={tdClass}>{part.incomingQty || 0}</td>
+                      <td className={tdClass}>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-gray-400" />{" "}
+                          {part.siteLocation || "Global"}
+                        </div>
+                      </td>
+                      <td className={tdClass}>{part.area || "—"}</td>
+                      <td className={tdClass}>
+                        {new Date(part.createdAt || Date.now()).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-[13px] font-medium text-gray-500 max-w-[200px] truncate">
+                        {part.description || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </div>
       </div>
 
@@ -341,8 +377,6 @@ const PartsInventory = ({ user }: any) => {
 // CREATE PART MODAL
 const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Basic Info State
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [partNumber, setPartNumber] = useState("");
@@ -352,7 +386,6 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
   const [barcode, setBarcode] = useState("");
   const [tags, setTags] = useState("");
 
-  // Inventory & Location State
   const [isNonStock, setIsNonStock] = useState(false);
   const [isCritical, setIsCritical] = useState(false);
   const [availableQty, setAvailableQty] = useState("");
@@ -360,6 +393,7 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
   const [maxQtyThreshold, setMaxQtyThreshold] = useState("");
   const [siteLocation, setSiteLocation] = useState("");
   const [area, setArea] = useState("");
+  const API_URL = import.meta.env.VITE_API_URL;
 
   const handleImageUpload = (e: any) => {
     const files = Array.from(e.target.files);
@@ -408,7 +442,7 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
         organizationId: user.organizationId,
       };
 
-      const response = await fetch("http://${API_URL}/api/inventory", {
+      const response = await fetch(`http://${API_URL}/api/inventory`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -429,15 +463,14 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
 
   const inputClass =
     "w-full bg-gray-50/50 border border-gray-200/80 rounded-xl px-4 py-3 text-[14px] font-medium text-gray-900 placeholder-gray-400 outline-none focus:bg-white focus:ring-[4px] focus:ring-blue-500/15 focus:border-blue-500 transition-all duration-200 shadow-sm";
-  const labelClass =
-    "block text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-2";
+  const labelClass = "block text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-2";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-[900px] rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col max-h-[92vh] overflow-hidden border border-gray-100">
-        <div className="flex items-center justify-between px-8 py-6 bg-white/80 backdrop-blur-sm border-b border-gray-100 z-10 sticky top-0">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-gray-900/40 backdrop-blur-md md:p-4 animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-[900px] rounded-t-3xl md:rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col max-h-[90vh] overflow-hidden border border-gray-100">
+        <div className="flex items-center justify-between px-6 md:px-8 py-5 bg-white/80 backdrop-blur-sm border-b border-gray-100 z-10 sticky top-0">
           <div>
-            <h2 className="text-[22px] font-extrabold tracking-tight text-gray-900">
+            <h2 className="text-xl md:text-[22px] font-extrabold tracking-tight text-gray-900">
               Create New Part
             </h2>
           </div>
@@ -449,7 +482,7 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 pt-6 space-y-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-6 space-y-8 custom-scrollbar">
           <div>
             <h3 className="text-[15px] font-bold text-gray-900 tracking-tight flex items-center gap-2 mb-5">
               <Box className="w-5 h-5 text-blue-600" /> Basic Information
@@ -463,11 +496,7 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
                     key={idx}
                     className="relative w-24 h-24 rounded-2xl border border-gray-200 overflow-hidden group shadow-sm"
                   >
-                    <img
-                      src={url}
-                      alt={`Preview ${idx}`}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                     <button
                       type="button"
                       onClick={() => removeImage(idx)}
@@ -695,7 +724,7 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
           </div>
         </div>
 
-        <div className="flex items-center justify-end px-8 py-5 bg-gray-50/80 border-t border-gray-100 gap-3">
+        <div className="flex items-center justify-end px-6 md:px-8 py-5 bg-gray-50/80 border-t border-gray-100 gap-3 pb-8 md:pb-5">
           <button
             onClick={onClose}
             type="button"
@@ -717,15 +746,8 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
   );
 };
 
-//  EDIT PART MODAL
-const EditPartModal = ({
-  user,
-  part,
-  locations,
-  onClose,
-  onUpdated,
-  onDeleted,
-}: any) => {
+// EDIT PART MODAL
+const EditPartModal = ({ user, part, locations, onClose, onUpdated, onDeleted }: any) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -742,11 +764,10 @@ const EditPartModal = ({
   const [isCritical, setIsCritical] = useState(part.isCritical || false);
   const [availableQty, setAvailableQty] = useState(part.availableQty || "");
   const [minQty, setMinQty] = useState(part.minQty || "");
-  const [maxQtyThreshold, setMaxQtyThreshold] = useState(
-    part.maxQtyThreshold || "",
-  );
+  const [maxQtyThreshold, setMaxQtyThreshold] = useState(part.maxQtyThreshold || "");
   const [siteLocation, setSiteLocation] = useState(part.siteLocation || "");
   const [area, setArea] = useState(part.area || "");
+  const API_URL = import.meta.env.VITE_API_URL;
 
   const handleImageUpload = (e: any) => {
     const files = Array.from(e.target.files);
@@ -789,16 +810,12 @@ const EditPartModal = ({
         siteLocation,
         area,
       };
-      const API_URL = "192.168.1.92:8080";
 
-      const response = await fetch(
-        `http://${API_URL}/api/inventory/${part.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
+      const response = await fetch(`http://${API_URL}/api/inventory/${part.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       if (response.ok) onUpdated();
       else alert("Failed to update part.");
@@ -811,20 +828,13 @@ const EditPartModal = ({
   };
 
   const handleDelete = async () => {
-    if (
-      !window.confirm("Are you sure you want to permanently delete this part?")
-    )
-      return;
+    if (!window.confirm("Are you sure you want to permanently delete this part?")) return;
     setIsDeleting(true);
-    const API_URL = "192.168.1.92:8080";
 
     try {
-      const response = await fetch(
-        `http://${API_URL}/api/inventory/${part.id}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const response = await fetch(`http://${API_URL}/api/inventory/${part.id}`, {
+        method: "DELETE",
+      });
 
       if (response.ok) onDeleted();
       else alert("Failed to delete part.");
@@ -838,15 +848,14 @@ const EditPartModal = ({
 
   const inputClass =
     "w-full bg-gray-50/50 border border-gray-200/80 rounded-xl px-4 py-3 text-[14px] font-medium text-gray-900 placeholder-gray-400 outline-none focus:bg-white focus:ring-[4px] focus:ring-blue-500/15 focus:border-blue-500 transition-all duration-200 shadow-sm";
-  const labelClass =
-    "block text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-2";
+  const labelClass = "block text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-2";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-[900px] rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col max-h-[92vh] overflow-hidden border border-gray-100">
-        <div className="flex items-center justify-between px-8 py-6 bg-white/80 backdrop-blur-sm border-b border-gray-100 z-10 sticky top-0">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-gray-900/40 backdrop-blur-md md:p-4 animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-[900px] rounded-t-3xl md:rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col max-h-[90vh] overflow-hidden border border-gray-100">
+        <div className="flex items-center justify-between px-6 md:px-8 py-5 bg-white/80 backdrop-blur-sm border-b border-gray-100 z-10 sticky top-0">
           <div>
-            <h2 className="text-[22px] font-extrabold tracking-tight text-gray-900">
+            <h2 className="text-xl md:text-[22px] font-extrabold tracking-tight text-gray-900">
               Edit Part
             </h2>
           </div>
@@ -858,7 +867,7 @@ const EditPartModal = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 pt-6 space-y-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 pt-6 space-y-8 custom-scrollbar">
           <div>
             <h3 className="text-[15px] font-bold text-gray-900 tracking-tight flex items-center gap-2 mb-5">
               <Box className="w-5 h-5 text-blue-600" /> Basic Information
@@ -872,11 +881,7 @@ const EditPartModal = ({
                     key={idx}
                     className="relative w-24 h-24 rounded-2xl border border-gray-200 overflow-hidden group shadow-sm"
                   >
-                    <img
-                      src={url}
-                      alt={`Preview ${idx}`}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                     <button
                       type="button"
                       onClick={() => removeImage(idx)}
@@ -1095,15 +1100,14 @@ const EditPartModal = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-8 py-5 bg-gray-50/80 border-t border-gray-100 gap-3">
+        <div className="flex items-center justify-between px-6 md:px-8 py-5 bg-gray-50/80 border-t border-gray-100 gap-3 pb-8 md:pb-5">
           <button
             onClick={handleDelete}
             disabled={isDeleting}
             type="button"
             className="px-5 py-2.5 text-[14px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all duration-200 flex items-center gap-2"
           >
-            <Trash2 className="w-4 h-4" />{" "}
-            {isDeleting ? "Deleting..." : "Delete Part"}
+            <Trash2 className="w-4 h-4" /> {isDeleting ? "Deleting..." : "Delete Part"}
           </button>
 
           <div className="flex items-center gap-3">

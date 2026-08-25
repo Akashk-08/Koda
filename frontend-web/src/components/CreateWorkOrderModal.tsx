@@ -17,19 +17,26 @@ import {
   Wrench,
   Settings,
   Users,
+  AlertCircle,
 } from "lucide-react";
 
-// Updated Categories exactly as requested
-const CATEGORIES = [
-  "None",
-  "Annual PM",
-  "Assets",
-  "Large Damage",
-  "Part Request",
-  "Project/Upgrade",
-  "Six months PM",
-  "Support Req",
-  "Weekly/monthly/checklists",
+// Admin / Full Access Categories
+const FULL_CATEGORIES = [
+  { label: "None", value: "NONE" },
+  { label: "Annual PM", value: "ANNUAL_PREVENTIVE_MAINTENANCE" },
+  { label: "Assets", value: "ASSETS" },
+  { label: "Large Damage", value: "LARGE_DAMAGE" },
+  { label: "Part Request", value: "PARTS_REQUEST" },
+  { label: "Project/Upgrade", value: "PROJECT_UPGRADE" },
+  { label: "Six months PM", value: "SIX_MONTH_PREVENTIVE_MAINTENANCE" },
+  { label: "Support Req", value: "SUPPORT_REQUEST" },
+  { label: "Weekly/monthly/checklists", value: "WEEKLY_MONTHLY_CHECKLISTS" },
+];
+
+// Restricted / Site User Categories
+const RESTRICTED_CATEGORIES = [
+  { label: "Part Request", value: "PARTS_REQUEST" },
+  { label: "Technical Support Request", value: "SUPPORT_REQUEST" },
 ];
 
 const SectionHeader = ({ title, icon: Icon }: any) => (
@@ -39,42 +46,35 @@ const SectionHeader = ({ title, icon: Icon }: any) => (
   </div>
 );
 
-const API_URL = "192.168.1.92:8080";
+const API_URL = import.meta.env.VITE_API_URL;
 
-// ADDED preSelectedAsset to props
-const CreateWorkOrderModal = ({
-  isOpen,
-  onClose,
-  user,
-  onCreated,
-  preSelectedAsset,
-}: any) => {
-  // 1. Basic Info
+const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAsset }: any) => {
+  const isFullAccess =
+    user?.role === "ADMIN" ||
+    user?.siteLocation === "Pulseworks Shop" ||
+    user?.siteLocation === "Pulseworks Warehouse";
+
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
   const [description, setDescription] = useState("");
 
-  // 2. Job Specifications
+  const [customRequestSubject, setCustomRequestSubject] = useState("");
   const [siteLocation, setSiteLocation] = useState(user?.siteLocation || "");
   const [selectedAssetId, setSelectedAssetId] = useState("");
 
-  // 3. Schedule
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [duration, setDuration] = useState("");
 
-  // 4. Assignment
   const [selectedAssignees, setSelectedAssignees] = useState<any[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
 
-  // 5. Inventory / Parts
   const [selectedParts, setSelectedParts] = useState<
     { partId: string; quantity: number; name: string }[]
   >([]);
   const [partSearch, setPartSearch] = useState("");
 
-  // 6. Checklists & Attachments & Parent WO
   const [tasks, setTasks] = useState([
     { id: 1, text: "Inspect for physical damage", completed: false },
   ]);
@@ -83,17 +83,13 @@ const CreateWorkOrderModal = ({
   const [selectedParentWo, setSelectedParentWo] = useState<any | null>(null);
   const [parentSearchTerm, setParentSearchTerm] = useState("");
 
-  // Location Dropdown State
   const [locationSearch, setLocationSearch] = useState("");
-
-  // Dropdown UI States
   const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
   const [isParentDropdownOpen, setIsParentDropdownOpen] = useState(false);
   const [isPartsDropdownOpen, setIsPartsDropdownOpen] = useState(false);
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // API Data
   const [orgUsers, setOrgUsers] = useState<any[]>([]);
   const [existingWorkOrders, setExistingWorkOrders] = useState<any[]>([]);
   const [orgAssets, setOrgAssets] = useState<any[]>([]);
@@ -101,49 +97,71 @@ const CreateWorkOrderModal = ({
   const [orgParts, setOrgParts] = useState<any[]>([]);
   const [orgLocations, setOrgLocations] = useState<any[]>([]);
 
-  // Refs for click-outside
   const assigneesRef = useRef<HTMLDivElement>(null);
   const parentWoRef = useRef<HTMLDivElement>(null);
   const partsRef = useRef<HTMLDivElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
 
-  // Auto-fill asset if passed from parent component
   useEffect(() => {
-    if (isOpen && preSelectedAsset) {
-      setSelectedAssetId(preSelectedAsset.id);
+    if (isOpen) {
+      if (preSelectedAsset) setSelectedAssetId(preSelectedAsset.id);
+      if (!isFullAccess) {
+        setStartDate(new Date().toISOString().slice(0, 16));
+        setSiteLocation(user?.siteLocation || "");
+      }
     }
-  }, [isOpen, preSelectedAsset]);
+  }, [isOpen, preSelectedAsset, isFullAccess, user]);
+
+  // Auto-generate title using shortName
+  useEffect(() => {
+    if (!isFullAccess && category) {
+      const locationObj = orgLocations.find((l) => l.name?.trim() === siteLocation?.trim());
+      let shortLoc = locationObj?.shortName?.trim();
+
+      if (!shortLoc && siteLocation) {
+        shortLoc = siteLocation.split("-")[0].trim();
+      } else if (!shortLoc) {
+        shortLoc = "Unknown Site";
+      }
+
+      if (category === "PARTS_REQUEST") {
+        setTitle(`Parts Request - ${shortLoc} - ${customRequestSubject}`);
+      } else if (category === "SUPPORT_REQUEST") {
+        setTitle(`TSR - ${shortLoc} - ${customRequestSubject}`);
+      }
+    }
+  }, [category, siteLocation, customRequestSubject, isFullAccess, orgLocations]);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!isOpen || !user.organizationId) return;
       try {
-        // Fetch Users & Work Orders
         const [usersRes, woRes] = await Promise.all([
           fetch(`http://${API_URL}/api/users/${user.organizationId}`),
-          fetch(
-            `http://${API_URL}/api/workorders?orgId=${user.organizationId}`,
-          ),
+          fetch(`http://${API_URL}/api/workorders?orgId=${user.organizationId}`),
         ]);
 
         if (usersRes.ok) {
           const usersData = await usersRes.json();
           setOrgUsers(
-            usersData.filter((u: any) => u.approvalStatus !== "PENDING"),
+            Array.isArray(usersData)
+              ? usersData.filter((u: any) => u.approvalStatus !== "PENDING")
+              : [],
           );
         }
-        if (woRes.ok) setExistingWorkOrders(await woRes.json());
+        if (woRes.ok) {
+          const woData = await woRes.json();
+          // Safety check: ensure existingWorkOrders is always an array (handling paginated or plain array responses)
+          setExistingWorkOrders(Array.isArray(woData) ? woData : woData.data || []);
+        }
 
-        // Fetch Assets, Teams, Parts, and Locations
         try {
           const assetsRes = await fetch(
             `http://${API_URL}/api/assets?orgId=${user.organizationId}`,
           );
           if (assetsRes.ok) setOrgAssets(await assetsRes.json());
 
-          const teamsRes = await fetch(
-            `http://${API_URL}/api/teams?orgId=${user.organizationId}`,
-          );
+          const teamsRes = await fetch(`http://${API_URL}/api/teams?orgId=${user.organizationId}`);
           if (teamsRes.ok) setOrgTeams(await teamsRes.json());
 
           const partsRes = await fetch(
@@ -151,7 +169,6 @@ const CreateWorkOrderModal = ({
           );
           if (partsRes.ok) setOrgParts(await partsRes.json());
 
-          // Fetch Locations
           const locRes = await fetch(
             `http://${API_URL}/api/locations?orgId=${user.organizationId}`,
           );
@@ -166,25 +183,15 @@ const CreateWorkOrderModal = ({
     fetchData();
   }, [isOpen, user.organizationId]);
 
-  // Handle clicking outside of dropdowns to close them
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        assigneesRef.current &&
-        !assigneesRef.current.contains(event.target as Node)
-      )
+      if (assigneesRef.current && !assigneesRef.current.contains(event.target as Node))
         setIsTeamDropdownOpen(false);
-      if (
-        parentWoRef.current &&
-        !parentWoRef.current.contains(event.target as Node)
-      )
+      if (parentWoRef.current && !parentWoRef.current.contains(event.target as Node))
         setIsParentDropdownOpen(false);
       if (partsRef.current && !partsRef.current.contains(event.target as Node))
         setIsPartsDropdownOpen(false);
-      if (
-        locationRef.current &&
-        !locationRef.current.contains(event.target as Node)
-      )
+      if (locationRef.current && !locationRef.current.contains(event.target as Node))
         setIsLocationDropdownOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -194,23 +201,25 @@ const CreateWorkOrderModal = ({
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
-    if (!title.trim()) return alert("Title is required!");
+    if (!category) return alert("Please select a category first.");
+    if (!title.trim() && isFullAccess) return alert("Title is required!");
+    if (!customRequestSubject.trim() && !isFullAccess)
+      return alert("Please specify the subject/issue of your request.");
+
     setIsSubmitting(true);
 
     try {
       const payload = {
-        title,
+        title: isFullAccess ? title : title.trim(),
         description,
-        category:
-          category && category !== "Select category..." ? category : null,
+        category: category && category !== "None" ? category : null,
         priority,
         organizationId: user.organizationId,
         createdBy: user.id,
-        assignedTo:
-          selectedAssignees.length > 0 ? selectedAssignees[0].id : null,
+        assignedTo: selectedAssignees.length > 0 ? selectedAssignees[0].id : null,
         teamId: selectedTeamId || null,
         assetId: selectedAssetId || null,
-        siteLocation, // Passes the selected string location to the backend
+        siteLocation,
         startDate: startDate ? new Date(startDate).toISOString() : null,
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
         durationHours: duration ? parseFloat(duration) : null,
@@ -219,7 +228,7 @@ const CreateWorkOrderModal = ({
         tasks,
       };
 
-      const response = await fetch("http://${API_URL}/api/workorders", {
+      const response = await fetch(`http://${API_URL}/api/workorders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -228,25 +237,24 @@ const CreateWorkOrderModal = ({
       if (response.ok) {
         const newWo = await response.json();
 
-        // Handle File Uploads safely
         if (attachedFiles.length > 0) {
           for (const file of attachedFiles) {
             const formData = new FormData();
             formData.append("file", file);
             formData.append("uploaderId", user.id);
-            await fetch(
-              `http://${API_URL}/api/workorders/${newWo.id}/documents`,
-              { method: "POST", body: formData },
-            );
+            await fetch(`http://${API_URL}/api/workorders/${newWo.id}/documents`, {
+              method: "POST",
+              body: formData,
+            });
           }
         }
 
-        // Reset all states
         setTitle("");
+        setCustomRequestSubject("");
         setDescription("");
         setCategory("");
         setPriority("MEDIUM");
-        setSiteLocation("");
+        setSiteLocation(user?.siteLocation || "");
         setLocationSearch("");
         setSelectedAssetId("");
         setStartDate("");
@@ -256,9 +264,7 @@ const CreateWorkOrderModal = ({
         setSelectedTeamId("");
         setSelectedParts([]);
         setAttachedFiles([]);
-        setTasks([
-          { id: 1, text: "Inspect for physical damage", completed: false },
-        ]);
+        setTasks([{ id: 1, text: "Inspect for physical damage", completed: false }]);
         setSelectedParentWo(null);
 
         onCreated();
@@ -274,7 +280,6 @@ const CreateWorkOrderModal = ({
     }
   };
 
-  // Assignee Handlers
   const addAssignee = (member: any) => {
     if (!selectedAssignees.some((a) => a.id === member.id))
       setSelectedAssignees([...selectedAssignees, member]);
@@ -283,78 +288,64 @@ const CreateWorkOrderModal = ({
   const removeAssignee = (id: string) =>
     setSelectedAssignees(selectedAssignees.filter((a) => a.id !== id));
 
-  // Parts Handlers
   const addPart = (part: any) => {
     if (!selectedParts.some((p) => p.partId === part.id)) {
-      setSelectedParts([
-        ...selectedParts,
-        { partId: part.id, name: part.name, quantity: 1 },
-      ]);
+      setSelectedParts([...selectedParts, { partId: part.id, name: part.name, quantity: 1 }]);
     }
     setIsPartsDropdownOpen(false);
     setPartSearch("");
   };
   const updatePartQty = (partId: string, qty: number) => {
-    setSelectedParts(
-      selectedParts.map((p) =>
-        p.partId === partId ? { ...p, quantity: qty } : p,
-      ),
-    );
+    setSelectedParts(selectedParts.map((p) => (p.partId === partId ? { ...p, quantity: qty } : p)));
   };
   const removePart = (partId: string) =>
     setSelectedParts(selectedParts.filter((p) => p.partId !== partId));
 
-  // Task & File Handlers
   const handleAddTask = () => {
     if (!newTaskText.trim()) return;
-    setTasks([
-      ...tasks,
-      { id: Date.now(), text: newTaskText, completed: false },
-    ]);
+    setTasks([...tasks, { id: Date.now(), text: newTaskText, completed: false }]);
     setNewTaskText("");
   };
   const toggleTask = (id: number) =>
-    setTasks(
-      tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
-    );
+    setTasks(tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
   const removeTask = (id: number) => setTasks(tasks.filter((t) => t.id !== id));
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files)
-      setAttachedFiles((prev) => [
-        ...prev,
-        ...Array.from(e.target.files as ArrayLike<File>),
-      ]);
+      setAttachedFiles((prev) => [...prev, ...Array.from(e.target.files as ArrayLike<File>)]);
   };
   const removeFile = (index: number) =>
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
 
-  // Filters for dropdowns
-  const filteredParentWorkOrders = existingWorkOrders.filter(
-    (wo) =>
-      wo.title.toLowerCase().includes(parentSearchTerm.toLowerCase()) ||
-      String(wo.id).includes(parentSearchTerm),
-  );
-  const filteredParts = orgParts.filter((p) =>
-    p.name?.toLowerCase().includes(partSearch.toLowerCase()),
-  );
+  const filteredParentWorkOrders = Array.isArray(existingWorkOrders)
+    ? existingWorkOrders.filter(
+        (wo) =>
+          wo.title?.toLowerCase().includes(parentSearchTerm.toLowerCase()) ||
+          String(wo.id).includes(parentSearchTerm),
+      )
+    : [];
 
-  // New Location Filter
-  const filteredLocations = orgLocations.filter((loc) =>
-    loc.name?.toLowerCase().includes(locationSearch.toLowerCase()),
-  );
+  const filteredParts = Array.isArray(orgParts)
+    ? orgParts.filter((p) => p.name?.toLowerCase().includes(partSearch.toLowerCase()))
+    : [];
+
+  const filteredLocations = Array.isArray(orgLocations)
+    ? orgLocations.filter((loc) => loc.name?.toLowerCase().includes(locationSearch.toLowerCase()))
+    : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="bg-gray-50 text-gray-900 w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden border border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-gray-900/60 backdrop-blur-md md:p-4 animate-in fade-in duration-200">
+      <div className="bg-gray-50 text-gray-900 w-full max-w-4xl rounded-t-[32px] md:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden border border-gray-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 bg-white border-b border-gray-200">
+        <div className="flex items-center justify-between px-6 md:px-8 py-5 bg-white border-b border-gray-200 shrink-0">
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-gray-900">
-              Create Work Order
+            <h2 className="text-xl md:text-2xl font-black tracking-tight text-gray-900">
+              Create New Request
             </h2>
             <p className="text-xs text-gray-500 mt-1 font-medium">
-              Fill out the details below to open a new maintenance ticket.
+              {isFullAccess
+                ? "Fill out the details below to open a new maintenance ticket."
+                : "Select your request type to begin."}
             </p>
           </div>
           <button
@@ -366,608 +357,603 @@ const CreateWorkOrderModal = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
-            {/* 1. BASIC INFO */}
-            <SectionHeader title="Basic Information" icon={FileText} />
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+          <div className="bg-white p-5 md:p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
+            {/* 1. CATEGORY SELECTION (ALWAYS VISIBLE) */}
+            <SectionHeader title="Request Type" icon={FileText} />
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                Work Order Title <span className="text-red-500">*</span>
+                Category <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., TSR - Site Name - Issue / Part (ControlPC,Headset) - Status - Part Number "
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
-              />
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full bg-blue-50 border border-blue-200 text-blue-900 rounded-xl px-4 py-3 text-sm font-extrabold outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer transition-all"
+              >
+                <option value="">Select category...</option>
+                {isFullAccess
+                  ? FULL_CATEGORIES.map((cat) => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))
+                  : RESTRICTED_CATEGORIES.map((cat) => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+              </select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Category
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-all"
-                >
-                  <option>Select category...</option>
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Priority
-                </label>
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-all"
-                >
-                  <option value="LOW">Low</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                  <option value="CRITICAL">Critical</option>
-                </select>
-              </div>
-            </div>
+            {/* ONLY SHOW REST OF FORM IF CATEGORY IS SELECTED OR USER HAS FULL ACCESS */}
+            {(category || isFullAccess) && (
+              <>
+                {/* DYNAMIC TITLE FIELD */}
+                {isFullAccess ? (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                      Work Order Title <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g., TSR - Site Name - Issue / Part"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                      {category === "PARTS_REQUEST"
+                        ? "What parts do you need?"
+                        : "What is the issue?"}{" "}
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={customRequestSubject}
+                      onChange={(e) => setCustomRequestSubject(e.target.value)}
+                      placeholder={
+                        category === "PARTS_REQUEST"
+                          ? "e.g., Replacement HDMI Cable"
+                          : "e.g., Headset not tracking"
+                      }
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                    />
+                    {customRequestSubject && (
+                      <p className="text-[10px] text-gray-400 mt-2 font-mono">
+                        Auto-generated Title: {title}
+                      </p>
+                    )}
+                  </div>
+                )}
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                Description
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                placeholder="Provide context or instructions..."
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all resize-y"
-              />
-            </div>
+                {/* PRIORITY & DESCRIPTION */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className={!isFullAccess ? "hidden" : ""}>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                      Priority
+                    </label>
+                    <select
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-all"
+                    >
+                      <option value="LOW">Low</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="HIGH">High</option>
+                      <option value="CRITICAL">Critical</option>
+                    </select>
+                  </div>
+                </div>
 
-            {/* 2. JOB SPECIFICATION */}
-            <SectionHeader title="Job Specification" icon={Settings} />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* LOCATION SEARCH DROPDOWN */}
-              <div className="relative" ref={locationRef}>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Site Location
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search or select a location..."
-                    value={
-                      isLocationDropdownOpen ? locationSearch : siteLocation
-                    }
-                    onFocus={() => {
-                      setIsLocationDropdownOpen(true);
-                      setLocationSearch(""); // Clear search to show all when opening
-                    }}
-                    onChange={(e) => {
-                      setLocationSearch(e.target.value);
-                      setIsLocationDropdownOpen(true);
-                    }}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all cursor-pointer"
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                    Description & Details
+                  </label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    placeholder="Provide additional context or instructions..."
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all resize-y"
                   />
-                  {isLocationDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
-                      {filteredLocations.length > 0 ? (
-                        filteredLocations.map((loc) => (
-                          <button
-                            key={loc.id}
-                            type="button"
-                            onClick={() => {
-                              setSiteLocation(loc.name);
-                              setIsLocationDropdownOpen(false);
-                              setLocationSearch("");
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-blue-50 transition-colors"
-                          >
-                            {loc.name}
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-gray-400 italic">
-                          No locations found.
+                </div>
+
+                {/* 2. JOB SPECIFICATION */}
+                <SectionHeader title="Job Specification" icon={Settings} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="relative" ref={locationRef}>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                      Site Location
+                    </label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        disabled={!isFullAccess}
+                        placeholder="Search or select a location..."
+                        value={isLocationDropdownOpen ? locationSearch : siteLocation}
+                        onFocus={() => {
+                          if (!isFullAccess) return;
+                          setIsLocationDropdownOpen(true);
+                          setLocationSearch("");
+                        }}
+                        onChange={(e) => {
+                          setLocationSearch(e.target.value);
+                          setIsLocationDropdownOpen(true);
+                        }}
+                        className={`w-full border rounded-xl pl-10 pr-4 py-3 text-sm font-medium outline-none transition-all ${
+                          !isFullAccess
+                            ? "bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed"
+                            : "bg-gray-50 border-gray-200 focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer"
+                        }`}
+                      />
+                      {isLocationDropdownOpen && isFullAccess && (
+                        <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
+                          {filteredLocations.length > 0 ? (
+                            filteredLocations.map((loc) => (
+                              <button
+                                key={loc.id}
+                                type="button"
+                                onClick={() => {
+                                  setSiteLocation(loc.name);
+                                  setIsLocationDropdownOpen(false);
+                                  setLocationSearch("");
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-blue-50 transition-colors"
+                              >
+                                {loc.name}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-4 py-3 text-sm text-gray-400 italic">
+                              No locations found.
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Target Asset
-                </label>
-                {/* ADDED: disabled logic and specific grayed-out styling when locked */}
-                <select
-                  value={selectedAssetId}
-                  onChange={(e) => setSelectedAssetId(e.target.value)}
-                  disabled={!!preSelectedAsset}
-                  className={`w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none transition-all ${
-                    preSelectedAsset
-                      ? "bg-gray-100 cursor-not-allowed opacity-70 text-gray-600"
-                      : "bg-gray-50 focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer"
-                  }`}
-                >
-                  <option value="">No specific asset</option>
-                  {orgAssets.map((asset) => (
-                    <option key={asset.id} value={asset.id}>
-                      {asset.name}
-                    </option>
-                  ))}
-
-                  {/* Failsafe to ensure the preSelectedAsset name shows up even if orgAssets hasn't loaded fully */}
-                  {preSelectedAsset &&
-                    !orgAssets.some((a) => a.id === preSelectedAsset.id) && (
-                      <option value={preSelectedAsset.id}>
-                        {preSelectedAsset.name}
-                      </option>
-                    )}
-                </select>
-              </div>
-            </div>
-
-            {/* 3. SCHEDULE */}
-            <SectionHeader title="Schedule" icon={Calendar} />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Start Date
-                </label>
-                <input
-                  type="datetime-local"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Due Date
-                </label>
-                <input
-                  type="datetime-local"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Duration (Hours)
-                </label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    placeholder="0.0"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 4. ASSIGNMENT */}
-            <SectionHeader title="Assignment" icon={Users} />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Author
-                </label>
-                <div className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-500 cursor-not-allowed flex items-center">
-                  <User className="w-4 h-4 mr-2" /> {user?.firstName}{" "}
-                  {user?.lastName}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Operational Team
-                </label>
-                <select
-                  value={selectedTeamId}
-                  onChange={(e) => setSelectedTeamId(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-all"
-                >
-                  <option value="">Unassigned</option>
-                  {orgTeams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="relative" ref={assigneesRef}>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                  Assignees
-                </label>
-                <div
-                  onClick={() => setIsTeamDropdownOpen(!isTeamDropdownOpen)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 min-h-[46px] flex flex-wrap gap-1.5 items-center cursor-pointer hover:border-gray-400 focus-within:ring-2 focus-within:ring-blue-600 transition-all"
-                >
-                  {selectedAssignees.map((assignee) => (
-                    <span
-                      key={assignee.id}
-                      className="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5"
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                      Target Asset (Optional)
+                    </label>
+                    <select
+                      value={selectedAssetId}
+                      onChange={(e) => setSelectedAssetId(e.target.value)}
+                      disabled={!!preSelectedAsset}
+                      className={`w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none transition-all ${
+                        preSelectedAsset
+                          ? "bg-gray-100 cursor-not-allowed opacity-70 text-gray-600"
+                          : "bg-gray-50 focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer"
+                      }`}
                     >
-                      {assignee.firstName} {assignee.lastName}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeAssignee(assignee.id);
-                        }}
-                        className="hover:text-red-600"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                  {selectedAssignees.length === 0 && (
-                    <span className="text-sm text-gray-400 px-1 select-none">
-                      Select members...
-                    </span>
-                  )}
-                </div>
-
-                {isTeamDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
-                    {orgUsers
-                      .filter(
-                        (u) => !selectedAssignees.some((a) => a.id === u.id),
-                      )
-                      .filter((u) => {
-                        let isMatch = true;
-
-                        // 1. Filter by Location if one is typed/selected
-                        if (siteLocation) {
-                          isMatch =
-                            isMatch &&
-                            u.siteLocation
-                              ?.toLowerCase()
-                              .includes(siteLocation.toLowerCase());
-                        }
-
-                        // 2. Filter by Team (Forgiving: Checks teamId OR if the team name is in their siteLocation)
-                        if (selectedTeamId) {
-                          const matchesTeamId = u.teamId === selectedTeamId;
-                          const selectedTeamObj = orgTeams.find(
-                            (t) => t.id === selectedTeamId,
-                          );
-                          const matchesTeamNameInLoc =
-                            selectedTeamObj?.name &&
-                            u.siteLocation
-                              ?.toLowerCase()
-                              .includes(selectedTeamObj.name.toLowerCase());
-
-                          isMatch =
-                            isMatch && (matchesTeamId || matchesTeamNameInLoc);
-                        }
-
-                        return isMatch;
-                      })
-                      .map((u) => (
-                        <button
-                          key={u.id}
-                          type="button"
-                          onClick={() => addAssignee(u)}
-                          className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-blue-50 transition-colors"
-                        >
-                          {u.firstName} {u.lastName}
-                        </button>
+                      <option value="">No specific asset</option>
+                      {orgAssets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.name}
+                        </option>
                       ))}
-
-                    {/* Dynamic Empty State Message */}
-                    {orgUsers
-                      .filter(
-                        (u) => !selectedAssignees.some((a) => a.id === u.id),
-                      )
-                      .filter((u) => {
-                        let isMatch = true;
-                        if (siteLocation)
-                          isMatch =
-                            isMatch &&
-                            u.siteLocation
-                              ?.toLowerCase()
-                              .includes(siteLocation.toLowerCase());
-                        if (selectedTeamId) {
-                          const matchesTeamId = u.teamId === selectedTeamId;
-                          const selectedTeamObj = orgTeams.find(
-                            (t) => t.id === selectedTeamId,
-                          );
-                          const matchesTeamNameInLoc =
-                            selectedTeamObj?.name &&
-                            u.siteLocation
-                              ?.toLowerCase()
-                              .includes(selectedTeamObj.name.toLowerCase());
-                          isMatch =
-                            isMatch && (matchesTeamId || matchesTeamNameInLoc);
-                        }
-                        return isMatch;
-                      }).length === 0 && (
-                      <div className="px-4 py-3 text-sm text-gray-400 italic">
-                        No members found for this team/location. Try unassigning
-                        them to see all users.
-                      </div>
-                    )}
+                      {preSelectedAsset && !orgAssets.some((a) => a.id === preSelectedAsset.id) && (
+                        <option value={preSelectedAsset.id}>{preSelectedAsset.name}</option>
+                      )}
+                    </select>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* 5. PARTS & INVENTORY */}
-            <SectionHeader title="Inventory & Parts" icon={Box} />
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-              <div className="relative mb-3" ref={partsRef}>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search and add parts required for this job..."
-                    value={partSearch}
-                    onFocus={() => setIsPartsDropdownOpen(true)}
-                    onChange={(e) => {
-                      setPartSearch(e.target.value);
-                      setIsPartsDropdownOpen(true);
-                    }}
-                    className="w-full bg-white border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600"
-                  />
                 </div>
-                {isPartsDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
-                    {filteredParts.length > 0 ? (
-                      filteredParts.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => addPart(p)}
-                          className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-blue-50"
-                        >
-                          {p.name}{" "}
-                          <span className="text-gray-400 ml-2">
-                            ({p.sku || "No SKU"})
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-3 text-sm text-gray-400 italic">
-                        No parts found matching search
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
 
-              {selectedParts.length > 0 ? (
-                <div className="space-y-2">
-                  {selectedParts.map((part) => (
-                    <div
-                      key={part.partId}
-                      className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-2.5 text-sm"
-                    >
-                      <span className="font-bold text-gray-800">
-                        {part.name}
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <label className="text-xs font-bold text-gray-500">
-                          Qty:
+                {/* 3. SCHEDULE */}
+                {isFullAccess && (
+                  <>
+                    <SectionHeader title="Schedule" icon={Calendar} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                          Start Date
                         </label>
                         <input
-                          type="number"
-                          min="1"
-                          value={part.quantity}
-                          onChange={(e) =>
-                            updatePartQty(
-                              part.partId,
-                              parseInt(e.target.value) || 1,
-                            )
-                          }
-                          className="w-16 border border-gray-300 rounded-md px-2 py-1 outline-none focus:border-blue-500 text-center"
+                          type="datetime-local"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                          Due Date
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={dueDate}
+                          onChange={(e) => setDueDate(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                          Duration (Hours)
+                        </label>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={duration}
+                            onChange={(e) => setDuration(e.target.value)}
+                            placeholder="0.0"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* 4. ASSIGNMENT */}
+                {isFullAccess && (
+                  <>
+                    <SectionHeader title="Assignment" icon={Users} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                          Author
+                        </label>
+                        <div className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-500 cursor-not-allowed flex items-center">
+                          <User className="w-4 h-4 mr-2" /> {user?.firstName} {user?.lastName}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                          Operational Team
+                        </label>
+                        <select
+                          value={selectedTeamId}
+                          onChange={(e) => setSelectedTeamId(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-all"
+                        >
+                          <option value="">Unassigned</option>
+                          {orgTeams.map((team) => (
+                            <option key={team.id} value={team.id}>
+                              {team.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="relative" ref={assigneesRef}>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                          Assignees
+                        </label>
+                        <div
+                          onClick={() => setIsTeamDropdownOpen(!isTeamDropdownOpen)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 min-h-[46px] flex flex-wrap gap-1.5 items-center cursor-pointer hover:border-gray-400 focus-within:ring-2 focus-within:ring-blue-600 transition-all"
+                        >
+                          {selectedAssignees.map((assignee) => (
+                            <span
+                              key={assignee.id}
+                              className="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5"
+                            >
+                              {assignee.firstName} {assignee.lastName}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeAssignee(assignee.id);
+                                }}
+                                className="hover:text-red-600"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                          {selectedAssignees.length === 0 && (
+                            <span className="text-sm text-gray-400 px-1 select-none">
+                              Select members...
+                            </span>
+                          )}
+                        </div>
+
+                        {isTeamDropdownOpen && (
+                          <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
+                            {orgUsers
+                              .filter((u) => !selectedAssignees.some((a) => a.id === u.id))
+                              .filter((u) => {
+                                let isMatch = true;
+                                if (siteLocation)
+                                  isMatch =
+                                    isMatch &&
+                                    u.siteLocation
+                                      ?.toLowerCase()
+                                      .includes(siteLocation.toLowerCase());
+                                if (selectedTeamId) {
+                                  const matchesTeamId = u.teamId === selectedTeamId;
+                                  const selectedTeamObj = orgTeams.find(
+                                    (t) => t.id === selectedTeamId,
+                                  );
+                                  const matchesTeamNameInLoc =
+                                    selectedTeamObj?.name &&
+                                    u.siteLocation
+                                      ?.toLowerCase()
+                                      .includes(selectedTeamObj.name.toLowerCase());
+                                  isMatch = isMatch && (matchesTeamId || matchesTeamNameInLoc);
+                                }
+                                return isMatch;
+                              })
+                              .map((u) => (
+                                <button
+                                  key={u.id}
+                                  type="button"
+                                  onClick={() => addAssignee(u)}
+                                  className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-blue-50 transition-colors"
+                                >
+                                  {u.firstName} {u.lastName}
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* 5. PARTS & INVENTORY */}
+                {(!isFullAccess && category === "PARTS_REQUEST") || isFullAccess ? (
+                  <>
+                    <SectionHeader title="Inventory & Parts" icon={Box} />
+                    <div
+                      className={`border rounded-xl p-4 ${!isFullAccess ? "bg-blue-50/50 border-blue-200 shadow-sm" : "bg-gray-50 border-gray-200"}`}
+                    >
+                      {!isFullAccess && (
+                        <div className="flex items-center gap-2 mb-4 text-blue-800 bg-blue-100 p-3 rounded-lg text-sm font-bold">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          Please search and add the parts you need requested.
+                        </div>
+                      )}
+                      <div className="relative mb-3" ref={partsRef}>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search and add parts required for this job..."
+                            value={partSearch}
+                            onFocus={() => setIsPartsDropdownOpen(true)}
+                            onChange={(e) => {
+                              setPartSearch(e.target.value);
+                              setIsPartsDropdownOpen(true);
+                            }}
+                            className="w-full bg-white border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600"
+                          />
+                        </div>
+                        {isPartsDropdownOpen && (
+                          <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
+                            {filteredParts.length > 0 ? (
+                              filteredParts.map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => addPart(p)}
+                                  className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-blue-50"
+                                >
+                                  {p.name}{" "}
+                                  <span className="text-gray-400 ml-2">({p.sku || "No SKU"})</span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-sm text-gray-400 italic">
+                                No parts found matching search
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedParts.length > 0 ? (
+                        <div className="space-y-2">
+                          {selectedParts.map((part) => (
+                            <div
+                              key={part.partId}
+                              className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-2.5 text-sm"
+                            >
+                              <span className="font-bold text-gray-800">{part.name}</span>
+                              <div className="flex items-center gap-3">
+                                <label className="text-xs font-bold text-gray-500">Qty:</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={part.quantity}
+                                  onChange={(e) =>
+                                    updatePartQty(part.partId, parseInt(e.target.value) || 1)
+                                  }
+                                  className="w-16 border border-gray-300 rounded-md px-2 py-1 outline-none focus:border-blue-500 text-center bg-gray-50"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removePart(part.partId)}
+                                  className="text-gray-400 hover:text-red-600 p-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-sm text-gray-400 italic border-2 border-dashed border-gray-200 rounded-lg bg-white">
+                          No parts added yet.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+
+                {/* 6. TASKS & ATTACHMENTS */}
+                <SectionHeader title="Tasks & Attachments" icon={Wrench} />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
+                      {isFullAccess ? "Checklist" : "Troubleshooting Steps Taken"}
+                    </label>
+                    <div className="space-y-2.5">
+                      {tasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className="flex items-center space-x-3 bg-gray-50 p-2.5 border border-gray-200 rounded-xl"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={task.completed}
+                            onChange={() => toggleTask(task.id)}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                          />
+                          <span
+                            className={`text-sm font-medium flex-1 ${task.completed ? "line-through text-gray-400" : "text-gray-800"}`}
+                          >
+                            {task.text}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeTask(task.id)}
+                            className="text-gray-400 hover:text-red-600 p-1"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="flex space-x-2 mt-3">
+                        <input
+                          type="text"
+                          value={newTaskText}
+                          onChange={(e) => setNewTaskText(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
+                          className="border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 flex-1 text-sm outline-none focus:ring-2 focus:ring-blue-600"
+                          placeholder={isFullAccess ? "New task..." : "e.g. Rebooted the computer"}
                         />
                         <button
                           type="button"
-                          onClick={() => removePart(part.partId)}
-                          className="text-gray-400 hover:text-red-600 p-1"
+                          onClick={handleAddTask}
+                          className="bg-gray-100 hover:bg-gray-200 border border-gray-200 px-4 py-2.5 rounded-xl text-sm font-bold"
                         >
-                          <X className="w-4 h-4" />
+                          <Plus className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-sm text-gray-400 italic border-2 border-dashed border-gray-200 rounded-lg">
-                  No parts added yet.
-                </div>
-              )}
-            </div>
+                  </div>
 
-            {/* 6. TASKS & ATTACHMENTS */}
-            <SectionHeader title="Tasks & Attachments" icon={Wrench} />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Tasks */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
-                  Checklist
-                </label>
-                <div className="space-y-2.5">
-                  {tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center space-x-3 bg-gray-50 p-2.5 border border-gray-200 rounded-xl"
-                    >
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
+                      Photos / Files
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-5 text-center bg-gray-50/50 hover:bg-gray-100 transition-colors relative cursor-pointer group">
                       <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onChange={() => toggleTask(task.id)}
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                        type="file"
+                        multiple
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        onChange={handleFileSelect}
                       />
-                      <span
-                        className={`text-sm font-medium flex-1 ${task.completed ? "line-through text-gray-400" : "text-gray-800"}`}
-                      >
-                        {task.text}
-                      </span>
+                      <UploadCloud className="w-7 h-7 text-blue-600 mx-auto mb-1.5 group-hover:scale-110 transition-transform" />
+                      <p className="text-xs font-bold text-gray-800">Click to upload files</p>
+                    </div>
+                    {attachedFiles.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {attachedFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs"
+                          >
+                            <div className="flex items-center space-x-2 truncate">
+                              <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                              <span className="font-bold text-gray-800 truncate">{file.name}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(index)}
+                              className="text-gray-400 hover:text-red-600 p-1"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Parent Linking */}
+                <div className="border-t border-gray-100 pt-6 mt-6" ref={parentWoRef}>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                    Link to Parent Work Order (Optional)
+                  </label>
+                  {selectedParentWo ? (
+                    <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm">
+                      <div className="flex items-center space-x-2.5">
+                        <LinkIcon className="w-4 h-4 text-blue-600" />
+                        <span className="font-bold text-blue-900">
+                          WO-{selectedParentWo.id}: {selectedParentWo.title}
+                        </span>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => removeTask(task.id)}
-                        className="text-gray-400 hover:text-red-600 p-1"
+                        onClick={() => setSelectedParentWo(null)}
+                        className="text-blue-400 hover:text-red-600 p-1"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                  ))}
-                  <div className="flex space-x-2 mt-3">
-                    <input
-                      type="text"
-                      value={newTaskText}
-                      onChange={(e) => setNewTaskText(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
-                      className="border border-gray-200 bg-gray-50 rounded-xl px-4 py-2.5 flex-1 text-sm outline-none focus:ring-2 focus:ring-blue-600"
-                      placeholder="New task..."
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddTask}
-                      className="bg-gray-100 hover:bg-gray-200 border border-gray-200 px-4 py-2.5 rounded-xl text-sm font-bold"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Attachments */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
-                  Files
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-5 text-center bg-gray-50/50 hover:bg-gray-100 transition-colors relative cursor-pointer group">
-                  <input
-                    type="file"
-                    multiple
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={handleFileSelect}
-                  />
-                  <UploadCloud className="w-7 h-7 text-blue-600 mx-auto mb-1.5 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs font-bold text-gray-800">
-                    Click to upload files
-                  </p>
-                </div>
-                {attachedFiles.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {attachedFiles.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs"
-                      >
-                        <div className="flex items-center space-x-2 truncate">
-                          <FileText className="w-4 h-4 text-blue-600 shrink-0" />
-                          <span className="font-bold text-gray-800 truncate">
-                            {file.name}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(index)}
-                          className="text-gray-400 hover:text-red-600 p-1"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Parent Linking (Bottom section) */}
-            <div
-              className="border-t border-gray-100 pt-6 mt-6"
-              ref={parentWoRef}
-            >
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                Link to Parent Work Order (Optional)
-              </label>
-              {selectedParentWo ? (
-                <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm">
-                  <div className="flex items-center space-x-2.5">
-                    <LinkIcon className="w-4 h-4 text-blue-600" />
-                    <span className="font-bold text-blue-900">
-                      WO-{selectedParentWo.id}: {selectedParentWo.title}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedParentWo(null)}
-                    className="text-blue-400 hover:text-red-600 p-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <Search className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search existing work orders..."
-                    value={parentSearchTerm}
-                    onFocus={() => setIsParentDropdownOpen(true)}
-                    onChange={(e) => {
-                      setParentSearchTerm(e.target.value);
-                      setIsParentDropdownOpen(true);
-                    }}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                  {isParentDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
-                      {filteredParentWorkOrders.length > 0 ? (
-                        filteredParentWorkOrders.map((wo) => (
-                          <button
-                            key={wo.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedParentWo(wo);
-                              setIsParentDropdownOpen(false);
-                              setParentSearchTerm("");
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 flex justify-between border-b border-gray-50 last:border-0"
-                          >
-                            <span className="font-semibold text-gray-800">
-                              WO-{wo.id}: {wo.title}
-                            </span>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-gray-400 italic">
-                          No matching work orders
+                  ) : (
+                    <div className="relative">
+                      <Search className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search existing work orders..."
+                        value={parentSearchTerm}
+                        onFocus={() => setIsParentDropdownOpen(true)}
+                        onChange={(e) => {
+                          setParentSearchTerm(e.target.value);
+                          setIsParentDropdownOpen(true);
+                        }}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-600"
+                      />
+                      {isParentDropdownOpen && (
+                        <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
+                          {filteredParentWorkOrders.length > 0 ? (
+                            filteredParentWorkOrders.map((wo) => (
+                              <button
+                                key={wo.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedParentWo(wo);
+                                  setIsParentDropdownOpen(false);
+                                  setParentSearchTerm("");
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 flex justify-between border-b border-gray-50 last:border-0"
+                              >
+                                <span className="font-semibold text-gray-800">
+                                  WO-{wo.id}: {wo.title}
+                                </span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-4 py-3 text-sm text-gray-400 italic">
+                              No matching work orders
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end px-8 py-5 bg-white border-t border-gray-200 gap-3">
+        <div className="flex justify-end px-6 md:px-8 py-5 bg-white border-t border-gray-200 gap-3 pb-8 md:pb-5">
           <button
             onClick={onClose}
             className="px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
@@ -976,7 +962,7 @@ const CreateWorkOrderModal = ({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !category}
             className="px-8 py-3 text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-50"
           >
             {isSubmitting ? "Creating..." : "Create Work Order"}

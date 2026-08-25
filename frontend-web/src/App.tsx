@@ -19,7 +19,6 @@ import WorkOrderDetail from "./components/WorkOrderDetail";
 import CreateWorkOrderModal from "./components/CreateWorkOrderModal";
 import UserProfile from "./components/UserProfile.jsx";
 import AccessRequests from "./components/AccessRequests.jsx";
-import Requests from "./components/Requests.jsx";
 import Calendar from "./components/Calendar.jsx";
 import Locations from "./components/Locations.jsx";
 import MyTeam from "./components/MyTeam.jsx";
@@ -75,39 +74,7 @@ interface AuthCardProps {
   onAuthSuccess: (user: User) => void;
 }
 
-// GLOBAL FETCH INTERCEPTOR FOR DEBUGGER
-if (typeof window !== "undefined") {
-  const originalFetch = window.fetch;
-  (window as any).__apiLogs = (window as any).__apiLogs || [];
-
-  window.fetch = async (...args) => {
-    const [resource, config] = args;
-    const startTime = Date.now();
-    const logEntry = {
-      id: Math.random().toString(36),
-      url: resource,
-      method: config?.method || "GET",
-      timestamp: new Date().toLocaleTimeString(),
-      status: "PENDING",
-      duration: 0,
-    };
-
-    (window as any).__apiLogs.unshift(logEntry);
-
-    try {
-      const response = await originalFetch(...args);
-      logEntry.status = response.status.toString();
-      logEntry.duration = Date.now() - startTime;
-      return response;
-    } catch (error) {
-      logEntry.status = "ERROR";
-      logEntry.duration = Date.now() - startTime;
-      throw error;
-    }
-  };
-}
-
-const API_URL = "192.168.1.92:8080";
+const API_URL = import.meta.env.VITE_API_URL;
 
 // AUTH COMPONENT
 const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
@@ -221,14 +188,11 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
       }
 
       if (mode === "forgot_email") {
-        const response = await fetch(
-          `http://${API_URL}/api/auth/forgot-password`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: formData.email }),
-          },
-        );
+        const response = await fetch(`http://${API_URL}/api/auth/forgot-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: formData.email }),
+        });
         if (response.ok) {
           setSuccessMsg("If your email is registered, a code has been sent.");
           setMode("forgot_code");
@@ -259,18 +223,15 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
         if (formData.password !== formData.confirmPassword) {
           return setErrorMsg("Passwords do not match!");
         }
-        const response = await fetch(
-          `http://${API_URL}/api/auth/reset-password`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: formData.email,
-              code: formData.resetCode,
-              newPassword: formData.password,
-            }),
-          },
-        );
+        const response = await fetch(`http://${API_URL}/api/auth/reset-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: formData.email,
+            code: formData.resetCode,
+            newPassword: formData.password,
+          }),
+        });
         if (response.ok) {
           alert("Password successfully reset! You can now log in.");
           setMode("login");
@@ -311,8 +272,8 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
               maintenance operations.
             </h1>
             <p className="text-blue-100 text-lg max-w-md leading-relaxed">
-              Pulseworks CMMS helps your team track assets, manage preventive
-              maintenance, and resolve work orders faster than ever.
+              Pulseworks CMMS helps your team track assets, manage preventive maintenance, and
+              resolve work orders faster than ever.
             </p>
           </div>
           <div className="absolute -bottom-32 -left-40 w-[500px] h-[500px] bg-white opacity-10 rounded-full blur-3xl"></div>
@@ -332,24 +293,17 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                 {mode === "forgot_code" && "Verify Code"}
                 {mode === "forgot_reset" && "Create New Password"}
                 {mode === "select_profile" && "Who is using the device?"}
-                {mode === "pin_entry" &&
-                  `Welcome, ${selectedProfile?.firstName}`}
+                {mode === "pin_entry" && `Welcome, ${selectedProfile?.firstName}`}
               </h2>
               <p className="text-gray-500 text-sm">
-                {mode === "login" &&
-                  "Please enter your details to sign in to your workspace."}
-                {mode === "signup" &&
-                  "Create a new organization workspace for your team."}
+                {mode === "login" && "Please enter your details to sign in to your workspace."}
+                {mode === "signup" && "Create a new organization workspace for your team."}
                 {mode === "forgot_email" &&
                   "Enter your email address and we'll send you a 4-digit code."}
-                {mode === "forgot_code" &&
-                  `Enter the 4-digit code sent to ${formData.email}`}
-                {mode === "forgot_reset" &&
-                  "Please enter a strong new password."}
-                {mode === "select_profile" &&
-                  "Select your profile to continue to the workspace."}
-                {mode === "pin_entry" &&
-                  "Please enter your 4-digit security PIN."}
+                {mode === "forgot_code" && `Enter the 4-digit code sent to ${formData.email}`}
+                {mode === "forgot_reset" && "Please enter a strong new password."}
+                {mode === "select_profile" && "Select your profile to continue to the workspace."}
+                {mode === "pin_entry" && "Please enter your 4-digit security PIN."}
               </p>
             </div>
 
@@ -379,9 +333,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                         {profile.firstName.charAt(0)}
                         {profile.lastName.charAt(0)}
                       </div>
-                      <span className="font-bold text-gray-900">
-                        {profile.firstName}
-                      </span>
+                      <span className="font-bold text-gray-900">{profile.firstName}</span>
                     </button>
                   ))}
                 </div>
@@ -398,9 +350,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                       maxLength={4}
                       placeholder="••••"
                       value={pin}
-                      onChange={(e) =>
-                        setPin(e.target.value.replace(/\D/g, ""))
-                      }
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                     />
                   </div>
                   <div className="flex gap-4">
@@ -446,26 +396,20 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                       className={inputClasses}
                       type="text"
                       placeholder="First Name"
-                      onChange={(e) =>
-                        setFormData({ ...formData, firstName: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     />
                     <input
                       required
                       className={inputClasses}
                       type="text"
                       placeholder="Last Name"
-                      onChange={(e) =>
-                        setFormData({ ...formData, lastName: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     />
                   </div>
                 </>
               )}
 
-              {(mode === "login" ||
-                mode === "signup" ||
-                mode === "forgot_email") && (
+              {(mode === "login" || mode === "signup" || mode === "forgot_email") && (
                 <div>
                   <input
                     required
@@ -473,25 +417,19 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                     type="email"
                     placeholder="Work Email for eg.(xyz@companyName.com)"
                     value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
               )}
 
-              {(mode === "login" ||
-                mode === "signup" ||
-                mode === "forgot_reset") && (
+              {(mode === "login" || mode === "signup" || mode === "forgot_reset") && (
                 <div>
                   <input
                     required
                     className={inputClasses}
                     type="password"
                     placeholder="Password"
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   />
                 </div>
               )}
@@ -521,9 +459,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                     type="text"
                     maxLength={4}
                     placeholder="0000"
-                    onChange={(e) =>
-                      setFormData({ ...formData, resetCode: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, resetCode: e.target.value })}
                   />
                 </div>
               )}
@@ -615,11 +551,11 @@ const MobileNav = ({ onOpenModal }: { onOpenModal: () => void }) => {
       {/* BOTTOM NAVIGATION BAR */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 px-6 py-2 flex justify-between items-center z-40 pb-[env(safe-area-inset-bottom)] shadow-lg">
         <Link
-          to="/workspace/workorders"
-          className={`flex flex-col items-center gap-1 ${isActive("/workspace/workorders") ? "text-blue-600 font-bold" : "text-gray-400 font-medium"}`}
+          to="/aisearch/pulseworksAI"
+          className={`flex flex-col items-center gap-1 ${isActive("/aisearch/pulseworksAI") ? "text-blue-600 font-bold" : "text-gray-400 font-medium"}`}
         >
           <Home className="w-5 h-5" />
-          <span className="text-[10px]">Home</span>
+          <span className="text-[10px]">Pulseworks AI</span>
         </Link>
 
         <Link
@@ -631,11 +567,11 @@ const MobileNav = ({ onOpenModal }: { onOpenModal: () => void }) => {
         </Link>
 
         <Link
-          to="/resources/requests"
-          className={`flex flex-col items-center gap-1 ${isActive("/resources/requests") ? "text-blue-600 font-bold" : "text-gray-400 font-medium"}`}
+          to="/procurement/assets"
+          className={`flex flex-col items-center gap-1 ${isActive("/procurement/assets") ? "text-blue-600 font-bold" : "text-gray-400 font-medium"}`}
         >
           <Inbox className="w-5 h-5" />
-          <span className="text-[10px]">Requests</span>
+          <span className="text-[10px]">Assets</span>
         </Link>
 
         <Link
@@ -664,22 +600,51 @@ const DashboardLayout = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Polling for pending access requests if user is Admin
+  useEffect(() => {
+    if (user?.role !== "ADMIN" || !user?.organizationId) return;
+
+    const fetchPendingRequests = async () => {
+      try {
+        const res = await fetch(`http://${API_URL}/api/users/${user.organizationId}`);
+        if (res.ok) {
+          const usersData = await res.json();
+          const count = usersData.filter((u: any) => u.approvalStatus === "PENDING").length;
+          setPendingRequestsCount(count);
+        }
+      } catch (err) {
+        console.error("Failed to fetch pending requests count", err);
+      }
+    };
+
+    fetchPendingRequests();
+    // Poll every 30 seconds
+    const interval = setInterval(fetchPendingRequests, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const isLinkActive = (path: string) => location.pathname.startsWith(path);
 
   const linkClass = (path: string) =>
     isLinkActive(path)
-      ? `flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 transition-colors ${isSidebarCollapsed ? "justify-center" : ""}`
-      : `flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition-colors ${isSidebarCollapsed ? "justify-center" : ""}`;
+      ? `flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 transition-colors ${isSidebarCollapsed ? "justify-center" : ""}`
+      : `flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition-colors ${isSidebarCollapsed ? "justify-center" : ""}`;
 
   const iconClass = (path: string) =>
     isLinkActive(path)
-      ? `text-blue-600 ${isSidebarCollapsed ? "" : "mr-3"}`
-      : `text-gray-400 ${isSidebarCollapsed ? "" : "mr-3"}`;
+      ? `text-blue-600 ${isSidebarCollapsed ? "" : "mr-3"} shrink-0`
+      : `text-gray-400 ${isSidebarCollapsed ? "" : "mr-3"} shrink-0`;
 
   const initials =
     `${user.firstName?.charAt(0) || ""}${user.lastName?.charAt(0) || ""}`.toUpperCase();
+
+  // Root paths where the back button should NOT be shown
+  const rootPaths = ["/workspace/workorders", "/resources/requests", "/more"];
+  const isRootPage = rootPaths.includes(location.pathname);
 
   return (
     <div className="flex h-screen w-full bg-white text-gray-800 font-sans relative pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
@@ -724,12 +689,12 @@ const DashboardLayout = ({
                 className={linkClass("/workspace/workorders")}
                 title={isSidebarCollapsed ? "Work Orders" : ""}
               >
-                <span className={iconClass("/workspace/workorders")}>
-                  <ClipboardList className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Work Orders</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/workspace/workorders")}>
+                    <ClipboardList className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Work Orders</span>}
+                </div>
               </Link>
             </li>
             <li>
@@ -738,12 +703,12 @@ const DashboardLayout = ({
                 className={linkClass("/workspace/pm")}
                 title={isSidebarCollapsed ? "Preventive Maintenance" : ""}
               >
-                <span className={iconClass("/workspace/pm")}>
-                  <Wrench className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Preventive Maintenance</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/workspace/pm")}>
+                    <Wrench className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Preventive Maintenance</span>}
+                </div>
               </Link>
             </li>
             <li>
@@ -752,12 +717,12 @@ const DashboardLayout = ({
                 className={linkClass("/workspace/schedular")}
                 title={isSidebarCollapsed ? "Scheduler" : ""}
               >
-                <span className={iconClass("/workspace/schedular")}>
-                  <CalendarIcon className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Scheduler</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/workspace/schedular")}>
+                    <CalendarIcon className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Scheduler</span>}
+                </div>
               </Link>
             </li>
           </ul>
@@ -774,12 +739,12 @@ const DashboardLayout = ({
                 className={linkClass("/aisearch/pulseworksAI")}
                 title={isSidebarCollapsed ? "Pulseworks AI" : ""}
               >
-                <span className={iconClass("/aisearch/pulseworksAI")}>
-                  <Sparkles className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Pulseworks AI</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/aisearch/pulseworksAI")}>
+                    <Sparkles className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Pulseworks AI</span>}
+                </div>
               </Link>
             </li>
           </ul>
@@ -796,12 +761,12 @@ const DashboardLayout = ({
                 className={linkClass("/organization/myteam")}
                 title={isSidebarCollapsed ? "My Team" : ""}
               >
-                <span className={iconClass("/organization/myteam")}>
-                  <Users className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">My Team</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/organization/myteam")}>
+                    <Users className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">My Team</span>}
+                </div>
               </Link>
             </li>
             <li>
@@ -810,12 +775,12 @@ const DashboardLayout = ({
                 className={linkClass("/organization/locations")}
                 title={isSidebarCollapsed ? "Locations" : ""}
               >
-                <span className={iconClass("/organization/locations")}>
-                  <MapPin className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Locations</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/organization/locations")}>
+                    <MapPin className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Locations</span>}
+                </div>
               </Link>
             </li>
           </ul>
@@ -832,56 +797,52 @@ const DashboardLayout = ({
                 className={linkClass("/resources/projects")}
                 title={isSidebarCollapsed ? "Projects" : ""}
               >
-                <span className={iconClass("/resources/projects")}>
-                  <FolderKanban className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Projects</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/resources/projects")}>
+                    <FolderKanban className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Projects</span>}
+                </div>
               </Link>
             </li>
             {user.role === "ADMIN" && (
               <li>
                 <Link
                   to="/resources/accessrequests"
-                  className={linkClass("/resources/accessrequests")}
+                  className={`${linkClass("/resources/accessrequests")} relative`}
                   title={isSidebarCollapsed ? "Access Requests" : ""}
                 >
-                  <span className={iconClass("/resources/accessrequests")}>
-                    <ShieldCheck className="w-5 h-5" />
-                  </span>
-                  {!isSidebarCollapsed && (
-                    <span className="truncate">Access Requests</span>
-                  )}
+                  <div className="flex items-center truncate">
+                    <span className={iconClass("/resources/accessrequests")}>
+                      <ShieldCheck className="w-5 h-5" />
+                    </span>
+                    {!isSidebarCollapsed && <span className="truncate">Access Requests</span>}
+                  </div>
+
+                  {/* DYNAMIC PENDING REQUEST BADGE */}
+                  {pendingRequestsCount > 0 &&
+                    (isSidebarCollapsed ? (
+                      <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 border-2 border-gray-50 rounded-full"></span>
+                    ) : (
+                      <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 shadow-sm transition-all animate-in zoom-in">
+                        {pendingRequestsCount}
+                      </span>
+                    ))}
                 </Link>
               </li>
             )}
-            <li>
-              <Link
-                to="/resources/requests"
-                className={linkClass("/resources/requests")}
-                title={isSidebarCollapsed ? "Requests" : ""}
-              >
-                <span className={iconClass("/resources/requests")}>
-                  <Inbox className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Requests</span>
-                )}
-              </Link>
-            </li>
             <li>
               <Link
                 to="/resources/calendar"
                 className={linkClass("/resources/calendar")}
                 title={isSidebarCollapsed ? "Calendar" : ""}
               >
-                <span className={iconClass("/resources/calendar")}>
-                  <CalendarIcon className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Calendar</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/resources/calendar")}>
+                    <CalendarIcon className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Calendar</span>}
+                </div>
               </Link>
             </li>
           </ul>
@@ -898,12 +859,12 @@ const DashboardLayout = ({
                 className={linkClass("/procurement/assets")}
                 title={isSidebarCollapsed ? "Assets" : ""}
               >
-                <span className={iconClass("/procurement/assets")}>
-                  <Package className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Assets</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/procurement/assets")}>
+                    <Package className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Assets</span>}
+                </div>
               </Link>
             </li>
             <li>
@@ -912,12 +873,12 @@ const DashboardLayout = ({
                 className={linkClass("/procurement/partsinventory")}
                 title={isSidebarCollapsed ? "Parts Inventory" : ""}
               >
-                <span className={iconClass("/procurement/partsinventory")}>
-                  <Box className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Parts Inventory</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/procurement/partsinventory")}>
+                    <Box className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Parts Inventory</span>}
+                </div>
               </Link>
             </li>
             <li>
@@ -926,12 +887,12 @@ const DashboardLayout = ({
                 className={linkClass("/procurement/inventory")}
                 title={isSidebarCollapsed ? "IN/OUT Inventory" : ""}
               >
-                <span className={iconClass("/procurement/inventory")}>
-                  <Layers className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">IN/OUT Inventory</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/procurement/inventory")}>
+                    <Layers className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">IN/OUT Inventory</span>}
+                </div>
               </Link>
             </li>
           </ul>
@@ -948,12 +909,12 @@ const DashboardLayout = ({
                 className={linkClass("/analytics/metrics")}
                 title={isSidebarCollapsed ? "Metrics" : ""}
               >
-                <span className={iconClass("/analytics/metrics")}>
-                  <BarChart3 className="w-5 h-5" />
-                </span>
-                {!isSidebarCollapsed && (
-                  <span className="truncate">Metrics</span>
-                )}
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/analytics/metrics")}>
+                    <BarChart3 className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Metrics</span>}
+                </div>
               </Link>
             </li>
           </ul>
@@ -972,9 +933,7 @@ const DashboardLayout = ({
               <span className="text-sm font-bold text-gray-900 truncate">
                 {user.firstName} {user.lastName}
               </span>
-              <span className="text-xs text-gray-500 font-medium">
-                View Profile
-              </span>
+              <span className="text-xs text-gray-500 font-medium">View Profile</span>
             </div>
           )}
         </Link>
@@ -988,68 +947,42 @@ const DashboardLayout = ({
           onSwitchUser={onSwitchUser}
         />
 
-        <main className="flex-1 flex flex-col overflow-y-auto">
+        <main className="flex-1 flex flex-col overflow-y-auto bg-gray-50 relative">
+          {/* MOBILE GLOBAL BACK NAVIGATION */}
+          {!isRootPage && (
+            <div className="md:hidden w-full bg-white/95 backdrop-blur-md px-4 py-2.5 border-b border-gray-200 sticky top-0 z-40 flex items-center shrink-0">
+              <button
+                onClick={() => navigate(-1)}
+                className="flex items-center text-blue-600 font-extrabold text-[15px] hover:text-blue-700 transition-colors active:scale-95"
+              >
+                <ChevronLeft className="w-5 h-5 mr-0.5" strokeWidth={3} />
+                Back
+              </button>
+            </div>
+          )}
+
           <div className="flex-1">
             <Routes>
-              <Route
-                path="/workspace/workorder/:id"
-                element={<WorkOrderDetail user={user} />}
-              />
+              <Route path="/workspace/workorder/:id" element={<WorkOrderDetail user={user} />} />
               <Route
                 path="/workspace/workorders"
-                element={
-                  <WorkOrders
-                    user={user}
-                    onOpenModal={() => setIsModalOpen(true)}
-                  />
-                }
+                element={<WorkOrders user={user} onOpenModal={() => setIsModalOpen(true)} />}
               />
-              <Route
-                path="/workspace/pm"
-                element={<PreventiveMaintenance user={user} />}
-              />
-              <Route
-                path="/workspace/schedular"
-                element={<Scheduler user={user} />}
-              />
+              <Route path="/workspace/pm" element={<PreventiveMaintenance user={user} />} />
+              <Route path="/workspace/schedular" element={<Scheduler user={user} />} />
 
               <Route path="/aisearch/pulseworksAI" />
 
               <Route path="/organization/locations" element={<Locations />} />
-              <Route
-                path="/organization/myteam"
-                element={<MyTeam user={user} />}
-              />
+              <Route path="/organization/myteam" element={<MyTeam user={user} />} />
 
-              <Route
-                path="/resources/projects"
-                element={<Project user={user} />}
-              />
-              <Route
-                path="/resources/accessrequests"
-                element={<AccessRequests user={user} />}
-              />
-              <Route
-                path="/resources/requests"
-                element={<Requests user={user} />}
-              />
-              <Route
-                path="/resources/calendar"
-                element={<Calendar user={user} />}
-              />
+              <Route path="/resources/projects" element={<Project user={user} />} />
+              <Route path="/resources/accessrequests" element={<AccessRequests user={user} />} />
+              <Route path="/resources/calendar" element={<Calendar user={user} />} />
 
-              <Route
-                path="/procurement/partsinventory"
-                element={<PartsInventory user={user} />}
-              />
-              <Route
-                path="/procurement/assets"
-                element={<Assets user={user} />}
-              />
-              <Route
-                path="/procurement/inventory"
-                element={<Inventory user={user} />}
-              />
+              <Route path="/procurement/partsinventory" element={<PartsInventory user={user} />} />
+              <Route path="/procurement/assets" element={<Assets user={user} />} />
+              <Route path="/procurement/inventory" element={<Inventory user={user} />} />
               <Route path="/more" element={<MobileMoreMenu user={user} />} />
               <Route
                 path="/profile"
@@ -1136,11 +1069,7 @@ export default function App() {
           path="/userprofile"
           element={
             user ? (
-              <UserProfile
-                user={user}
-                onUpdateUser={handleLogin}
-                onSignOut={handleSignOut}
-              />
+              <UserProfile user={user} onUpdateUser={handleLogin} onSignOut={handleSignOut} />
             ) : (
               <Navigate to="/login" />
             )

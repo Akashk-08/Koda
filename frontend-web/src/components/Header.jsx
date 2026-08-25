@@ -7,7 +7,7 @@ const API_URL = "192.168.1.92:8080";
 const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [hasMultipleProfiles, setHasMultipleProfiles] = useState(false); // NEW STATE
+  const [hasMultipleProfiles, setHasMultipleProfiles] = useState(false);
 
   const createDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
@@ -48,7 +48,7 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
   }, [user?.email]);
 
   return (
-    <header className="h-14 border-b flex items-center justify-between px-6 shrink-0 relative z-20 bg-white">
+    <header className="h-14 border-b flex items-center justify-between px-4 md:px-6 shrink-0 relative z-20 bg-white">
       {/* GLOBAL SEARCH BAR */}
       <div className="relative hidden md:block">
         <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
@@ -59,13 +59,13 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
         />
       </div>
 
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-3 ml-auto">
 
-        {/* + CREATE DROPDOWN COMPONENT */}
+        {/* + CREATE DROPDOWN COMPONENT (Visible on all screens) */}
         <div className="relative" ref={createDropdownRef}>
           <button
             onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 shadow-sm transition-all"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 md:gap-2 shadow-sm transition-all"
           >
             <Plus className="w-4 h-4" /> Create
           </button>
@@ -94,26 +94,6 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
                 <ShieldCheck className="w-4 h-4" /> Preventive Maintenance
               </button>
 
-              <button
-                onClick={() => {
-                  setIsCreateMenuOpen(false);
-                  navigate('/procurement/assets');
-                }}
-                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 font-bold flex items-center gap-3 transition-colors"
-              >
-                <Box className="w-4 h-4" /> Asset
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsCreateMenuOpen(false);
-                  navigate('/resources/requests');
-                }}
-                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 font-bold flex items-center gap-3 transition-colors"
-              >
-                <MessageSquare className="w-4 h-4" /> General Request
-              </button>
-
               {user?.role === "ADMIN" && (
                 <button
                   onClick={() => {
@@ -130,7 +110,7 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
           )}
         </div>
 
-        {/* USER PROFILE & SIGN OUT DROPDOWN */}
+        {/* USER PROFILE & SIGN OUT DROPDOWN (Properly aligned) */}
         <div className="relative" ref={userDropdownRef}>
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -143,7 +123,6 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
           {isUserMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg py-2 z-50 animate-in fade-in zoom-in duration-150">
 
-              {/* UPDATED: Dynamic Switch Profile Button */}
               <button
                 onClick={() => {
                   if (hasMultipleProfiles) {

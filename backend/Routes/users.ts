@@ -9,8 +9,7 @@ router.get("/accessrequests", async (req, res) => {
   const { orgId, requesterId } = req.query;
 
   try {
-    if (!requesterId)
-      return res.status(401).json({ error: "Missing requester ID" });
+    if (!requesterId) return res.status(401).json({ error: "Missing requester ID" });
 
     const requester = await prisma.user.findUnique({
       where: { id: requesterId as string },

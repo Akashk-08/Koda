@@ -42,37 +42,28 @@ async function healDatabase() {
             let rawCategory = row["Category"]
               ? row["Category"].trim().replace(/ /g, "_").toUpperCase()
               : null;
-            let safeCategory = VALID_CATEGORIES.includes(rawCategory)
-              ? rawCategory
-              : null;
+            let safeCategory = VALID_CATEGORIES.includes(rawCategory) ? rawCategory : null;
 
             await prisma.asset.update({
               where: { id: existingAssets[0].id },
               data: {
-                locationName: row["Location Name"]
-                  ? row["Location Name"].trim()
-                  : null,
+                locationName: row["Location Name"] ? row["Location Name"].trim() : null,
                 category: safeCategory,
-                serialNumber: row["Serial Number"]
-                  ? row["Serial Number"].trim()
-                  : null,
+                serialNumber: row["Serial Number"] ? row["Serial Number"].trim() : null,
                 barcode: row["Barcode"] ? row["Barcode"].trim() : null,
                 model: row["Model"] ? row["Model"].trim() : null,
               },
             });
 
             updateCount++;
-            if (updateCount % 50 === 0)
-              console.log(`Healed ${updateCount} records...`);
+            if (updateCount % 50 === 0) console.log(`Healed ${updateCount} records...`);
           }
         } catch (error) {
           console.error(`Skipped ${row["Name"]} due to an error.`);
         }
       }
 
-      console.log(
-        `\n SUCCESS! Healed ${updateCount} assets. Go refresh your browser!`,
-      );
+      console.log(`\n SUCCESS! Healed ${updateCount} assets. Go refresh your browser!`);
       await prisma.$disconnect();
     });
 }

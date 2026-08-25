@@ -20,9 +20,7 @@ async function cleanDuplicates() {
       await prisma.asset.deleteMany({
         where: { id: { in: idsToDelete } },
       });
-      console.log(
-        `Successfully removed ${duplicates.length} duplicate assets.`,
-      );
+      console.log(`Successfully removed ${duplicates.length} duplicate assets.`);
     } else {
       console.log("No duplicate assets found.");
     }

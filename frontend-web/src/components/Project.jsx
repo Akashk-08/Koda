@@ -9,8 +9,7 @@ const Project = ({ user }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [orgUsers, setOrgUsers] = useState([]);
-  const API_URL = "192.168.1.92:8080";
-
+  const API_URL = import.meta.env.VITE_API_URL;
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);

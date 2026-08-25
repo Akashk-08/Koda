@@ -38,10 +38,7 @@ enum assetStatus {
 
 enum WorkOrderStatus {
   OPEN
-  IN_PROGRESS
-  onHOLD
   COMPLETE
-  REVIEW
   CLOSED
 }
 
@@ -345,6 +342,7 @@ model PreventiveMaintenance {
 model Location {
   id                    String   @id @default(uuid())
   name                  String
+  shortName             String?  // NEW FIELD
   address               String?
   longitude             String?
   latitude              String?
