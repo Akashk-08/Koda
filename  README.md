@@ -231,4 +231,4 @@ npx cap sync ios
 npx cap sync android
 
 ## to check current IP address 
-ipconfig getifaddr en0
+ipconfig getifaddr en0 
