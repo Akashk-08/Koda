@@ -404,3 +404,4 @@ function defaultKeyGenerator(
 ): string | Promise<string> {
   throw new Error("Function not implemented.");
 }
+module.exports = app;
