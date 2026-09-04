@@ -3,7 +3,14 @@
   "appName": "Pulseworks CMMS",
   "webDir": "frontend-web/dist",
   "server": {
-    "androidScheme": "http",
+    "androidScheme": "https",
     "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": false,
+      "backgroundColor": "#ffffff"
+    }
   }
 }

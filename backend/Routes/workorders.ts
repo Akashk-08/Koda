@@ -2,6 +2,7 @@ import express from "express";
 import { PrismaClient } from "@prisma/client";
 import multer from "multer";
 import fs from "fs";
+import { notifyUser } from "../services/notificationService.js";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -52,69 +53,24 @@ router.post("/:id/documents", upload.single("file"), async (req: any, res: any) 
   }
 });
 
-// 2. Get All Work Orders (Server-Side Pagination & Filtering Support)
+// 2. Get All Work Orders
 router.get("/", async (req, res) => {
   try {
-    const {
-      orgId,
-      userId,
-      page = "1",
-      limit = "50",
-      search = "",
-      status,
-      category,
-      locationName,
-      teamId,
-    } = req.query;
+    const { orgId, page = "1", limit = "50", search = "", status, category, locationName, teamId } = req.query;
 
-    if (!orgId) {
-      return res.status(400).json({ error: "Organization ID is required" });
-    }
+    if (!orgId) return res.status(400).json({ error: "Organization ID is required" });
 
-    // Build the dynamic WHERE clause based on frontend filters
-    const queryConditions: any = {
-      organizationId: String(orgId),
-    };
+    const queryConditions: any = { organizationId: String(orgId) };
 
-    // Location-based Access Control
-    if (userId) {
-      const requestingUser = await prisma.user.findUnique({
-        where: { id: String(userId) },
-      });
-
-      if (requestingUser) {
-        const userLoc = requestingUser.siteLocation || "";
-
-        // Check if full access is granted (Admin, or includes Shop / Warehouse)
-        const isFullAccessUser =
-          requestingUser.role === "ADMIN" ||
-          userLoc.toLowerCase().includes("pulseworks shop") ||
-          userLoc.toLowerCase().includes("pulseworks warehouse");
-
-        // If NOT a full-access user, restrict view to their specific site location
-        if (!isFullAccessUser && userLoc) {
-          queryConditions.locationName = {
-            contains: userLoc,
-            mode: "insensitive",
-          };
-        }
-      }
-    }
-
-    // Apply Filters if they exist and aren't "ALL"
     if (status && status !== "ALL") queryConditions.status = status;
     if (category && category !== "ALL") queryConditions.category = category;
 
     if (locationName && locationName !== "ALL") {
-      queryConditions.locationName = {
-        contains: String(locationName),
-        mode: "insensitive",
-      };
+      queryConditions.locationName = { contains: String(locationName), mode: "insensitive" };
     }
 
     if (teamId && teamId !== "ALL") queryConditions.teamId = teamId;
 
-    // Apply Search (Search by Title or exact ID)
     if (search && typeof search === "string" && search.trim() !== "") {
       const searchNum = parseInt(search.replace(/\D/g, ""));
 
@@ -124,12 +80,10 @@ router.get("/", async (req, res) => {
       ];
     }
 
-    // Calculate Pagination Offsets
     const pageNumber = parseInt(page as string, 10);
     const limitNumber = parseInt(limit as string, 10);
     const skip = (pageNumber - 1) * limitNumber;
 
-    // Execute count and data fetch simultaneously for maximum performance
     const [totalRecords, workOrders] = await Promise.all([
       prisma.workOrder.count({ where: queryConditions }),
       prisma.workOrder.findMany({
@@ -137,15 +91,10 @@ router.get("/", async (req, res) => {
         skip: skip,
         take: limitNumber,
         orderBy: { id: "desc" },
-        include: {
-          assignee: true,
-          team: true,
-          asset: true,
-        },
+        include: { assignee: true, team: true, asset: true },
       }),
     ]);
 
-    // Return the paginated payload
     res.json({
       data: workOrders,
       meta: {
@@ -156,7 +105,6 @@ router.get("/", async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error("Error fetching work orders:", error);
     res.status(500).json({ error: "Failed to fetch work orders" });
   }
 });
@@ -174,11 +122,9 @@ router.get("/:id", async (req, res) => {
         assignee: true,
         creator: true,
         asset: true,
+        team: true, 
         comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
-        activityLogs: {
-          include: { actor: true },
-          orderBy: { createdAt: "asc" },
-        },
+        activityLogs: { include: { actor: true }, orderBy: { createdAt: "asc" } },
         preventiveMaintenance: true,
         documents: { include: { uploader: true } },
       },
@@ -201,6 +147,8 @@ router.post("/", async (req, res) => {
     organizationId,
     createdBy,
     assignedTo,
+    additionalAssigneeEmails, 
+    teamId,
     assetId,
     dueDate,
     durationHours,
@@ -211,10 +159,46 @@ router.post("/", async (req, res) => {
 
   try {
     let parsedHours = null;
-    if (durationHours && !isNaN(parseFloat(durationHours))) {
-      parsedHours = parseFloat(durationHours);
-    } else if (estimatedHours && !isNaN(parseFloat(estimatedHours))) {
-      parsedHours = parseFloat(estimatedHours);
+    if (durationHours && !isNaN(parseFloat(durationHours))) parsedHours = parseFloat(durationHours);
+    else if (estimatedHours && !isNaN(parseFloat(estimatedHours))) parsedHours = parseFloat(estimatedHours);
+
+    let finalAssignee = assignedTo || null;
+    let finalAdditionalEmails = additionalAssigneeEmails || null;
+    let finalTeam = teamId || null;
+
+    if (!finalAssignee && category) {
+      const routingUsers = await prisma.user.findMany({
+        where: {
+          organizationId: organizationId,
+          autoAssignCategories: { has: category } 
+        },
+        include: { teams: true } 
+      });
+
+      if (routingUsers.length > 0) {
+        const localUsers = routingUsers.filter(u => u.siteLocation === siteLocation);
+        const centralUsers = routingUsers.filter(u => 
+          u.siteLocation?.toLowerCase().includes("shop") || 
+          u.siteLocation?.toLowerCase().includes("warehouse")
+        );
+
+        const allAssignedUsersMap = new Map();
+        [...localUsers, ...centralUsers].forEach(u => allAssignedUsersMap.set(u.id, u));
+        const uniqueAssignedUsers = Array.from(allAssignedUsersMap.values());
+
+        if (uniqueAssignedUsers.length > 0) {
+          const primaryUser = uniqueAssignedUsers[0];
+          finalAssignee = primaryUser.id;
+          
+          if (!finalTeam && primaryUser.teams && primaryUser.teams.length > 0) {
+            finalTeam = primaryUser.teams[0].id;
+          }
+
+          if (uniqueAssignedUsers.length > 1) {
+            finalAdditionalEmails = uniqueAssignedUsers.slice(1).map((u: any) => u.email).join(',');
+          }
+        }
+      }
     }
 
     const newWorkOrder = await prisma.workOrder.create({
@@ -226,7 +210,9 @@ router.post("/", async (req, res) => {
         status: "OPEN",
         organizationId,
         createdBy: createdBy || null,
-        assignedTo: assignedTo || null,
+        assignedTo: finalAssignee,
+        additionalAssigneeEmails: finalAdditionalEmails, 
+        teamId: finalTeam,
         assetId: assetId || null,
         locationName: siteLocation || null,
         parentWorkOrderId: parentWorkOrderId ? parseInt(parentWorkOrderId) : null,
@@ -235,6 +221,16 @@ router.post("/", async (req, res) => {
       },
       include: { creator: true, assignee: true },
     });
+
+    if (newWorkOrder.assignedTo) {
+      await notifyUser(
+        newWorkOrder.assignedTo,
+        "New Work Order Assigned",
+        `You have been assigned to a new work order: ${newWorkOrder.title}`,
+        "WORK_ORDER_ASSIGNED",
+        String(newWorkOrder.id)
+      );
+    }
 
     if (createdBy) {
       await prisma.activityLog.create({
@@ -263,13 +259,21 @@ router.put("/:id", async (req, res) => {
   try {
     if (updateData.dueDate) updateData.dueDate = new Date(updateData.dueDate);
 
-    // Update the WO first
     const updatedWorkOrder = await prisma.workOrder.update({
       where: { id: parseInt(id) },
       data: updateData,
     });
 
-    //  THE AUTO-CLONE ENGINE
+    if (actorId && actionLog) {
+      await prisma.activityLog.create({
+        data: {
+          action: actionLog,
+          workOrderId: parseInt(id),
+          actorId: actorId,
+        }
+      });
+    }
+
     if (
       (updateData.status === "COMPLETED" ||
         updateData.status === "CLOSED" ||
@@ -315,6 +319,16 @@ router.put("/:id", async (req, res) => {
         });
       }
     }
+    
+    if (updateData.status && updatedWorkOrder.createdBy) {
+      await notifyUser(
+        updatedWorkOrder.createdBy,
+        "Work Order Status Updated",
+        `Work order #${updatedWorkOrder.id} is now ${updateData.status}.`,
+        "WORK_ORDER_UPDATED",
+        String(updatedWorkOrder.id)
+      );
+    }
 
     res.status(200).json(updatedWorkOrder);
   } catch (error) {
@@ -358,12 +372,8 @@ router.post("/:id/comments", async (req, res) => {
 router.put("/:id/comments/:commentId", async (req, res) => {
   try {
     const { text } = req.body;
-    const commentIdParam = isNaN(parseInt(req.params.commentId))
-      ? req.params.commentId
-      : parseInt(req.params.commentId);
-
     const comment = await prisma.comment.update({
-      where: { id: commentIdParam as any },
+      where: { id: req.params.commentId }, 
       data: { text },
     });
     res.json(comment);
@@ -376,12 +386,8 @@ router.put("/:id/comments/:commentId", async (req, res) => {
 // 9. Delete a Comment
 router.delete("/:id/comments/:commentId", async (req, res) => {
   try {
-    const commentIdParam = isNaN(parseInt(req.params.commentId))
-      ? req.params.commentId
-      : parseInt(req.params.commentId);
-
     await prisma.comment.delete({
-      where: { id: commentIdParam as any },
+      where: { id: req.params.commentId }, 
     });
     res.status(204).send();
   } catch (error) {

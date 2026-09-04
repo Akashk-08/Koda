@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-const API_URL = "192.168.1.92:8080";
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface AuthCardProps {
   onAuthSuccess: (user: unknown) => void;

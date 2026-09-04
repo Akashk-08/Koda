@@ -26,7 +26,11 @@ const MyTeam = ({ user }) => {
           fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`)
         ]);
 
-        if (usersRes.ok) setOrgUsers(await usersRes.json());
+        if (usersRes.ok) {
+          const rawUsers = await usersRes.json();
+          const validUsers = rawUsers.filter(u => u.approvalStatus !== 'REJECTED');
+          setOrgUsers(validUsers);
+        }
         if (teamsRes.ok) setTeams(await teamsRes.json());
         if (locsRes.ok) setLocations(await locsRes.json());
       }
@@ -46,14 +50,18 @@ const MyTeam = ({ user }) => {
     setIsTeamModalOpen(true);
   };
 
-  const visibleUsers = orgUsers.filter(member => {
+  const uniqueOrgUsers = Array.from(
+    new Map(orgUsers.map(member => [member.id, member])).values()
+  );
+
+  const visibleUsers = uniqueOrgUsers.filter(member => {
     if (member.approvalStatus === 'PENDING') {
       return isAdmin;
     }
     return true;
   });
 
-  const approvedUsers = orgUsers.filter(member => member.approvalStatus !== 'PENDING');
+  const approvedUsers = uniqueOrgUsers.filter(member => member.approvalStatus !== 'PENDING');
   const myTeams = teams.filter(team => team.users?.some(u => u.id === user?.id));
   const displayTeams = activeTab === 'my_teams' ? myTeams : teams;
 
@@ -161,7 +169,7 @@ const MyTeam = ({ user }) => {
                         ? 'bg-amber-50 text-amber-700 border-amber-200'
                         : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}>
-                        {member.approvalStatus || 'APPROVED'}
+                        {member.approvalStatus === 'PENDING' ? 'PENDING' : 'ACTIVE'}
                       </span>
                     </div>
 
@@ -265,7 +273,7 @@ const MyTeam = ({ user }) => {
                             ? 'bg-amber-50 text-amber-700 border-amber-200'
                             : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             }`}>
-                            {member.approvalStatus || 'APPROVED'}
+                            {member.approvalStatus === 'PENDING' ? 'PENDING' : 'ACTIVE'}
                           </span>
                         </td>
                       </tr>
@@ -368,13 +376,12 @@ const MyTeam = ({ user }) => {
   );
 };
 
-// TEAM MANAGEMENT MODAL COMPONENT (Fixed Member Mapping)
+// TEAM MANAGEMENT MODAL COMPONENT
 const TeamManagementModal = ({ team, orgUsers, locations, onClose, onRefresh, isAdmin, user }) => {
   const [name, setName] = useState(team.name || '');
   const [description, setDescription] = useState(team.description || '');
   const [locationId, setLocationId] = useState(team.locationId || '');
 
-  // FIX: Properly extract user IDs whether they are objects or strings
   const [memberIds, setMemberIds] = useState(() => {
     if (!team.users) return [];
     return team.users.map(u => (typeof u === 'string' ? u : u.id));
@@ -441,10 +448,8 @@ const TeamManagementModal = ({ team, orgUsers, locations, onClose, onRefresh, is
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm sm:p-4 transition-all duration-300">
-
       <div className="bg-white w-full max-w-2xl sm:rounded-3xl rounded-t-3xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-200">
 
-        {/* Header */}
         <div className="px-6 py-5 flex justify-between items-center bg-white border-b border-gray-100 relative z-10">
           <div>
             <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">
@@ -460,10 +465,7 @@ const TeamManagementModal = ({ team, orgUsers, locations, onClose, onRefresh, is
           </button>
         </div>
 
-        {/* Body (Scrollable) */}
         <div className="p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6">
-
-          {/* Team Name */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Team Name</label>
             {isAdmin ? (
@@ -481,7 +483,6 @@ const TeamManagementModal = ({ team, orgUsers, locations, onClose, onRefresh, is
             )}
           </div>
 
-          {/* Site Location Dropdown */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Site Location</label>
             {isAdmin ? (
@@ -513,7 +514,6 @@ const TeamManagementModal = ({ team, orgUsers, locations, onClose, onRefresh, is
             )}
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Description</label>
             {isAdmin ? (
@@ -525,12 +525,11 @@ const TeamManagementModal = ({ team, orgUsers, locations, onClose, onRefresh, is
               />
             ) : (
               <div className="w-full bg-gray-50 text-gray-900 rounded-xl p-3.5 text-sm whitespace-pre-wrap border border-gray-100 min-h-[60px] font-medium">
-                {description ? description : <span className="text-gray-400 italic font-normal">No description provided.</span>}
+                {description ? description : <span className="text-gray-400 italic font-medium">No description provided.</span>}
               </div>
             )}
           </div>
 
-          {/* Team Members List */}
           <div className="pt-2">
             <div className="flex justify-between items-center mb-3">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Assign Members</label>
@@ -585,7 +584,6 @@ const TeamManagementModal = ({ team, orgUsers, locations, onClose, onRefresh, is
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-5 border-t border-gray-100 bg-gray-50/80 flex flex-col-reverse sm:flex-row justify-between items-center gap-3 pb-8 sm:pb-5">
           {isAdmin ? (
             <>

@@ -62,9 +62,6 @@ app.post("/api/auth/signup", async (req, res) => {
   const { organizationName, firstName, lastName, email, password } = req.body;
 
   try {
-    // Note: If you allow multiple users per email in your schema later,
-    // you might need to adjust this check.
-    // Currently checks if ANY user exists with this email for signup.
     const existingUsers = await prisma.user.findMany({ where: { email } });
     if (existingUsers.length > 0) return res.status(400).json({ error: "Email already in use" });
 
@@ -123,7 +120,6 @@ app.post("/api/auth/signup", async (req, res) => {
 });
 
 // LOGIN (UPDATED FOR MULTI-PROFILE SUPPORT)
-// RATE LIMITER TEMPORARILY REMOVED FOR TESTING
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -141,7 +137,6 @@ app.post("/api/auth/login", async (req, res) => {
 
     // Shared MODE: If multiple profiles exist, return a list to the frontend
     if (users.length > 1) {
-      // Filter out pending/rejected accounts from the UI selection screen
       const approvedProfiles = users
         .filter((u) => u.approvalStatus === "APPROVED")
         .map((u) => ({
@@ -233,25 +228,18 @@ const transporter = nodemailer.createTransport({
 app.post("/api/auth/forgot-password", async (req, res) => {
   const { email } = req.body;
   try {
-    // If multiple users share an email, findFirst ensures we update at least the primary account holder
     const user = await prisma.user.findFirst({ where: { email } });
     if (!user) {
       return res.status(200).json({ message: "If an account exists, a code has been sent." });
     }
 
-    // Generate a random 4-digit code
     const resetCode = Math.floor(1000 + Math.random() * 9000).toString();
     const resetCodeExpiry = new Date(Date.now() + 15 * 60 * 1000);
 
-    // Save to database (updates all users sharing this email)
     await prisma.user.updateMany({
       where: { email },
       data: { resetCode, resetCodeExpiry },
     });
-
-    console.log(`\n==================================================`);
-    console.log(`🔐 PASSWORD RESET CODE FOR ${email}: [ ${resetCode} ]`);
-    console.log(`==================================================\n`);
 
     try {
       const mailOptions = {
@@ -261,9 +249,8 @@ app.post("/api/auth/forgot-password", async (req, res) => {
         text: `Your password reset code is: ${resetCode}. It will expire in 15 minutes.`,
       };
       await transporter.sendMail(mailOptions);
-      console.log(`📧 Email successfully sent to ${email}`);
     } catch (emailErr) {
-      console.warn(`⚠️ Warning: Could not send actual email via Gmail, code is in terminal!`);
+      console.warn(`⚠️ Warning: Could not send actual email via Gmail, check terminal configuration.`);
     }
 
     res.status(200).json({ message: "Code sent successfully." });
@@ -311,7 +298,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update password for all accounts sharing this email
     await prisma.user.updateMany({
       where: { email },
       data: {
@@ -332,7 +318,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
 app.post("/api/auth/get-profiles", async (req, res) => {
   const { email } = req.body;
   try {
-    // Only fetch users that are actually APPROVED
     const users = await prisma.user.findMany({
       where: {
         email: email,
@@ -351,24 +336,26 @@ app.post("/api/auth/get-profiles", async (req, res) => {
   }
 });
 
-// 2. ADMIN: ADD A SHARED PROFILE
+// 2. ADMIN: ADD A SHARED PROFILE (UPDATED TO INHERIT SITE LOCATION)[cite: 11]
 app.post("/api/auth/add-shared-profile", async (req, res) => {
-  const { baseEmail, firstName, lastName, pin } = req.body;
+  const { baseEmail, userId, pin } = req.body;
 
   try {
-    const baseUser = await prisma.user.findFirst({
-      where: { email: baseEmail },
+    const sourceUser = await prisma.user.findUnique({
+      where: { id: userId },
     });
-    if (!baseUser) return res.status(404).json({ error: "Base email not found in system." });
+    if (!sourceUser) return res.status(404).json({ error: "Selected user not found in system." });
 
     const newSharedUser = await prisma.user.create({
       data: {
-        firstName,
-        lastName,
-        email: baseEmail, // Share the same email
-        password: baseUser.password, // Clone the hashed password
-        organizationId: baseUser.organizationId,
-        role: "USER",
+        firstName: sourceUser.firstName,
+        lastName: sourceUser.lastName,
+        email: baseEmail, // Share the same email terminal identity[cite: 11]
+        password: sourceUser.password, // Clone the hashed password[cite: 11]
+        organizationId: sourceUser.organizationId,
+        siteLocation: sourceUser.siteLocation, // Automatically inherit source user's site location[cite: 11]
+        role: sourceUser.role, // Inherit role[cite: 11]
+        autoAssignCategories: sourceUser.autoAssignCategories, // Inherit routing rules[cite: 11]
         approvalStatus: "APPROVED",
         pin: pin,
       },

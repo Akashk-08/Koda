@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Wrench, ShieldCheck, MessageSquare, Key, Box, User as UserIcon } from 'lucide-react';
+import NotificationBell from './NotificationBell';
 
-const API_URL = "192.168.1.92:8080";
+// Use the dynamic environment variable instead of a hardcoded IP
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -60,6 +62,9 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
       </div>
 
       <div className="flex items-center space-x-3 ml-auto">
+
+        {/* NOTIFICATION BELL COMPONENT */}
+        <NotificationBell user={user} />
 
         {/* + CREATE DROPDOWN COMPONENT (Visible on all screens) */}
         <div className="relative" ref={createDropdownRef}>

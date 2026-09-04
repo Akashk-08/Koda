@@ -45,7 +45,7 @@ router.get("/accessrequests", async (req, res) => {
   }
 });
 
-// 2. GET SINGLE USER PROFILE WITH ORG & TEAMS (MOVED UP TO AVOID CONFLICTS)
+// 2. GET SINGLE USER PROFILE WITH ORG & TEAMS
 router.get("/profile/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -68,17 +68,40 @@ router.get("/profile/:id", async (req, res) => {
   }
 });
 
-// 3. GET ALL USERS IN AN ORG
-router.get("/:orgId", async (req, res) => {
+// 3. GET ALL USERS IN AN ORG (BULLETPROOF QUERY PARAM ROUTE)
+router.get("/", async (req, res) => {
   try {
+    const orgId = req.query.orgId as string;
+    
+    if (!orgId || orgId === "undefined") {
+      return res.status(400).json({ error: "Valid orgId query parameter is required" });
+    }
+
     const users = await prisma.user.findMany({
-      where: { organizationId: req.params.orgId },
+      where: { organizationId: orgId },
+      include: { teams: true }, 
     });
 
     const usersWithoutPasswords = users.map(({ password, ...rest }) => rest);
-    res.json(usersWithoutPasswords);
-  } catch (error) {
+    res.status(200).json(usersWithoutPasswords);
+  } catch (error: any) {
     console.error("Failed to fetch users:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch users" });
+  }
+});
+
+// 3.5 FALLBACK ROUTE (Just in case old endpoints still call this)
+router.get("/:orgId", async (req, res) => {
+  const { orgId } = req.params;
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        organizationId: orgId,
+        approvalStatus: { not: "REJECTED" },
+      },
+    });
+    res.status(200).json(users);
+  } catch (error) {
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
@@ -135,10 +158,10 @@ router.put("/:id/approve", async (req, res) => {
   }
 });
 
-// 6. Add permissions for users
+// 6. ADD PERMISSIONS & ROUTING RULES FOR USERS
 router.put("/:id/permissions", async (req, res) => {
   const { id } = req.params;
-  const { role, locationId } = req.body;
+  const { role, locationId, autoAssignCategories } = req.body;
 
   try {
     const updatedUser = await prisma.user.update({
@@ -146,6 +169,7 @@ router.put("/:id/permissions", async (req, res) => {
       data: {
         role: role,
         siteLocation: locationId || null,
+        autoAssignCategories: autoAssignCategories || [],
       },
     });
 
@@ -154,6 +178,22 @@ router.put("/:id/permissions", async (req, res) => {
   } catch (error) {
     console.error("Failed to update user permissions:", error);
     res.status(500).json({ error: "Failed to update permissions" });
+  }
+});
+
+router.post('/:id/device-token', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { token }  = req.body;
+
+    await prisma.user.update({
+      where: { id },
+      data: { deviceToken: token }
+    });
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save device token' });
   }
 });
 

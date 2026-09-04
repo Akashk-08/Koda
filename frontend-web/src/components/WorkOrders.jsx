@@ -1,11 +1,22 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useCallback } from "react";
-import { Plus, Search, Filter, LayoutGrid, X, ChevronLeft, ChevronRight, MapPin, Calendar, User } from "lucide-react";
+import { Plus, Search, Filter, LayoutGrid, X, ChevronLeft, ChevronRight, MapPin, Calendar, User, SlidersHorizontal, CheckCircle2, Clock, Wrench, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const ITEMS_PER_PAGE = 50;
 const API_URL = import.meta.env.VITE_API_URL;
+
+const CATEGORIES = [
+  "ANNUAL_PREVENTIVE_MAINTENANCE",
+  "ASSETS",
+  "LARGE_DAMAGE",
+  "PARTS_REQUEST",
+  "PROJECT_UPGRADE",
+  "SIX_MONTH_PREVENTIVE_MAINTENANCE",
+  "SUPPORT_REQUEST",
+  "WEEKLY_MONTHLY_CHECKLISTS",
+];
 
 const WorkOrders = ({ user, onOpenModal }) => {
   const navigate = useNavigate();
@@ -26,6 +37,9 @@ const WorkOrders = ({ user, onOpenModal }) => {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [locationFilter, setLocationFilter] = useState("ALL");
   const [teamFilter, setTeamFilter] = useState("ALL");
+  const [priorityFilter, setPriorityFilter] = useState("ALL");
+  
+  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
 
   // Server-Side Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -45,7 +59,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter]);
+  }, [debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter]);
 
   const fetchData = useCallback(async () => {
     if (!orgId || !userId) return;
@@ -54,7 +68,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
     try {
       const params = new URLSearchParams({
         orgId,
-        userId, // <--- Restored to prevent 400 Bad Request error
+        userId,
         page: currentPage.toString(),
         limit: ITEMS_PER_PAGE.toString()
       });
@@ -63,12 +77,12 @@ const WorkOrders = ({ user, onOpenModal }) => {
       if (statusFilter !== "ALL") params.append("status", statusFilter);
       if (categoryFilter !== "ALL") params.append("category", categoryFilter);
 
-      // Let backend handle security for restricted users. Only send explicit location if Admin uses dropdown.
       if (isFullAccess && locationFilter !== "ALL") {
         params.append("locationName", locationFilter);
       }
 
       if (teamFilter !== "ALL") params.append("teamId", teamFilter);
+      if (priorityFilter !== "ALL") params.append("priority", priorityFilter);
 
       const [woRes, locRes, teamsRes] = await Promise.all([
         fetch(`http://${API_URL}/api/workorders?${params.toString()}`),
@@ -89,7 +103,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [orgId, userId, currentPage, debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter]);
+  }, [orgId, userId, currentPage, debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter]);
 
   useEffect(() => {
     fetchData();
@@ -98,21 +112,21 @@ const WorkOrders = ({ user, onOpenModal }) => {
   // UI Helpers
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case "CRITICAL": return "bg-red-100 text-red-800 border-red-200";
-      case "HIGH": return "bg-orange-100 text-orange-800 border-orange-200";
-      case "MEDIUM": return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "LOW": return "bg-green-100 text-green-800 border-green-200";
+      case "CRITICAL": return "bg-red-50 text-red-700 border-red-200";
+      case "HIGH": return "bg-orange-50 text-orange-700 border-orange-200";
+      case "MEDIUM": return "bg-amber-50 text-amber-700 border-amber-200";
+      case "LOW": return "bg-blue-50 text-blue-700 border-blue-200";
       default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "OPEN": return "text-blue-600 bg-blue-50 border-blue-100";
-      case "IN_PROGRESS": return "text-purple-600 bg-purple-50 border-purple-100";
-      case "COMPLETE": return "text-green-600 bg-green-50 border-green-100";
-      case "REVIEW": return "text-orange-600 bg-orange-50 border-orange-100";
-      case "CLOSED": return "text-gray-500 bg-gray-50 border-gray-200";
+      case "OPEN": return "text-blue-700 bg-blue-50 border-blue-200";
+      case "IN_PROGRESS": return "text-purple-700 bg-purple-50 border-purple-200";
+      case "COMPLETE": return "text-emerald-700 bg-emerald-50 border-emerald-200";
+      case "REVIEW": return "text-orange-700 bg-orange-50 border-orange-200";
+      case "CLOSED": return "text-gray-700 bg-gray-50 border-gray-200";
       default: return "text-gray-700 bg-gray-50 border-gray-200";
     }
   };
@@ -130,77 +144,113 @@ const WorkOrders = ({ user, onOpenModal }) => {
         </div>
         <button
           onClick={onOpenModal}
-          className="hidden md:flex bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-5 py-2.5 rounded-xl text-sm font-bold items-center gap-2 shadow-sm transition-all active:scale-95"
+          className="hidden md:flex bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-5 py-2.5 rounded-xl text-sm font-bold items-center gap-2 shadow-sm transition-all active:scale-95 shrink-0"
         >
           <Plus className="w-4 h-4" /> Create Work Order
         </button>
       </div>
 
-      {/* SEARCH & FILTER DASHBOARD */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6 p-4 shrink-0 relative z-10">
-        <div className="relative mb-4">
-          <Search className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" />
-          <input
-            type="text"
-            placeholder="Search by Title or Number..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all"
-          />
+      {/* REDESIGNED SEARCH & FILTER DASHBOARD */}
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6 p-4 shrink-0 relative z-10 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+            <input
+              type="text"
+              placeholder="Search by Title or Number (#13823)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs md:text-sm font-bold text-gray-900 outline-none focus:border-blue-500 focus:bg-white transition-all shadow-inner"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-3 text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
+            className={`p-3 rounded-xl border flex items-center gap-2 text-xs font-black transition-all shrink-0 ${
+              isAdvancedFiltersOpen || statusFilter !== "ALL" || categoryFilter !== "ALL" || locationFilter !== "ALL" || priorityFilter !== "ALL"
+                ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
+                : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline">Filters</span>
+          </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-gray-100">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="ALL">Status: All</option>
-            <option value="OPEN">Open</option>
-            <option value="COMPLETE">Complete</option>
-            <option value="CLOSED">Closed</option>
-          </select>
+        {/* EXPANDED ADVANCED FILTERS PANEL */}
+        {isAdvancedFiltersOpen && (
+          <div className="pt-3 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2 duration-150">
+            
+            {/* Status Select */}
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none cursor-pointer"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="OPEN">Open</option>
+                <option value="COMPLETE">Complete</option>
+                <option value="CLOSED">Closed</option>
+              </select>
+            </div>
 
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="ALL">Categories</option>
-            <option value="SUPPORT_REQUEST">Support Request</option>
-            <option value="PARTS_REQUEST">Parts Request</option>
-            <option value="WEEKLY_MONTHLY_CHECKLISTS">Checklists</option>
-            <option value="PROJECT_UPGRADE">Project Upgrade</option>
-          </select>
+            {/* Category Select */}
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Category</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none cursor-pointer"
+              >
+                <option value="ALL">All Categories</option>
+                {CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>{cat.replace(/_/g, " ")}</option>
+                ))}
+              </select>
+            </div>
 
-          {/* Hide location dropdown if they are a restricted user */}
-          {isFullAccess && (
-            <select
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-              className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-600"
-            >
-              <option value="ALL">Locations</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.name}>{loc.name}</option>
-              ))}
-            </select>
-          )}
+            {/* Location Select */}
+            {isFullAccess && (
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Location</label>
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Locations</option>
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.name}>{loc.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-          {(statusFilter !== "ALL" || categoryFilter !== "ALL" || (isFullAccess && locationFilter !== "ALL") || searchQuery !== "") && (
-            <button
-              onClick={() => {
-                setStatusFilter("ALL");
-                setCategoryFilter("ALL");
-                if (isFullAccess) setLocationFilter("ALL");
-                setSearchQuery("");
-              }}
-              className="text-xs font-bold text-red-600 hover:text-red-800 transition-colors ml-auto flex items-center gap-1"
-            >
-              <X className="w-3.5 h-3.5" /> Clear
-            </button>
-          )}
-        </div>
+            {/* Priority Select */}
+            <div>
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Priority</label>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none cursor-pointer"
+              >
+                <option value="ALL">All Priorities</option>
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="CRITICAL">Critical</option>
+              </select>
+            </div>
+
+          </div>
+        )}
       </div>
 
       {/* CONTENT AREA: RESPONSIVE CARDS FOR MOBILE & TABLE FOR DESKTOP */}
@@ -212,10 +262,10 @@ const WorkOrders = ({ user, onOpenModal }) => {
           </div>
         </div>
       ) : workOrders.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center text-gray-500 shadow-sm">
-          <LayoutGrid className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-lg font-bold text-gray-900">No work orders found</p>
-          <p className="text-sm mt-1">Try adjusting your search or filters.</p>
+        <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center text-gray-500 shadow-sm">
+          <Wrench className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-lg font-black text-gray-900">No work orders found</p>
+          <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">Try adjusting your search query or filter options.</p>
         </div>
       ) : (
         <>
@@ -228,32 +278,37 @@ const WorkOrders = ({ user, onOpenModal }) => {
                 <div
                   key={wo.id}
                   onClick={() => navigate(`/workspace/workorder/${wo.id}`)}
-                  className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm active:scale-[0.99] transition-all cursor-pointer relative space-y-3"
+                  className="bg-white border border-gray-200/90 rounded-2xl p-4 shadow-sm active:scale-[0.99] transition-all cursor-pointer relative space-y-3 group"
                 >
                   <div className="flex justify-between items-center">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${getStatusColor(wo.status)}`}>
                       {wo.status.replace("_", " ")}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-gray-400">#{wo.id}</span>
+                      <span className="text-xs font-mono font-black text-gray-400">#{wo.id}</span>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${getPriorityColor(wo.priority)}`}>
                         {wo.priority}
                       </span>
                     </div>
                   </div>
 
-                  <h3 className="text-base font-bold text-gray-900 leading-snug">
+                  <h3 className="text-base font-black text-gray-900 group-hover:text-blue-600 transition-colors leading-snug">
                     {wo.title}
                   </h3>
 
-                  <div className="space-y-1.5 text-xs text-gray-500 pt-1 border-t border-gray-100">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                      <span className="truncate">{wo.locationName || 'Main Facility'}</span>
+                  <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold text-gray-500">
+                    <div className="flex items-center gap-3">
+                      {wo.locationName && (
+                        <span className="flex items-center gap-1 text-gray-700">
+                          <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                          <span className="truncate max-w-[140px]">{wo.locationName}</span>
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                      <span className="truncate">{assigneeName}</span>
+                    <div className="flex items-center gap-1 text-gray-400">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{new Date(wo.createdAt).toLocaleDateString()}</span>
+                      <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-blue-600 transition-colors ml-1" />
                     </div>
                   </div>
                 </div>

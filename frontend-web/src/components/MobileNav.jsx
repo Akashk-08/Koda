@@ -11,12 +11,12 @@ const MobileNav = ({ onOpenModal }) => {
   return (
     <>
       {/* FLOATING ACTION BUTTON (+) */}
-      <button
+      {/* <button
         onClick={onOpenModal}
         className="md:hidden fixed bottom-20 right-6 z-50 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
       >
         <Plus className="w-7 h-7" />
-      </button>
+      </button> */}
 
       {/* BOTTOM NAVIGATION BAR */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 px-6 py-2 flex justify-between items-center z-40 pb-[env(safe-area-inset-bottom)]">

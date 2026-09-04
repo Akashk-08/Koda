@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-  BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
@@ -29,6 +29,10 @@ import PartsInventory from "./components/PartsInventory";
 import Assets from "./components/Assets";
 import Inventory from "./components/Inventory";
 import MobileMoreMenu from "./components/MobileMoreMenu.jsx";
+import TeamProfile from "./components/TeamProfile.jsx";
+import { PushNotifications } from "@capacitor/push-notifications";
+import { Capacitor } from "@capacitor/core";
+import NotificationsPage from "./components/NotificationsPage.jsx";
 
 import {
   Box,
@@ -52,6 +56,7 @@ import {
   Home,
   Menu,
   Plus,
+  LogOut,
 } from "lucide-react";
 import Scheduler from "./components/Schedular.js";
 import Header from "./components/Header.jsx";
@@ -321,21 +326,39 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === "select_profile" && (
-                <div className="grid grid-cols-2 gap-4">
-                  {subUsers.map((profile) => (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    {subUsers.map((profile) => (
+                      <button
+                        key={profile.id}
+                        type="button"
+                        onClick={() => handleProfileSelect(profile)}
+                        className="p-6 border border-gray-200 rounded-2xl hover:border-blue-500 hover:shadow-lg transition-all flex flex-col items-center gap-3 bg-gray-50 hover:bg-white"
+                      >
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 text-white flex items-center justify-center font-black text-xl shadow-md">
+                          {profile.firstName.charAt(0)}
+                          {profile.lastName.charAt(0)}
+                        </div>
+                        <span className="font-bold text-gray-900">{profile.firstName}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Sign Out / Reset Kiosk Button */}
+                  <div className="pt-4 border-t border-gray-100 flex justify-center">
                     <button
-                      key={profile.id}
                       type="button"
-                      onClick={() => handleProfileSelect(profile)}
-                      className="p-6 border border-gray-200 rounded-2xl hover:border-blue-500 hover:shadow-lg transition-all flex flex-col items-center gap-3 bg-gray-50 hover:bg-white"
+                      onClick={() => {
+                        localStorage.removeItem("koda_kiosk_email");
+                        setSubUsers([]);
+                        setMode("login");
+                        setFormData((prev) => ({ ...prev, email: "", password: "" }));
+                      }}
+                      className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1.5 transition-colors px-4 py-2 rounded-lg hover:bg-red-50"
                     >
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 text-white flex items-center justify-center font-black text-xl shadow-md">
-                        {profile.firstName.charAt(0)}
-                        {profile.lastName.charAt(0)}
-                      </div>
-                      <span className="font-bold text-gray-900">{profile.firstName}</span>
+                      <LogOut className="w-4 h-4" /> Sign Out of Device
                     </button>
-                  ))}
+                  </div>
                 </div>
               )}
 
@@ -540,22 +563,14 @@ const MobileNav = ({ onOpenModal }: { onOpenModal: () => void }) => {
 
   return (
     <>
-      {/* FLOATING ACTION BUTTON (+) */}
-      <button
-        onClick={onOpenModal}
-        className="md:hidden fixed bottom-20 right-6 z-50 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-      >
-        <Plus className="w-7 h-7" />
-      </button>
-
       {/* BOTTOM NAVIGATION BAR */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 px-6 py-2 flex justify-between items-center z-40 pb-[env(safe-area-inset-bottom)] shadow-lg">
         <Link
-          to="/aisearch/pulseworksAI"
+          to="/"
           className={`flex flex-col items-center gap-1 ${isActive("/aisearch/pulseworksAI") ? "text-blue-600 font-bold" : "text-gray-400 font-medium"}`}
         >
           <Home className="w-5 h-5" />
-          <span className="text-[10px]">Pulseworks AI</span>
+          <span className="text-[10px]">Home</span>
         </Link>
 
         <Link
@@ -643,7 +658,7 @@ const DashboardLayout = ({
     `${user.firstName?.charAt(0) || ""}${user.lastName?.charAt(0) || ""}`.toUpperCase();
 
   // Root paths where the back button should NOT be shown
-  const rootPaths = ["/workspace/workorders", "/resources/requests", "/more"];
+  const rootPaths = ["/workspace/workorders", "/resources/requests", "/more", "/workspace/notifications"];
   const isRootPage = rootPaths.includes(location.pathname);
 
   return (
@@ -963,6 +978,9 @@ const DashboardLayout = ({
 
           <div className="flex-1">
             <Routes>
+              {/* Added NotificationsPage inside DashboardLayout so header/footer remain visible */}
+              <Route path="/workspace/notifications" element={<NotificationsPage user={user} />} />
+              
               <Route path="/workspace/workorder/:id" element={<WorkOrderDetail user={user} />} />
               <Route
                 path="/workspace/workorders"
@@ -983,6 +1001,7 @@ const DashboardLayout = ({
               <Route path="/procurement/partsinventory" element={<PartsInventory user={user} />} />
               <Route path="/procurement/assets" element={<Assets user={user} />} />
               <Route path="/procurement/inventory" element={<Inventory user={user} />} />
+              <Route path="/workspace/my-team/:id" element={<TeamProfile currentUser={user} />} />
               <Route path="/more" element={<MobileMoreMenu user={user} />} />
               <Route
                 path="/profile"
@@ -1020,6 +1039,69 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Request Push Notifications permissions and register token on app startup for native devices
+  useEffect(() => {
+    let registrationListener: any = null;
+    let foregroundListener: any = null;
+
+    const initPushNotifications = async () => {
+      if (!Capacitor.isNativePlatform()) return;
+
+      try {
+        let permStatus = await PushNotifications.checkPermissions();
+        if (permStatus.receive === "prompt") {
+          permStatus = await PushNotifications.requestPermissions();
+        }
+        if (permStatus.receive !== "granted") return;
+
+        // Listen for token generation and sync with backend
+        registrationListener = await PushNotifications.addListener(
+          "registration",
+          async (token) => {
+            const currentUserStr = localStorage.getItem("koda_user");
+            if (currentUserStr) {
+              try {
+                const currentUser = JSON.parse(currentUserStr);
+                if (currentUser?.id) {
+                  await fetch(`http://${API_URL}/api/users/${currentUser.id}/device-token`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token.value }),
+                  });
+                }
+              } catch (err) {
+                console.error("Failed to sync push device token to backend:", err);
+              }
+            }
+          },
+        );
+
+        // Listen for notifications received while app is open in foreground
+        foregroundListener = await PushNotifications.addListener(
+          "pushNotificationReceived",
+          (notification) => {
+            console.log("Foreground push notification received:", notification);
+          },
+        );
+
+        await PushNotifications.register();
+      } catch (e) {
+        console.warn("Push notifications initialization error:", e);
+      }
+    };
+
+    initPushNotifications();
+
+    return () => {
+      if (registrationListener) {
+        registrationListener.remove();
+      }
+      if (foregroundListener) {
+        foregroundListener.remove();
+      }
+    };
+  }, [user]);
+
   const handleLogin = (u: User) => {
     setUser(u);
     localStorage.setItem("koda_user", JSON.stringify(u));
@@ -1042,7 +1124,7 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route
@@ -1096,6 +1178,6 @@ export default function App() {
           }
         />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

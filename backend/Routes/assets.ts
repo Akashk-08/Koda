@@ -6,13 +6,28 @@ const prisma = new PrismaClient();
 
 // Get all assets
 router.get("/", async (req, res) => {
-  const { orgId, barcode } = req.query;
+  const { orgId, barcode, locationName } = req.query;
+  
   try {
+    const whereClause: any = {
+      organizationId: String(orgId),
+    };
+
+    // Filter by barcode if provided
+    if (barcode) {
+      whereClause.barcode = String(barcode);
+    }
+
+    // Filter securely by location for restricted site users
+    if (locationName && locationName !== "ALL") {
+      whereClause.locationName = {
+        contains: String(locationName),
+        mode: "insensitive",
+      };
+    }
+
     const assets = await prisma.asset.findMany({
-      where: {
-        organizationId: String(orgId),
-        ...(barcode ? { barcode: String(barcode) } : {}),
-      },
+      where: whereClause,
       include: {
         workOrders: {
           orderBy: { createdAt: "desc" },

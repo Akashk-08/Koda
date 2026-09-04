@@ -75,9 +75,8 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
   >([]);
   const [partSearch, setPartSearch] = useState("");
 
-  const [tasks, setTasks] = useState([
-    { id: 1, text: "Inspect for physical damage", completed: false },
-  ]);
+  // Start with an EMPTY array for tasks
+  const [tasks, setTasks] = useState<{ id: number; text: string; completed: boolean }[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [selectedParentWo, setSelectedParentWo] = useState<any | null>(null);
@@ -112,7 +111,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
     }
   }, [isOpen, preSelectedAsset, isFullAccess, user]);
 
-  // Auto-generate title using shortName
+  // Auto-generate title using shortName for Restricted Users
   useEffect(() => {
     if (!isFullAccess && category) {
       const locationObj = orgLocations.find((l) => l.name?.trim() === siteLocation?.trim());
@@ -137,7 +136,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
       if (!isOpen || !user.organizationId) return;
       try {
         const [usersRes, woRes] = await Promise.all([
-          fetch(`http://${API_URL}/api/users/${user.organizationId}`),
+          fetch(`http://${API_URL}/api/users?orgId=${user.organizationId}`), 
           fetch(`http://${API_URL}/api/workorders?orgId=${user.organizationId}`),
         ]);
 
@@ -151,7 +150,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         }
         if (woRes.ok) {
           const woData = await woRes.json();
-          // Safety check: ensure existingWorkOrders is always an array (handling paginated or plain array responses)
           setExistingWorkOrders(Array.isArray(woData) ? woData : woData.data || []);
         }
 
@@ -205,10 +203,17 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
     if (!title.trim() && isFullAccess) return alert("Title is required!");
     if (!customRequestSubject.trim() && !isFullAccess)
       return alert("Please specify the subject/issue of your request.");
+    
+    // MANDATORY TEAM VALIDATION
+    if (!selectedTeamId) return alert("Please select an Operational Team.");
 
     setIsSubmitting(true);
 
     try {
+      const additionalEmails = selectedAssignees.length > 1 
+        ? selectedAssignees.slice(1).map(u => u.email).join(',') 
+        : null;
+
       const payload = {
         title: isFullAccess ? title : title.trim(),
         description,
@@ -217,6 +222,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         organizationId: user.organizationId,
         createdBy: user.id,
         assignedTo: selectedAssignees.length > 0 ? selectedAssignees[0].id : null,
+        additionalAssigneeEmails: additionalEmails, 
         teamId: selectedTeamId || null,
         assetId: selectedAssetId || null,
         siteLocation,
@@ -249,6 +255,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
           }
         }
 
+        // Reset form
         setTitle("");
         setCustomRequestSubject("");
         setDescription("");
@@ -264,7 +271,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         setSelectedTeamId("");
         setSelectedParts([]);
         setAttachedFiles([]);
-        setTasks([{ id: 1, text: "Inspect for physical damage", completed: false }]);
+        setTasks([]); // Tasks correctly reset to empty
         setSelectedParentWo(null);
 
         onCreated();
@@ -340,7 +347,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         <div className="flex items-center justify-between px-6 md:px-8 py-5 bg-white border-b border-gray-200 shrink-0">
           <div>
             <h2 className="text-xl md:text-2xl font-black tracking-tight text-gray-900">
-              Create New Request
+              Create New Work Order.
             </h2>
             <p className="text-xs text-gray-500 mt-1 font-medium">
               {isFullAccess
@@ -592,113 +599,116 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                   </>
                 )}
 
-                {/* 4. ASSIGNMENT */}
-                {isFullAccess && (
-                  <>
-                    <SectionHeader title="Assignment" icon={Users} />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                          Author
-                        </label>
-                        <div className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-500 cursor-not-allowed flex items-center">
-                          <User className="w-4 h-4 mr-2" /> {user?.firstName} {user?.lastName}
-                        </div>
-                      </div>
+                {/* 4. ASSIGNMENT (Visible to all, but restricted for non-admins) */}
+                <SectionHeader title="Assignment" icon={Users} />
+                <div className={`grid grid-cols-1 gap-5 ${isFullAccess ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+                  
+                  {/* AUTHOR (Visible to all) */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                      Author
+                    </label>
+                    <div className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-500 cursor-not-allowed flex items-center">
+                      <User className="w-4 h-4 mr-2" /> {user?.firstName} {user?.lastName}
+                    </div>
+                  </div>
 
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                          Operational Team
-                        </label>
-                        <select
-                          value={selectedTeamId}
-                          onChange={(e) => setSelectedTeamId(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-all"
-                        >
-                          <option value="">Unassigned</option>
-                          {orgTeams.map((team) => (
-                            <option key={team.id} value={team.id}>
-                              {team.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                  {/* OPERATIONAL TEAM (Visible to all) */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                      Operational Team <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedTeamId}
+                      onChange={(e) => setSelectedTeamId(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-all"
+                    >
+                      <option value="">Select team...</option>
+                      <option value="NONE">None</option>
+                      {orgTeams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                      <div className="relative" ref={assigneesRef}>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                          Assignees
-                        </label>
-                        <div
-                          onClick={() => setIsTeamDropdownOpen(!isTeamDropdownOpen)}
-                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 min-h-[46px] flex flex-wrap gap-1.5 items-center cursor-pointer hover:border-gray-400 focus-within:ring-2 focus-within:ring-blue-600 transition-all"
-                        >
-                          {selectedAssignees.map((assignee) => (
-                            <span
-                              key={assignee.id}
-                              className="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5"
+                  {/* ASSIGNEES MULTI-SELECT (Visible ONLY to Admins/Full Access) */}
+                  {isFullAccess && (
+                    <div className="relative" ref={assigneesRef}>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                        Assignees
+                      </label>
+                      <div
+                        onClick={() => setIsTeamDropdownOpen(!isTeamDropdownOpen)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 min-h-[46px] flex flex-wrap gap-1.5 items-center cursor-pointer hover:border-gray-400 focus-within:ring-2 focus-within:ring-blue-600 transition-all"
+                      >
+                        {selectedAssignees.map((assignee) => (
+                          <span
+                            key={assignee.id}
+                            className="bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5"
+                          >
+                            {assignee.firstName} {assignee.lastName}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeAssignee(assignee.id);
+                              }}
+                              className="hover:text-red-600"
                             >
-                              {assignee.firstName} {assignee.lastName}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeAssignee(assignee.id);
-                                }}
-                                className="hover:text-red-600"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </span>
-                          ))}
-                          {selectedAssignees.length === 0 && (
-                            <span className="text-sm text-gray-400 px-1 select-none">
-                              Select members...
-                            </span>
-                          )}
-                        </div>
-
-                        {isTeamDropdownOpen && (
-                          <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
-                            {orgUsers
-                              .filter((u) => !selectedAssignees.some((a) => a.id === u.id))
-                              .filter((u) => {
-                                let isMatch = true;
-                                if (siteLocation)
-                                  isMatch =
-                                    isMatch &&
-                                    u.siteLocation
-                                      ?.toLowerCase()
-                                      .includes(siteLocation.toLowerCase());
-                                if (selectedTeamId) {
-                                  const matchesTeamId = u.teamId === selectedTeamId;
-                                  const selectedTeamObj = orgTeams.find(
-                                    (t) => t.id === selectedTeamId,
-                                  );
-                                  const matchesTeamNameInLoc =
-                                    selectedTeamObj?.name &&
-                                    u.siteLocation
-                                      ?.toLowerCase()
-                                      .includes(selectedTeamObj.name.toLowerCase());
-                                  isMatch = isMatch && (matchesTeamId || matchesTeamNameInLoc);
-                                }
-                                return isMatch;
-                              })
-                              .map((u) => (
-                                <button
-                                  key={u.id}
-                                  type="button"
-                                  onClick={() => addAssignee(u)}
-                                  className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-blue-50 transition-colors"
-                                >
-                                  {u.firstName} {u.lastName}
-                                </button>
-                              ))}
-                          </div>
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                        {selectedAssignees.length === 0 && (
+                          <span className="text-sm text-gray-400 px-1 select-none">
+                            Select members...
+                          </span>
                         )}
                       </div>
+
+                      {isTeamDropdownOpen && (
+                        <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-20 py-2 max-h-48 overflow-y-auto">
+                          {orgUsers
+                            .filter((u) => !selectedAssignees.some((a) => a.id === u.id))
+                            .filter((u) => {
+                              let isMatch = true;
+                              if (siteLocation)
+                                isMatch =
+                                  isMatch &&
+                                  u.siteLocation
+                                    ?.toLowerCase()
+                                    .includes(siteLocation.toLowerCase());
+                              if (selectedTeamId) {
+                                const matchesTeamId = u.teamId === selectedTeamId;
+                                const selectedTeamObj = orgTeams.find(
+                                  (t) => t.id === selectedTeamId,
+                                );
+                                const matchesTeamNameInLoc =
+                                  selectedTeamObj?.name &&
+                                  u.siteLocation
+                                    ?.toLowerCase()
+                                    .includes(selectedTeamObj.name.toLowerCase());
+                                  isMatch = isMatch && (matchesTeamId || matchesTeamNameInLoc);
+                              }
+                              return isMatch;
+                            })
+                            .map((u) => (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => addAssignee(u)}
+                                className="w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-blue-50 transition-colors"
+                              >
+                                {u.firstName} {u.lastName}
+                              </button>
+                            ))}
+                        </div>
+                      )}
                     </div>
-                  </>
-                )}
+                  )}
+                </div>
 
                 {/* 5. PARTS & INVENTORY */}
                 {(!isFullAccess && category === "PARTS_REQUEST") || isFullAccess ? (
@@ -962,7 +972,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || !category}
+            disabled={isSubmitting || !category || !selectedTeamId}
             className="px-8 py-3 text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-50"
           >
             {isSubmitting ? "Creating..." : "Create Work Order"}

@@ -62,13 +62,16 @@ enum Category {
   WEEKLY_MONTHLY_CHECKLISTS
 }
 
-// User model 
+// model user
 model User {
   id                 String   @id @default(uuid())
   firstName          String   @map("first_name") @db.VarChar(50)
   lastName           String   @map("last_name") @db.VarChar(50)
   email              String   @db.VarChar(100)
   password           String   @db.VarChar(255)
+  @@unique([email, firstName, lastName])
+  deviceToken        String?
+  notifications      Notification[]
   
   phoneNumber        String?  @map("phone_number") @db.VarChar(20)
   homeAddress        String?        @map("home_address") @db.Text
@@ -86,6 +89,7 @@ model User {
   organization       Organization @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
   assignedWorkOrders WorkOrder[]     @relation("AssignedTo")
   createdWorkOrders  WorkOrder[]     @relation("CreatedBy")
+  autoAssignCategories String[] @default([])
 
   ownedProjects       Project[]        @relation("ProjectOwner")
   contributedProjects Project[]        @relation("ProjectContributors")
@@ -103,7 +107,7 @@ model User {
   @@map("users")
 }
 
-// Org model
+// model org
 model Organization {
   orgId      String      @id @default(uuid())
   orgName    String
@@ -148,7 +152,7 @@ model ActivityLog {
   @@map("activity_logs")
 }
 
-//  ASSET MODEL
+// Model Asset 
 model Asset {
   id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String            @db.VarChar(150)
@@ -431,4 +435,16 @@ model SystemAuditLog {
   action         String
   details        String
   createdAt      DateTime @default(now())
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  type        String   // e.g., 'WORK_ORDER', 'MENTION'
+  referenceId String?  // ID of the work order
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
 }
