@@ -1,7 +1,7 @@
+import prisma from "../utils/prisma.js";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import logger from "../utils/logger.js";
 
-const prisma = new PrismaClient();
 const router = express.Router();
 
 // Fetch Logs for the Developer Console
@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
     });
     res.status(200).json(logs);
   } catch (error) {
-    console.error("Fetch Audit Logs Error:", error);
+    logger.error(`[AuditLogs] Fetch Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to fetch audit logs" });
   }
 });
@@ -38,7 +38,7 @@ router.post("/", async (req, res) => {
     });
     res.status(201).json(log);
   } catch (error) {
-    console.error("Create Audit Log Error:", error);
+    logger.error(`[AuditLogs] Create Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to create audit log" });
   }
 });

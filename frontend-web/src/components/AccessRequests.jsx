@@ -291,7 +291,7 @@ const AccessRequests = ({ user }) => {
             Global Access
           </span>
           <span className="text-[11px] font-bold text-slate-400">({parsedLocs.length} sites)</span>
-          
+
           <div className="absolute bottom-full left-0 mb-2 w-max max-w-xs p-2.5 bg-slate-900 text-white text-[11px] font-medium rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
             <ul className="text-left space-y-1">
               {parsedLocs.map((loc, i) => (
@@ -328,7 +328,7 @@ const AccessRequests = ({ user }) => {
             <span className="truncate">{loc}</span>
           </div>
         ))}
-        
+
         <div className="relative group cursor-help">
           <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-black text-[11px] shadow-2xs hover:bg-blue-100 transition-colors">
             +{remainingCount} more
@@ -424,51 +424,45 @@ const AccessRequests = ({ user }) => {
           <div className="flex space-x-2 sm:space-x-3 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveTab('ACTIVE')}
-              className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all flex items-center gap-2 ${
-                activeTab === 'ACTIVE'
+              className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'ACTIVE'
                   ? "bg-blue-600 text-white shadow-sm"
                   : "bg-white border border-slate-200/80 text-slate-600 hover:bg-slate-50"
-              }`}
+                }`}
             >
               <Users className="w-4 h-4" />
               Active Members
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                activeTab === 'ACTIVE' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-              }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'ACTIVE' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                }`}>
                 {activeUsers.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab('PENDING')}
-              className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all flex items-center gap-2 ${
-                activeTab === 'PENDING'
+              className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'PENDING'
                   ? "bg-blue-600 text-white shadow-sm"
                   : "bg-white border border-slate-200/80 text-slate-600 hover:bg-slate-50"
-              }`}
+                }`}
             >
               <KeyRound className="w-4 h-4" />
               Pending Requests
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                activeTab === 'PENDING' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
-              }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'PENDING' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                }`}>
                 {pendingUsers.length}
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab('SHARED')}
-              className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all flex items-center gap-2 ${
-                activeTab === 'SHARED'
+              className={`px-4 py-2.5 rounded-xl text-xs md:text-sm font-black transition-all flex items-center gap-2 ${activeTab === 'SHARED'
                   ? "bg-blue-600 text-white shadow-sm"
                   : "bg-white border border-slate-200/80 text-slate-600 hover:bg-slate-50"
-              }`}
+                }`}
             >
               <MonitorSmartphone className="w-4 h-4" />
               Shared Terminals
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                activeTab === 'SHARED' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-              }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'SHARED' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                }`}>
                 {totalSharedUsers}
               </span>
             </button>
@@ -543,11 +537,10 @@ const AccessRequests = ({ user }) => {
 
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-1.5 items-start">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
-                              u.role === 'ADMIN'
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${u.role === 'ADMIN'
                                 ? 'bg-purple-50 text-purple-700 border-purple-200'
                                 : 'bg-slate-100 text-slate-600 border-slate-200'
-                            }`}>
+                              }`}>
                               {u.role === 'ADMIN' && <Shield className="w-3 h-3 text-purple-600" />}
                               {u.role === 'ADMIN' ? 'Administrator' : 'Team Member'}
                             </span>
@@ -753,7 +746,7 @@ const AccessRequests = ({ user }) => {
             </div>
 
             <form onSubmit={handleSavePermissions} className="p-5 md:p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50">
-              
+
               {/* SYSTEM ROLE */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
                 <label className="block text-[11px] font-black text-slate-400 uppercase tracking-wider">System Role</label>
@@ -761,11 +754,10 @@ const AccessRequests = ({ user }) => {
                   <button
                     type="button"
                     onClick={() => setEditRole('USER')}
-                    className={`p-4 rounded-2xl text-left transition-all border-2 ${
-                      editRole === 'USER'
+                    className={`p-4 rounded-2xl text-left transition-all border-2 ${editRole === 'USER'
                         ? 'border-blue-600 bg-blue-50/40 shadow-2xs'
                         : 'border-slate-200/80 bg-white hover:border-slate-300'
-                    }`}
+                      }`}
                   >
                     <div className="font-black text-slate-900 text-sm">Member</div>
                     <div className="text-[11px] font-medium text-slate-500 mt-1 leading-relaxed">
@@ -776,11 +768,10 @@ const AccessRequests = ({ user }) => {
                   <button
                     type="button"
                     onClick={() => setEditRole('ADMIN')}
-                    className={`p-4 rounded-2xl text-left transition-all border-2 ${
-                      editRole === 'ADMIN'
+                    className={`p-4 rounded-2xl text-left transition-all border-2 ${editRole === 'ADMIN'
                         ? 'border-purple-600 bg-purple-50/40 shadow-2xs'
                         : 'border-slate-200/80 bg-white hover:border-slate-300'
-                    }`}
+                      }`}
                   >
                     <div className="font-black text-slate-900 text-sm flex items-center gap-1.5">
                       <Shield className="w-4 h-4 text-purple-600" /> Administrator
@@ -834,9 +825,8 @@ const AccessRequests = ({ user }) => {
                       return (
                         <label
                           key={loc.id}
-                          className={`flex items-center gap-3 p-3.5 cursor-pointer transition-colors ${
-                            isChecked ? 'bg-blue-50/70' : 'bg-white hover:bg-slate-50'
-                          }`}
+                          className={`flex items-center gap-3 p-3.5 cursor-pointer transition-colors ${isChecked ? 'bg-blue-50/70' : 'bg-white hover:bg-slate-50'
+                            }`}
                         >
                           <input
                             type="checkbox"
@@ -880,11 +870,10 @@ const AccessRequests = ({ user }) => {
                     return (
                       <label
                         key={cat.value}
-                        className={`flex items-center gap-2.5 p-3.5 border-2 rounded-2xl cursor-pointer transition-all ${
-                          isChecked
+                        className={`flex items-center gap-2.5 p-3.5 border-2 rounded-2xl cursor-pointer transition-all ${isChecked
                             ? 'bg-emerald-50/60 border-emerald-500 shadow-2xs'
                             : 'bg-white border-slate-200/80 hover:border-slate-300'
-                        }`}
+                          }`}
                       >
                         <input
                           type="checkbox"
@@ -892,9 +881,8 @@ const AccessRequests = ({ user }) => {
                           onChange={() => handleAutoCategoryToggle(cat.value)}
                           className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 shrink-0"
                         />
-                        <span className={`text-xs font-black uppercase tracking-wider truncate ${
-                          isChecked ? 'text-emerald-950' : 'text-slate-600'
-                        }`}>
+                        <span className={`text-xs font-black uppercase tracking-wider truncate ${isChecked ? 'text-emerald-950' : 'text-slate-600'
+                          }`}>
                           {cat.label}
                         </span>
                       </label>
@@ -940,14 +928,14 @@ const AccessRequests = ({ user }) => {
       {isSharedProfileModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-[32px] p-8 md:p-10 max-w-lg w-full shadow-2xl relative border border-slate-100 overflow-visible flex flex-col transform transition-all">
-            
+
             <button
               onClick={() => setSharedProfileModalOpen(false)}
               className="absolute top-6 right-6 p-2.5 bg-slate-100/80 text-slate-500 hover:bg-slate-200 hover:text-slate-900 rounded-full transition-all"
             >
               <X className="w-5 h-5" />
             </button>
-            
+
             <div className="mb-8 pr-8">
               <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mb-4 shadow-2xs">
                 <MonitorSmartphone className="w-6 h-6" />
@@ -1007,18 +995,17 @@ const AccessRequests = ({ user }) => {
                     </label>
                     <div
                       onClick={() => sharedBaseEmail && setIsUserDropdownOpen(!isUserDropdownOpen)}
-                      className={`w-full p-4 border rounded-2xl text-sm font-bold flex justify-between items-center transition-all shadow-2xs ${
-                        !sharedBaseEmail
+                      className={`w-full p-4 border rounded-2xl text-sm font-bold flex justify-between items-center transition-all shadow-2xs ${!sharedBaseEmail
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-75"
                           : "bg-slate-50/80 border-slate-200 hover:border-slate-300 cursor-pointer text-slate-900"
-                      }`}
+                        }`}
                     >
                       <span>
                         {sharedSelectedUserId
                           ? (() => {
-                              const u = activeUsers.find(u => u.id === sharedSelectedUserId);
-                              return u ? `${u.firstName} ${u.lastName} (${u.email})` : "-- Select a team member --";
-                            })()
+                            const u = activeUsers.find(u => u.id === sharedSelectedUserId);
+                            return u ? `${u.firstName} ${u.lastName} (${u.email})` : "-- Select a team member --";
+                          })()
                           : "-- Select a team member --"}
                       </span>
                     </div>

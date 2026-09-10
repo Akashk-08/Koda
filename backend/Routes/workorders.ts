@@ -1,11 +1,11 @@
+import prisma from "../utils/prisma.js";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
 import multer from "multer";
 import fs from "fs";
 import { notifyUser } from "../services/notificationService.js";
+import logger from "../utils/logger.js";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Helper Functions
 const calculateNextDate = (currentDate: Date, scheduleType: string): Date => {
@@ -49,6 +49,7 @@ router.post("/:id/documents", upload.single("file"), async (req: any, res: any) 
 
     res.status(201).json(document);
   } catch (error) {
+    logger.error(`[WorkOrders] Upload Document Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to upload document" });
   }
 });
@@ -56,7 +57,16 @@ router.post("/:id/documents", upload.single("file"), async (req: any, res: any) 
 // 2. Get All Work Orders
 router.get("/", async (req, res) => {
   try {
-    const { orgId, page = "1", limit = "50", search = "", status, category, locationName, teamId } = req.query;
+    const {
+      orgId,
+      page = "1",
+      limit = "50",
+      search = "",
+      status,
+      category,
+      locationName,
+      teamId,
+    } = req.query;
 
     if (!orgId) return res.status(400).json({ error: "Organization ID is required" });
 
@@ -105,6 +115,7 @@ router.get("/", async (req, res) => {
       },
     });
   } catch (error: any) {
+    logger.error(`[WorkOrders] Fetch All Error: ${error.message || error}`);
     res.status(500).json({ error: "Failed to fetch work orders" });
   }
 });
@@ -122,7 +133,7 @@ router.get("/:id", async (req, res) => {
         assignee: true,
         creator: true,
         asset: true,
-        team: true, 
+        team: true,
         comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
         activityLogs: { include: { actor: true }, orderBy: { createdAt: "asc" } },
         preventiveMaintenance: true,
@@ -133,6 +144,7 @@ router.get("/:id", async (req, res) => {
     if (!workOrder) return res.status(404).json({ error: "Work order not found" });
     res.status(200).json(workOrder);
   } catch (error) {
+    logger.error(`[WorkOrders] Fetch Single Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to fetch work order details" });
   }
 });
@@ -147,7 +159,7 @@ router.post("/", async (req, res) => {
     organizationId,
     createdBy,
     assignedTo,
-    additionalAssigneeEmails, 
+    additionalAssigneeEmails,
     teamId,
     assetId,
     dueDate,
@@ -160,7 +172,8 @@ router.post("/", async (req, res) => {
   try {
     let parsedHours = null;
     if (durationHours && !isNaN(parseFloat(durationHours))) parsedHours = parseFloat(durationHours);
-    else if (estimatedHours && !isNaN(parseFloat(estimatedHours))) parsedHours = parseFloat(estimatedHours);
+    else if (estimatedHours && !isNaN(parseFloat(estimatedHours)))
+      parsedHours = parseFloat(estimatedHours);
 
     let finalAssignee = assignedTo || null;
     let finalAdditionalEmails = additionalAssigneeEmails || null;
@@ -170,32 +183,36 @@ router.post("/", async (req, res) => {
       const routingUsers = await prisma.user.findMany({
         where: {
           organizationId: organizationId,
-          autoAssignCategories: { has: category } 
+          autoAssignCategories: { has: category },
         },
-        include: { teams: true } 
+        include: { teams: true },
       });
 
       if (routingUsers.length > 0) {
-        const localUsers = routingUsers.filter(u => u.siteLocation === siteLocation);
-        const centralUsers = routingUsers.filter(u => 
-          u.siteLocation?.toLowerCase().includes("shop") || 
-          u.siteLocation?.toLowerCase().includes("warehouse")
+        const localUsers = routingUsers.filter((u) => u.siteLocation === siteLocation);
+        const centralUsers = routingUsers.filter(
+          (u) =>
+            u.siteLocation?.toLowerCase().includes("shop") ||
+            u.siteLocation?.toLowerCase().includes("warehouse"),
         );
 
         const allAssignedUsersMap = new Map();
-        [...localUsers, ...centralUsers].forEach(u => allAssignedUsersMap.set(u.id, u));
+        [...localUsers, ...centralUsers].forEach((u) => allAssignedUsersMap.set(u.id, u));
         const uniqueAssignedUsers = Array.from(allAssignedUsersMap.values());
 
         if (uniqueAssignedUsers.length > 0) {
           const primaryUser = uniqueAssignedUsers[0];
           finalAssignee = primaryUser.id;
-          
+
           if (!finalTeam && primaryUser.teams && primaryUser.teams.length > 0) {
             finalTeam = primaryUser.teams[0].id;
           }
 
           if (uniqueAssignedUsers.length > 1) {
-            finalAdditionalEmails = uniqueAssignedUsers.slice(1).map((u: any) => u.email).join(',');
+            finalAdditionalEmails = uniqueAssignedUsers
+              .slice(1)
+              .map((u: any) => u.email)
+              .join(",");
           }
         }
       }
@@ -211,7 +228,7 @@ router.post("/", async (req, res) => {
         organizationId,
         createdBy: createdBy || null,
         assignedTo: finalAssignee,
-        additionalAssigneeEmails: finalAdditionalEmails, 
+        additionalAssigneeEmails: finalAdditionalEmails,
         teamId: finalTeam,
         assetId: assetId || null,
         locationName: siteLocation || null,
@@ -228,7 +245,7 @@ router.post("/", async (req, res) => {
         "New Work Order Assigned",
         `You have been assigned to a new work order: ${newWorkOrder.title}`,
         "WORK_ORDER_ASSIGNED",
-        String(newWorkOrder.id)
+        String(newWorkOrder.id),
       );
     }
 
@@ -244,9 +261,9 @@ router.post("/", async (req, res) => {
 
     res.status(201).json(newWorkOrder);
   } catch (error) {
-    console.error("\n=== WORK ORDER CREATION ERROR ===");
-    console.error(error);
-    console.error("Payload received:", req.body);
+    logger.error(
+      `[WorkOrders] CREATION ERROR: ${(error as Error).message || error}. Payload: ${JSON.stringify(req.body)}`,
+    );
     res.status(500).json({ error: "Failed to create work order" });
   }
 });
@@ -270,7 +287,7 @@ router.put("/:id", async (req, res) => {
           action: actionLog,
           workOrderId: parseInt(id),
           actorId: actorId,
-        }
+        },
       });
     }
 
@@ -319,20 +336,20 @@ router.put("/:id", async (req, res) => {
         });
       }
     }
-    
+
     if (updateData.status && updatedWorkOrder.createdBy) {
       await notifyUser(
         updatedWorkOrder.createdBy,
         "Work Order Status Updated",
         `Work order #${updatedWorkOrder.id} is now ${updateData.status}.`,
         "WORK_ORDER_UPDATED",
-        String(updatedWorkOrder.id)
+        String(updatedWorkOrder.id),
       );
     }
 
     res.status(200).json(updatedWorkOrder);
   } catch (error) {
-    console.error("Error updating WO:", error);
+    logger.error(`[WorkOrders] Update WO Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to update work order" });
   }
 });
@@ -349,7 +366,7 @@ router.delete("/:id", async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting work order:", error);
+    logger.error(`[WorkOrders] Delete Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to delete work order" });
   }
 });
@@ -363,7 +380,8 @@ router.post("/:id/comments", async (req, res) => {
       include: { author: true },
     });
     res.status(201).json(comment);
-  } catch (err) {
+  } catch (error) {
+    logger.error(`[WorkOrders] Add Comment Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to add comment" });
   }
 });
@@ -373,12 +391,12 @@ router.put("/:id/comments/:commentId", async (req, res) => {
   try {
     const { text } = req.body;
     const comment = await prisma.comment.update({
-      where: { id: req.params.commentId }, 
+      where: { id: req.params.commentId },
       data: { text },
     });
     res.json(comment);
   } catch (error) {
-    console.error("Error updating comment:", error);
+    logger.error(`[WorkOrders] Update Comment Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to update comment" });
   }
 });
@@ -387,11 +405,11 @@ router.put("/:id/comments/:commentId", async (req, res) => {
 router.delete("/:id/comments/:commentId", async (req, res) => {
   try {
     await prisma.comment.delete({
-      where: { id: req.params.commentId }, 
+      where: { id: req.params.commentId },
     });
     res.status(204).send();
   } catch (error) {
-    console.error("Error deleting comment:", error);
+    logger.error(`[WorkOrders] Delete Comment Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to delete comment" });
   }
 });

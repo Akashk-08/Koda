@@ -1,8 +1,8 @@
+import prisma from "../utils/prisma.js";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import logger from "../utils/logger.js";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET all PM schedules with proper global HQ and fallback handling
 router.get("/", async (req, res) => {
@@ -27,7 +27,7 @@ router.get("/", async (req, res) => {
 
     res.status(200).json(pms);
   } catch (error) {
-    console.error("Error fetching PM schedules:", error);
+    logger.error(`[PM] Fetch Schedules Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to fetch PM schedules" });
   }
 });
@@ -87,7 +87,7 @@ router.post("/", async (req, res) => {
 
     res.status(201).json(newPm);
   } catch (error) {
-    console.error("Error creating PM:", error);
+    logger.error(`[PM] Create PM Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to create PM" });
   }
 });

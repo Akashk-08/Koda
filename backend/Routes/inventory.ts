@@ -1,8 +1,8 @@
+import prisma from "../utils/prisma.js";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import logger from "../utils/logger.js";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET all parts for an organization
 router.get("/", async (req, res) => {
@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
     });
     res.json(parts);
   } catch (error: any) {
-    console.error(error);
+    logger.error(`[Inventory] Fetch Error: ${error.message || error}`);
     res.status(500).json({ error: error.message || "Failed to fetch inventory parts" });
   }
 });
@@ -72,7 +72,7 @@ router.post("/", async (req, res) => {
 
     res.status(201).json(newPart);
   } catch (error: any) {
-    console.error("PRISMA CREATE ERROR:", error);
+    logger.error(`[Inventory] PRISMA CREATE ERROR: ${error.message || error}`);
     res.status(500).json({ error: error.message || "Database error while creating part." });
   }
 });
@@ -91,7 +91,7 @@ router.put("/:id", async (req, res) => {
 
     res.json(updatedPart);
   } catch (error: any) {
-    console.error("PRISMA UPDATE ERROR:", error);
+    logger.error(`[Inventory] PRISMA UPDATE ERROR: ${error.message || error}`);
     res.status(500).json({ error: error.message || "Failed to update part" });
   }
 });
@@ -107,7 +107,7 @@ router.delete("/:id", async (req, res) => {
 
     res.json({ message: "Part deleted successfully" });
   } catch (error: any) {
-    console.error(error);
+    logger.error(`[Inventory] Delete Error: ${error.message || error}`);
     res.status(500).json({ error: error.message || "Failed to delete part" });
   }
 });

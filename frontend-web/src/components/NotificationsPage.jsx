@@ -28,7 +28,7 @@ export default function NotificationsPage({ user }) {
   const markAsRead = async (id, referenceId) => {
     try {
       await fetch(`http://${API_URL}/api/notifications/${id}/read`, { method: 'PUT' });
-      
+
       // Navigate straight to the work order
       if (referenceId) {
         navigate(`/workspace/workorder/${referenceId}`);
@@ -60,8 +60,8 @@ export default function NotificationsPage({ user }) {
         ) : (
           <div className="divide-y divide-gray-100">
             {notifications.map(n => (
-              <div 
-                key={n.id} 
+              <div
+                key={n.id}
                 onClick={() => markAsRead(n.id, n.referenceId)}
                 className="p-4 flex items-center justify-between hover:bg-blue-50 cursor-pointer transition-colors active:scale-[0.99]"
               >

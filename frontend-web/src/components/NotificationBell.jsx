@@ -46,7 +46,7 @@ export default function NotificationBell({ user }) {
       await fetch(`http://${API_URL}/api/notifications/${id}/read`, { method: 'PUT' });
       setNotifications(prev => prev.filter(n => n.id !== id));
       setIsOpen(false);
-      
+
       if (referenceId) {
         navigate(`/workspace/workorder/${referenceId}`);
       }
@@ -69,12 +69,12 @@ export default function NotificationBell({ user }) {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button 
-        onClick={handleBellClick} 
+      <button
+        onClick={handleBellClick}
         className="p-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors relative flex items-center justify-center shadow-sm"
       >
         <Bell className="w-5 h-5 text-gray-700" />
-        
+
         {/* Dynamic Red Badge */}
         {unreadCount > 0 && (
           <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[20px] h-[20px] px-1.5 bg-red-600 text-white text-[10px] font-black rounded-full border-2 border-white shadow-sm">
@@ -94,7 +94,7 @@ export default function NotificationBell({ user }) {
               </span>
             )}
           </div>
-          
+
           <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
             {notifications.length === 0 ? (
               <div className="p-8 text-center flex flex-col items-center justify-center">
@@ -103,8 +103,8 @@ export default function NotificationBell({ user }) {
               </div>
             ) : (
               notifications.map(n => (
-                <div 
-                  key={n.id} 
+                <div
+                  key={n.id}
                   onClick={() => markAsRead(n.id, n.referenceId)}
                   className="p-4 border-b border-gray-50 hover:bg-blue-50/50 cursor-pointer transition-colors flex flex-col gap-1 relative group"
                 >

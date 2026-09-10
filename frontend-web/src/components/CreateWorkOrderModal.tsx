@@ -136,7 +136,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
       if (!isOpen || !user.organizationId) return;
       try {
         const [usersRes, woRes] = await Promise.all([
-          fetch(`http://${API_URL}/api/users?orgId=${user.organizationId}`), 
+          fetch(`http://${API_URL}/api/users?orgId=${user.organizationId}`),
           fetch(`http://${API_URL}/api/workorders?orgId=${user.organizationId}`),
         ]);
 
@@ -203,16 +203,20 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
     if (!title.trim() && isFullAccess) return alert("Title is required!");
     if (!customRequestSubject.trim() && !isFullAccess)
       return alert("Please specify the subject/issue of your request.");
-    
+
     // MANDATORY TEAM VALIDATION
     if (!selectedTeamId) return alert("Please select an Operational Team.");
 
     setIsSubmitting(true);
 
     try {
-      const additionalEmails = selectedAssignees.length > 1 
-        ? selectedAssignees.slice(1).map(u => u.email).join(',') 
-        : null;
+      const additionalEmails =
+        selectedAssignees.length > 1
+          ? selectedAssignees
+              .slice(1)
+              .map((u) => u.email)
+              .join(",")
+          : null;
 
       const payload = {
         title: isFullAccess ? title : title.trim(),
@@ -222,7 +226,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         organizationId: user.organizationId,
         createdBy: user.id,
         assignedTo: selectedAssignees.length > 0 ? selectedAssignees[0].id : null,
-        additionalAssigneeEmails: additionalEmails, 
+        additionalAssigneeEmails: additionalEmails,
         teamId: selectedTeamId || null,
         assetId: selectedAssetId || null,
         siteLocation,
@@ -601,8 +605,9 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
 
                 {/* 4. ASSIGNMENT (Visible to all, but restricted for non-admins) */}
                 <SectionHeader title="Assignment" icon={Users} />
-                <div className={`grid grid-cols-1 gap-5 ${isFullAccess ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-                  
+                <div
+                  className={`grid grid-cols-1 gap-5 ${isFullAccess ? "md:grid-cols-3" : "md:grid-cols-2"}`}
+                >
                   {/* AUTHOR (Visible to all) */}
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
@@ -690,7 +695,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                                   u.siteLocation
                                     ?.toLowerCase()
                                     .includes(selectedTeamObj.name.toLowerCase());
-                                  isMatch = isMatch && (matchesTeamId || matchesTeamNameInLoc);
+                                isMatch = isMatch && (matchesTeamId || matchesTeamNameInLoc);
                               }
                               return isMatch;
                             })

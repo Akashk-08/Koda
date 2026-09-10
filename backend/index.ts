@@ -1,7 +1,7 @@
+import prisma from "./utils/prisma.js";
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import projectRoutes from "./Routes/projectroutes.js";
 import workorderRoutes from "./Routes/workorders.js";
@@ -16,13 +16,12 @@ import inventoryRoutes from "./Routes/inventory.js";
 import assetRoutes from "./Routes/assets.js";
 import nodemailer from "nodemailer";
 import rateLimit from "express-rate-limit";
-import { ParamsDictionary } from "express-serve-static-core";
-import { ParsedQs } from "qs";
+import logger from "./utils/logger.js";
+import logRoutes from "./Routes/logs.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const prisma = new PrismaClient();
 const app = express();
 const PORT = 8080;
 
@@ -38,22 +37,25 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// INCREASED LIMITS MOVED TO THE TOP
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// GLOBAL LOGGING MIDDLEWARE (STEP 4)
+app.use((req, res, next) => {
+  logger.info(`Incoming Request: ${req.method} ${req.url}`);
+  next();
+});
+
 // Block specific accounts after 100 failed login attempts for 15 minutes
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  message: {
-    error: "Too many login attempts, please try again after 15 minutes",
-  },
+  message: "Too many login attempts, please try again after 15 minutes", // Change this to a string
   keyGenerator: (req, res) => {
-    // If there is an email, track that. Otherwise, safely track the IP using the default helper.
-    return req.body.email ? req.body.email.toLowerCase() : defaultKeyGenerator(req, res);
+    return req.body.email ? req.body.email.toLowerCase() : (req.ip || "unknown-ip");
   },
 });
-
-// INCREASED LIMITS MOVED TO THE TOP
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // serve your images!
 
 // AUTH ROUTES
@@ -114,13 +116,13 @@ app.post("/api/auth/signup", async (req, res) => {
 
     res.status(201).json({ user: newUser });
   } catch (error) {
-    console.error("Signup error:", error);
+    logger.error(`Signup error: ${(error as Error).message}`);
     res.status(500).json({ error: "Failed to create account" });
   }
 });
 
 // LOGIN (UPDATED FOR MULTI-PROFILE SUPPORT)
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -170,13 +172,13 @@ app.post("/api/auth/login", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
+    logger.error(`Login error: ${(error as Error).message}`);
     res.status(500).json({ error: "Server error" });
   }
 });
 
 // VERIFY PIN (NEW FOR Shared MODE)
-app.post("/api/auth/verify-pin", async (req, res) => {
+app.post("/api/auth/verify-pin", loginLimiter, async (req, res) => {
   const { email, profileId, pin } = req.body;
 
   try {
@@ -210,7 +212,7 @@ app.post("/api/auth/verify-pin", async (req, res) => {
 
     return res.status(401).json({ error: "Incorrect PIN. Please try again." });
   } catch (error) {
-    console.error("PIN verification error:", error);
+    logger.error(`PIN verification error: ${(error as Error).message}`);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -250,12 +252,12 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       };
       await transporter.sendMail(mailOptions);
     } catch (emailErr) {
-      console.warn(`⚠️ Warning: Could not send actual email via Gmail, check terminal configuration.`);
+      logger.warn(`Warning: Could not send actual email via Gmail, check terminal configuration.`);
     }
 
     res.status(200).json({ message: "Code sent successfully." });
   } catch (error) {
-    console.error("Forgot password error:", error);
+    logger.error(`Forgot password error: ${(error as Error).message}`);
     res.status(500).json({ error: "Failed to process request." });
   }
 });
@@ -276,7 +278,7 @@ app.post("/api/auth/verify-code", async (req, res) => {
 
     res.status(200).json({ message: "Code verified successfully." });
   } catch (error) {
-    console.error("Verify code error:", error);
+    logger.error(`Verify code error: ${(error as Error).message}`);
     res.status(500).json({ error: "Failed to verify code." });
   }
 });
@@ -309,7 +311,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     res.status(200).json({ message: "Password updated successfully." });
   } catch (error) {
-    console.error("Reset password error:", error);
+    logger.error(`Reset password error: ${(error as Error).message}`);
     res.status(500).json({ error: "Failed to reset password." });
   }
 });
@@ -332,11 +334,12 @@ app.post("/api/auth/get-profiles", async (req, res) => {
     }));
     res.status(200).json({ profiles });
   } catch (error) {
+    logger.error(`Get profiles error: ${(error as Error).message}`);
     res.status(500).json({ error: "Failed to fetch profiles" });
   }
 });
 
-// 2. ADMIN: ADD A SHARED PROFILE (UPDATED TO INHERIT SITE LOCATION)[cite: 11]
+// 2. ADMIN: ADD A SHARED PROFILE 
 app.post("/api/auth/add-shared-profile", async (req, res) => {
   const { baseEmail, userId, pin } = req.body;
 
@@ -350,12 +353,12 @@ app.post("/api/auth/add-shared-profile", async (req, res) => {
       data: {
         firstName: sourceUser.firstName,
         lastName: sourceUser.lastName,
-        email: baseEmail, // Share the same email terminal identity[cite: 11]
-        password: sourceUser.password, // Clone the hashed password[cite: 11]
+        email: baseEmail, 
+        password: sourceUser.password, 
         organizationId: sourceUser.organizationId,
-        siteLocation: sourceUser.siteLocation, // Automatically inherit source user's site location[cite: 11]
-        role: sourceUser.role, // Inherit role[cite: 11]
-        autoAssignCategories: sourceUser.autoAssignCategories, // Inherit routing rules[cite: 11]
+        siteLocation: sourceUser.siteLocation, 
+        role: sourceUser.role, 
+        autoAssignCategories: sourceUser.autoAssignCategories, 
         approvalStatus: "APPROVED",
         pin: pin,
       },
@@ -363,7 +366,7 @@ app.post("/api/auth/add-shared-profile", async (req, res) => {
 
     res.status(201).json({ message: "Shared profile added!", user: newSharedUser });
   } catch (error) {
-    console.error("Add Shared Profile Error:", error);
+    logger.error(`Add Shared Profile Error: ${(error as Error).message}`);
     res.status(500).json({ error: "Failed to add shared profile." });
   }
 });
@@ -380,7 +383,7 @@ app.put("/api/users/:id/pin", async (req, res) => {
     });
     res.status(200).json(updatedUser);
   } catch (error) {
-    console.error("PIN update error:", error);
+    logger.error(`PIN update error: ${(error as Error).message}`);
     res.status(500).json({ error: "Failed to update PIN" });
   }
 });
@@ -395,13 +398,12 @@ app.use("/api/teams", teamRoutes);
 app.use("/api/calendar", Calendar);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/assets", assetRoutes);
+app.use("/api/logs", logRoutes);
 
-app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  logger.error(`[Unhandled Exception] ${req.method} ${req.url} - ${err.message}\nStack Trace: ${err.stack}`);
+  res.status(500).json({ error: "An unexpected internal server error occurred." });
+});
+app.listen(PORT, "0.0.0.0", () => logger.info(`Backend running on port ${PORT}`));
 
-function defaultKeyGenerator(
-  req: express.Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>,
-  res: express.Response<any, Record<string, any>>,
-): string | Promise<string> {
-  throw new Error("Function not implemented.");
-}
-module.exports = app;
+export default app;

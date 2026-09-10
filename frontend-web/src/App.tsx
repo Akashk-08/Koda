@@ -79,7 +79,7 @@ interface AuthCardProps {
   onAuthSuccess: (user: User) => void;
 }
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = "127.0.0.1:8080";
 
 // AUTH COMPONENT
 const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
@@ -624,8 +624,13 @@ const DashboardLayout = ({
     if (user?.role !== "ADMIN" || !user?.organizationId) return;
 
     const fetchPendingRequests = async () => {
+      // 1. THIS WILL PROVE IF YOUR .ENV IS WORKING
+      console.log("Currently trying to fetch from API_URL:", API_URL);
+
       try {
-        const res = await fetch(`http://${API_URL}/api/users/${user.organizationId}`);
+        // 2. UPDATED TO USE YOUR NEW BULLETPROOF BACKEND ROUTE
+        const res = await fetch(`http://${API_URL}/api/users?orgId=${user.organizationId}`);
+
         if (res.ok) {
           const usersData = await res.json();
           const count = usersData.filter((u: any) => u.approvalStatus === "PENDING").length;
@@ -658,7 +663,12 @@ const DashboardLayout = ({
     `${user.firstName?.charAt(0) || ""}${user.lastName?.charAt(0) || ""}`.toUpperCase();
 
   // Root paths where the back button should NOT be shown
-  const rootPaths = ["/workspace/workorders", "/resources/requests", "/more", "/workspace/notifications"];
+  const rootPaths = [
+    "/workspace/workorders",
+    "/resources/requests",
+    "/more",
+    "/workspace/notifications",
+  ];
   const isRootPage = rootPaths.includes(location.pathname);
 
   return (
@@ -911,28 +921,6 @@ const DashboardLayout = ({
               </Link>
             </li>
           </ul>
-
-          <div
-            className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
-          >
-            {isSidebarCollapsed ? "..." : "Analytics"}
-          </div>
-          <ul className="space-y-1 px-3 pb-6">
-            <li>
-              <Link
-                to="/analytics/metrics"
-                className={linkClass("/analytics/metrics")}
-                title={isSidebarCollapsed ? "Metrics" : ""}
-              >
-                <div className="flex items-center truncate">
-                  <span className={iconClass("/analytics/metrics")}>
-                    <BarChart3 className="w-5 h-5" />
-                  </span>
-                  {!isSidebarCollapsed && <span className="truncate">Metrics</span>}
-                </div>
-              </Link>
-            </li>
-          </ul>
         </nav>
 
         <Link
@@ -980,7 +968,7 @@ const DashboardLayout = ({
             <Routes>
               {/* Added NotificationsPage inside DashboardLayout so header/footer remain visible */}
               <Route path="/workspace/notifications" element={<NotificationsPage user={user} />} />
-              
+
               <Route path="/workspace/workorder/:id" element={<WorkOrderDetail user={user} />} />
               <Route
                 path="/workspace/workorders"
@@ -1008,7 +996,7 @@ const DashboardLayout = ({
                 element={<MyProfile user={user} onUpdateUser={onUpdateUser} />}
               />
 
-              <Route path="/analytics/metrics" />
+              {/* <Route path="/analytics/metrics" /> */}
 
               <Route
                 path="/profile"

@@ -1,8 +1,8 @@
+import prisma from "../utils/prisma.js";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import logger from "../utils/logger.js";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // 1. GET ALL PENDING REQUESTS (ADMIN ONLY)
 router.get("/accessrequests", async (req, res) => {
@@ -40,7 +40,7 @@ router.get("/accessrequests", async (req, res) => {
     });
     res.status(200).json(pendingUsers);
   } catch (error) {
-    console.error("Error fetching requests:", error);
+    logger.error(`[Users] Fetch Requests Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to fetch requests" });
   }
 });
@@ -63,7 +63,7 @@ router.get("/profile/:id", async (req, res) => {
     const { password, ...userWithoutPassword } = user;
     res.status(200).json(userWithoutPassword);
   } catch (error) {
-    console.error("Failed to fetch profile details:", error);
+    logger.error(`[Users] Fetch Profile Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to fetch profile details" });
   }
 });
@@ -72,20 +72,20 @@ router.get("/profile/:id", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const orgId = req.query.orgId as string;
-    
+
     if (!orgId || orgId === "undefined") {
       return res.status(400).json({ error: "Valid orgId query parameter is required" });
     }
 
     const users = await prisma.user.findMany({
       where: { organizationId: orgId },
-      include: { teams: true }, 
+      include: { teams: true },
     });
 
     const usersWithoutPasswords = users.map(({ password, ...rest }) => rest);
     res.status(200).json(usersWithoutPasswords);
   } catch (error: any) {
-    console.error("Failed to fetch users:", error);
+    logger.error(`[Users] Fetch All Error: ${error.message || error}`);
     res.status(500).json({ error: error.message || "Failed to fetch users" });
   }
 });
@@ -102,6 +102,7 @@ router.get("/:orgId", async (req, res) => {
     });
     res.status(200).json(users);
   } catch (error) {
+    logger.error(`[Users] Fetch Fallback Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
@@ -137,7 +138,7 @@ router.put("/:id/profile", async (req, res) => {
     const { password, ...userWithoutPassword } = updatedUser;
     res.status(200).json(userWithoutPassword);
   } catch (error) {
-    console.error("Error updating profile:", error);
+    logger.error(`[Users] Update Profile Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
@@ -154,6 +155,7 @@ router.put("/:id/approve", async (req, res) => {
     });
     res.status(200).json({ success: true, status: updatedUser.approvalStatus });
   } catch (error) {
+    logger.error(`[Users] Approve User Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to update user status" });
   }
 });
@@ -176,24 +178,25 @@ router.put("/:id/permissions", async (req, res) => {
     const { password, ...userWithoutPassword } = updatedUser;
     res.status(200).json(userWithoutPassword);
   } catch (error) {
-    console.error("Failed to update user permissions:", error);
+    logger.error(`[Users] Update Permissions Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to update permissions" });
   }
 });
 
-router.post('/:id/device-token', async (req, res) => {
+router.post("/:id/device-token", async (req, res) => {
   try {
     const { id } = req.params;
-    const { token }  = req.body;
+    const { token } = req.body;
 
     await prisma.user.update({
       where: { id },
-      data: { deviceToken: token }
+      data: { deviceToken: token },
     });
 
     res.status(200).json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to save device token' });
+    logger.error(`[Users] Save Device Token Error: ${(error as Error).message || error}`);
+    res.status(500).json({ error: "Failed to save device token" });
   }
 });
 

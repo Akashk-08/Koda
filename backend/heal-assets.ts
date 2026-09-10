@@ -1,8 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "./utils/prisma.js";
 import fs from "fs";
 import csv from "csv-parser";
+import logger from "./utils/logger.js";
 
-const prisma = new PrismaClient();
 
 // Your exact Prisma Enum Categories to prevent database crashes!
 const VALID_CATEGORIES = [
@@ -17,7 +17,7 @@ const VALID_CATEGORIES = [
 ];
 
 async function healDatabase() {
-  console.log("Reading upkeep-assets.csv and checking database...");
+  logger.info("[HealAssets] Reading upkeep-assets.csv and checking database...");
   const results: any[] = [];
 
   fs.createReadStream("upkeep-assets.csv")
@@ -56,14 +56,14 @@ async function healDatabase() {
             });
 
             updateCount++;
-            if (updateCount % 50 === 0) console.log(`Healed ${updateCount} records...`);
+            if (updateCount % 50 === 0) logger.info(`[HealAssets] Healed ${updateCount} records...`);
           }
         } catch (error) {
-          console.error(`Skipped ${row["Name"]} due to an error.`);
+          logger.error(`[HealAssets] Skipped ${row["Name"]} due to an error.`);
         }
       }
 
-      console.log(`\n SUCCESS! Healed ${updateCount} assets. Go refresh your browser!`);
+      logger.info(`\n[HealAssets] SUCCESS! Healed ${updateCount} assets. Go refresh your browser!`);
       await prisma.$disconnect();
     });
 }

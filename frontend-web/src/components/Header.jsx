@@ -138,8 +138,8 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
                 disabled={!hasMultipleProfiles}
                 title={hasMultipleProfiles ? "Switch to another profile" : "No other profiles associated with this email"}
                 className={`w-full text-left px-4 py-2.5 text-sm font-bold transition-colors ${hasMultipleProfiles
-                    ? "text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
-                    : "text-gray-400 opacity-60 cursor-not-allowed"
+                  ? "text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
+                  : "text-gray-400 opacity-60 cursor-not-allowed"
                   }`}
               >
                 Switch Profile

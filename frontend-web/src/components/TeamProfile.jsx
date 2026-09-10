@@ -10,7 +10,7 @@ const TeamProfile = ({ currentUser }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [userTeams, setUserTeams] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
@@ -86,7 +86,7 @@ const TeamProfile = ({ currentUser }) => {
 
   return (
     <div className="flex-1 bg-[#f4f5f7] overflow-y-auto h-full font-sans relative pb-24 md:pb-8">
-      
+
       {/* MOBILE BACK BUTTON HEADER */}
       <div className="md:hidden bg-white border-b border-gray-200 px-4 py-4 flex items-center shrink-0 shadow-sm sticky top-0 z-10">
         <button onClick={() => navigate(-1)} className="flex items-center text-blue-600 font-bold gap-1">
@@ -95,7 +95,7 @@ const TeamProfile = ({ currentUser }) => {
       </div>
 
       <div className="max-w-5xl mx-auto w-full px-4 pt-6 md:pt-10">
-        
+
         {/* DESKTOP HEADER */}
         <div className="hidden md:flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">

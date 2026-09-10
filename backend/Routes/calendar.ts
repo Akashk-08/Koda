@@ -1,6 +1,7 @@
 import express from "express";
 import { google } from "googleapis";
 import path from "path";
+import logger from "../utils/logger.js";
 
 const router = express.Router();
 
@@ -45,7 +46,9 @@ router.get("/", async (req, res) => {
 
     return res.status(200).json(realEvents);
   } catch (error) {
-    console.error(`Google Calendar API Error for ${email}:`, error);
+    logger.error(
+      `[Calendar] Google Calendar API Error for ${email}: ${(error as Error).message || error}`,
+    );
     return res.status(200).json([]);
   }
 });

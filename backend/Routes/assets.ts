@@ -1,13 +1,13 @@
+import prisma from "../utils/prisma.js";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import logger from "../utils/logger.js";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Get all assets
 router.get("/", async (req, res) => {
   const { orgId, barcode, locationName } = req.query;
-  
+
   try {
     const whereClause: any = {
       organizationId: String(orgId),
@@ -53,7 +53,7 @@ router.get("/", async (req, res) => {
 
     res.json(formattedAssets);
   } catch (err) {
-    console.error("GET Assets Error:", err);
+    logger.error(`[Assets] GET Error: ${(err as Error).message || err}`);
     res.status(500).json({ error: "Failed to fetch assets" });
   }
 });
@@ -66,7 +66,7 @@ router.post("/", async (req, res) => {
     });
     res.status(201).json(newAsset);
   } catch (error) {
-    console.error("Error creating asset:", error);
+    logger.error(`[Assets] Create Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to create asset" });
   }
 });
@@ -122,11 +122,7 @@ router.put("/:id", async (req, res) => {
     });
     res.json(updatedAsset);
   } catch (error: any) {
-    console.error("\n=========================================");
-    console.error(" PRISMA UPDATE ERROR:");
-    console.error(error.message || error);
-    console.error("=========================================\n");
-
+    logger.error(`[Assets] PRISMA UPDATE ERROR: ${error.message || error}`);
     res.status(500).json({
       error: "Failed to update asset",
       details: error.message || "Unknown Prisma Error",
@@ -143,6 +139,7 @@ router.delete("/:id", async (req, res) => {
     });
     res.status(204).send();
   } catch (error) {
+    logger.error(`[Assets] Delete Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to delete asset" });
   }
 });

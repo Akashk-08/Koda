@@ -1,9 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "./utils/prisma.js";
+import logger from "./utils/logger.js";
 
-const prisma = new PrismaClient();
 
 async function cleanDuplicates() {
-  console.log("Scanning for duplicates...");
+  logger.info("[CleanDuplicates] Scanning for duplicates...");
 
   try {
     // 1. Remove duplicate Assets (keeping the oldest one by createdAt)
@@ -20,14 +20,14 @@ async function cleanDuplicates() {
       await prisma.asset.deleteMany({
         where: { id: { in: idsToDelete } },
       });
-      console.log(`Successfully removed ${duplicates.length} duplicate assets.`);
+      logger.info(`[CleanDuplicates] Successfully removed ${duplicates.length} duplicate assets.`);
     } else {
-      console.log("No duplicate assets found.");
+      logger.info("[CleanDuplicates] No duplicate assets found.");
     }
 
-    console.log("Database cleanup complete!");
+    logger.info("[CleanDuplicates] Database cleanup complete!");
   } catch (error) {
-    console.error("Error cleaning duplicates:", error);
+    logger.error(`[CleanDuplicates] Error cleaning duplicates: ${(error as Error).message || error}`);
   } finally {
     await prisma.$disconnect();
   }

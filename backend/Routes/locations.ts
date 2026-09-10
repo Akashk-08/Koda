@@ -1,8 +1,8 @@
+import prisma from "../utils/prisma.js";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import logger from "../utils/logger.js";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET all locations for an organization
 router.get("/", async (req, res) => {
@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
     });
     res.status(200).json(locations);
   } catch (error) {
-    console.error("Error fetching locations:", error);
+    logger.error(`[Locations] Fetch Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to fetch locations" });
   }
 });
@@ -38,7 +38,7 @@ router.post("/", async (req, res) => {
     });
     res.status(201).json(newLocation);
   } catch (error) {
-    console.error("Error creating location:", error);
+    logger.error(`[Locations] Create Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to create location" });
   }
 });
@@ -62,7 +62,7 @@ router.put("/:id", async (req, res) => {
     });
     res.status(200).json(updatedLocation);
   } catch (error) {
-    console.error("Error updating location:", error);
+    logger.error(`[Locations] Update Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to update location" });
   }
 });
@@ -76,7 +76,7 @@ router.delete("/:id", async (req, res) => {
     });
     res.status(200).json({ success: true });
   } catch (error) {
-    console.error("Error deleting location:", error);
+    logger.error(`[Locations] Delete Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to delete location" });
   }
 });

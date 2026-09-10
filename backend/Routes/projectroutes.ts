@@ -1,8 +1,7 @@
+import prisma from "../utils/prisma.js";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // 1. CREATE A NEW PROJECT
 router.post("/", async (req, res) => {

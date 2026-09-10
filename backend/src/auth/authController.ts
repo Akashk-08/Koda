@@ -1,10 +1,9 @@
-import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../../utils/prisma.js";
+import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
+import logger from "../../utils/logger.js";
 
-const prisma = new PrismaClient();
-
-export const signup = async (req: Request, res: Response) => {
+export const signup = async (req: Request, res: Response, next: NextFunction) => {
   // 1. Extract organizationId from the request body
   const { firstName, lastName, email, password, organizationId } = req.body;
 
@@ -28,18 +27,19 @@ export const signup = async (req: Request, res: Response) => {
     });
 
     const { password: _, ...safeUser } = user;
+    logger.info(`[AuthController] New user signed up: ${email}`);
     res.status(201).json(safeUser);
   } catch (error: any) {
-    console.error("SIGNUP DB ERROR:", error);
+    logger.error(`[AuthController] SIGNUP DB ERROR: ${error.message || error}`);
     if (error.code === "P2002") {
       res.status(400).json({ error: "A user with this email already exists." });
     } else {
-      res.status(500).json({ error: "Failed to create user" });
+      next(error); // Pass to global error handler
     }
   }
 };
 
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: Request, res: Response, next: NextFunction) => {
   const { email, password } = req.body;
 
   try {
@@ -80,23 +80,24 @@ export const login = async (req: Request, res: Response) => {
         lastName: u.lastName,
       }));
 
+      logger.info(`[AuthController] Multiple profiles found for kiosk login: ${email}`);
       return res.status(200).json({ profiles }); // Frontend will switch to "select_profile" mode
     }
 
     // 5. STANDARD LOGIN: Only one user found, strip password and log them in directly
     const { password: _, ...safeUser } = users[0];
 
-    console.log("Backend is sending this user data to React:", safeUser);
+    logger.info(`[AuthController] Backend is sending this user data to React: ${safeUser.email}`);
 
     return res.json({ message: "Login successful", user: safeUser });
-  } catch (error) {
-    console.error("LOGIN DB ERROR:", error);
-    res.status(500).json({ error: "Login failed" });
+  } catch (error: any) {
+    logger.error(`[AuthController] LOGIN DB ERROR: ${error.message || error}`);
+    next(error); // Pass to global error handler
   }
 };
 
 // Verify PIN after selecting a profile in shared Mode
-export const verifyPin = async (req: Request, res: Response) => {
+export const verifyPin = async (req: Request, res: Response, next: NextFunction) => {
   const { email, profileId, pin } = req.body;
 
   try {
@@ -119,13 +120,13 @@ export const verifyPin = async (req: Request, res: Response) => {
     }
 
     if ((user as any).pin === pin) {
-      console.log(`PIN verified for ${user.firstName}. Sending data to React.`);
+      logger.info(`[AuthController] PIN verified for ${user.firstName}. Sending data to React.`);
       return res.status(200).json({ message: "PIN verified", user });
     }
 
     return res.status(401).json({ error: "Incorrect PIN. Please try again." });
-  } catch (error) {
-    console.error("VERIFY PIN DB ERROR:", error);
-    res.status(500).json({ error: "PIN verification failed" });
+  } catch (error: any) {
+    logger.error(`[AuthController] VERIFY PIN DB ERROR: ${error.message || error}`);
+    next(error); // Pass to global error handler
   }
 };

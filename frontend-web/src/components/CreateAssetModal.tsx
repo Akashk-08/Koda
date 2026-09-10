@@ -27,19 +27,30 @@ const CATEGORIES = ["ASSETS", "LARGE_DAMAGE"];
 const MACHINE_TYPES = ["4DX", "DITO", "VRT", "PSB", "MX4D"];
 const API_URL = import.meta.env.VITE_API_URL;
 
-const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], headsetTracker = [], vrConfigs = [], onTrackerUpdate }: any) => {
+const CreateAssetModal = ({
+  isOpen,
+  onClose,
+  user,
+  onCreated,
+  pcTracker = [],
+  headsetTracker = [],
+  vrConfigs = [],
+  onTrackerUpdate,
+}: any) => {
   const [locations, setLocations] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sub-Category Selection (Now mapped directly to the database)
-  const [assetSubtype, setAssetSubtype] = useState<"PC" | "HEADSET" | "MACHINE" | "MAT_VR" | "VR_ARENA" | "GENERAL">("PC");
+  const [assetSubtype, setAssetSubtype] = useState<
+    "PC" | "HEADSET" | "MACHINE" | "MAT_VR" | "VR_ARENA" | "GENERAL"
+  >("PC");
 
   // Specific Sub-type fields
   const [selectedPcType, setSelectedPcType] = useState("");
   const [selectedHeadsetModel, setSelectedHeadsetModel] = useState("");
   const [selectedMachineType, setSelectedMachineType] = useState(MACHINE_TYPES[0]);
   const [serverIp, setServerIp] = useState("");
-  
+
   // Dedicated VR Preset state
   const [vrPresetSite, setVrPresetSite] = useState("");
 
@@ -50,7 +61,7 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
     serialNumber: "",
     barcode: "",
     category: "ASSETS", // Primary Financial Category
-    locationName: "", 
+    locationName: "",
     status: "OPERATIONAL",
     uptime: "100%",
     downtime: "0 hrs",
@@ -60,7 +71,8 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
   // Ensure default selections are set when the dynamic arrays load
   useEffect(() => {
     if (pcTracker.length > 0 && !selectedPcType) setSelectedPcType(pcTracker[0].label);
-    if (headsetTracker.length > 0 && !selectedHeadsetModel) setSelectedHeadsetModel(headsetTracker[0].label);
+    if (headsetTracker.length > 0 && !selectedHeadsetModel)
+      setSelectedHeadsetModel(headsetTracker[0].label);
   }, [pcTracker, headsetTracker]);
 
   useEffect(() => {
@@ -84,9 +96,9 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
   // HELPER: Auto-Increment the S/N and format the Asset Name
   const generateNextAssetDetails = (trackerObj: any) => {
     if (!trackerObj) return { serial: "", name: "" };
-    
+
     let nextSerial = trackerObj.prefix || "";
-    
+
     // Auto increment logic (e.g. VC171 -> VC172)
     if (trackerObj.lastUsed) {
       const match = trackerObj.lastUsed.match(/(\d+)$/);
@@ -131,7 +143,8 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
         }));
       }
     } else if (assetSubtype === "HEADSET") {
-      const hObj = headsetTracker.find((h: any) => h.label === selectedHeadsetModel) || headsetTracker[0];
+      const hObj =
+        headsetTracker.find((h: any) => h.label === selectedHeadsetModel) || headsetTracker[0];
       if (hObj) {
         const { serial, name } = generateNextAssetDetails(hObj);
         setFormData((prev) => ({
@@ -156,10 +169,19 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
         serialNumber: "",
       }));
     }
-  }, [assetSubtype, selectedPcType, selectedHeadsetModel, selectedMachineType, pcTracker, headsetTracker]);
+  }, [
+    assetSubtype,
+    selectedPcType,
+    selectedHeadsetModel,
+    selectedMachineType,
+    pcTracker,
+    headsetTracker,
+  ]);
 
   // Helper: Find site preset config based on the dynamic vrConfigs array
-  const currentSiteConfig = vrPresetSite ? vrConfigs.find((c: any) => c.site === vrPresetSite) : null;
+  const currentSiteConfig = vrPresetSite
+    ? vrConfigs.find((c: any) => c.site === vrPresetSite)
+    : null;
 
   const applySitePreset = () => {
     if (!currentSiteConfig) return;
@@ -208,7 +230,6 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
       });
 
       if (res.ok) {
-        
         // Auto-update the tracker table's "Last Used S/N" with the serial number we just successfully created!
         if (assetSubtype === "PC") {
           const pcObj = pcTracker.find((p: any) => p.label === selectedPcType);
@@ -262,7 +283,6 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-4xl max-h-[92vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100">
-        
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 bg-white border-b border-gray-100 shrink-0">
           <div>
@@ -287,7 +307,6 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6 sm:p-8 space-y-6 custom-scrollbar">
-
             {/* 1. ASSET SUB-TYPE SELECTOR TABS */}
             <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm space-y-3">
               <label className={labelClasses}>
@@ -371,7 +390,9 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
               {assetSubtype === "PC" && activePCObj && (
                 <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between animate-in fade-in duration-200">
                   <div className="flex-1 w-full">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1">PC Type & Style</label>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1">
+                      PC Type & Style
+                    </label>
                     <select
                       value={selectedPcType}
                       onChange={(e) => {
@@ -387,8 +408,12 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
                     </select>
                   </div>
                   <div className="bg-blue-50 border border-blue-200 rounded-xl px-3.5 py-2 shrink-0">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 block">Last PC S/N Used</span>
-                    <span className="text-sm font-black font-mono text-blue-950">{activePCObj.lastUsed}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 block">
+                      Last PC S/N Used
+                    </span>
+                    <span className="text-sm font-black font-mono text-blue-950">
+                      {activePCObj.lastUsed}
+                    </span>
                   </div>
                 </div>
               )}
@@ -396,7 +421,9 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
               {assetSubtype === "HEADSET" && activeHeadsetObj && (
                 <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between animate-in fade-in duration-200">
                   <div className="flex-1 w-full">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1">Headset Model</label>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1">
+                      Headset Model
+                    </label>
                     <select
                       value={selectedHeadsetModel}
                       onChange={(e) => {
@@ -412,8 +439,12 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
                     </select>
                   </div>
                   <div className="bg-purple-50 border border-purple-200 rounded-xl px-3.5 py-2 shrink-0">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-purple-600 block">Last Headset S/N Used</span>
-                    <span className="text-sm font-black font-mono text-purple-950">{activeHeadsetObj.lastUsed}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-purple-600 block">
+                      Last Headset S/N Used
+                    </span>
+                    <span className="text-sm font-black font-mono text-purple-950">
+                      {activeHeadsetObj.lastUsed}
+                    </span>
                   </div>
                 </div>
               )}
@@ -421,7 +452,9 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
               {assetSubtype === "MACHINE" && (
                 <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between animate-in fade-in duration-200">
                   <div className="flex-1 w-full">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1">Machine Simulator Unit</label>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1">
+                      Machine Simulator Unit
+                    </label>
                     <div className="flex flex-wrap gap-2">
                       {MACHINE_TYPES.map((m) => (
                         <button
@@ -455,7 +488,9 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
                   >
                     <option value="">Select a destination site preset...</option>
                     {vrConfigs.map((config: any) => (
-                      <option key={config.id} value={config.site}>{config.site}</option>
+                      <option key={config.id} value={config.site}>
+                        {config.site}
+                      </option>
                     ))}
                   </select>
                   <button
@@ -469,7 +504,9 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
                 </div>
                 {currentSiteConfig && (
                   <p className="text-[10px] text-blue-600 mt-2 font-medium">
-                    <b>Preview:</b> Machine: {currentSiteConfig.machine} | Headset: {currentSiteConfig.headset} | PC: {currentSiteConfig.pc} | IP: {currentSiteConfig.serverIp}
+                    <b>Preview:</b> Machine: {currentSiteConfig.machine} | Headset:{" "}
+                    {currentSiteConfig.headset} | PC: {currentSiteConfig.pc} | IP:{" "}
+                    {currentSiteConfig.serverIp}
                   </p>
                 )}
               </div>
@@ -489,13 +526,16 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className={inputClasses}
                 />
-                <p className="text-[10px] font-bold text-gray-400 mt-1.5 uppercase tracking-wider">This field is automatically pre-filled and formatted by your tracker settings.</p>
+                <p className="text-[10px] font-bold text-gray-400 mt-1.5 uppercase tracking-wider">
+                  This field is automatically pre-filled and formatted by your tracker settings.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className={labelClasses}>
-                    <MapPin className="w-3.5 h-3.5" /> Origin Location <span className="text-red-500">*</span>
+                    <MapPin className="w-3.5 h-3.5" /> Origin Location{" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
@@ -539,7 +579,9 @@ const CreateAssetModal = ({ isOpen, onClose, user, onCreated, pcTracker = [], he
                     onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
                     className={`${inputClasses} font-mono`}
                   />
-                  <p className="text-[10px] font-bold text-gray-400 mt-1.5 uppercase tracking-wider">Auto-incremented from last use.</p>
+                  <p className="text-[10px] font-bold text-gray-400 mt-1.5 uppercase tracking-wider">
+                    Auto-incremented from last use.
+                  </p>
                 </div>
                 <div>
                   <label className={labelClasses}>

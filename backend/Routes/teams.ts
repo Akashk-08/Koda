@@ -1,8 +1,8 @@
+import prisma from "../utils/prisma.js";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import logger from "../utils/logger.js";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET ALL TEAMS FOR AN ORGANIZATION
 router.get("/", async (req, res) => {
@@ -26,7 +26,7 @@ router.get("/", async (req, res) => {
     });
     res.status(200).json(teams);
   } catch (error) {
-    console.error("Error fetching teams:", error);
+    logger.error(`[Teams] Fetch Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to fetch teams" });
   }
 });
@@ -63,7 +63,7 @@ router.post("/", async (req, res) => {
 
     res.status(201).json(newTeam);
   } catch (error) {
-    console.error("Error creating team:", error);
+    logger.error(`[Teams] Create Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to create team" });
   }
 });
@@ -96,7 +96,7 @@ router.put("/:id", async (req, res) => {
 
     res.status(200).json(updatedTeam);
   } catch (error) {
-    console.error("Error updating team:", error);
+    logger.error(`[Teams] Update Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to update team" });
   }
 });
@@ -122,7 +122,7 @@ router.delete("/:id", async (req, res) => {
 
     res.status(200).json({ success: true });
   } catch (error) {
-    console.error("Error deleting team:", error);
+    logger.error(`[Teams] Delete Error: ${(error as Error).message || error}`);
     res.status(500).json({ error: "Failed to delete team" });
   }
 });

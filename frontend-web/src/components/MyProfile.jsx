@@ -153,7 +153,7 @@ const MyProfile = ({ user, onUpdateUser }) => {
   return (
     <div className="flex-1 bg-[#f4f5f7] overflow-y-auto h-full font-sans relative pb-24 md:pb-8">
       <div className="max-w-5xl mx-auto w-full px-4 pt-6 md:pt-10">
-        
+
         {/* DESKTOP HEADER */}
         <div className="hidden md:flex justify-between items-center mb-8">
           <div>

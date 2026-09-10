@@ -49,7 +49,9 @@ const WorkOrderDetail = ({ user }: any) => {
   const [orgParts, setOrgParts] = useState<any[]>([]);
   const [orgTeams, setOrgTeams] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"DETAILS" | "TASKS" | "TIME" | "PARTS" | "FILES">("DETAILS");
+  const [activeTab, setActiveTab] = useState<"DETAILS" | "TASKS" | "TIME" | "PARTS" | "FILES">(
+    "DETAILS",
+  );
   const [isActivityOpen, setIsActivityOpen] = useState(window.innerWidth >= 768);
 
   const [isEditingHeader, setIsEditingHeader] = useState(false);
@@ -59,7 +61,7 @@ const WorkOrderDetail = ({ user }: any) => {
   const [newComment, setNewComment] = useState("");
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
-  
+
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const activityScrollRef = useRef<HTMLDivElement>(null);
 
@@ -71,11 +73,15 @@ const WorkOrderDetail = ({ user }: any) => {
   const [tasks, setTasks] = useState<{ id: number; text: string; completed: boolean }[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
 
-  const [parts, setParts] = useState<{ id: number; partId: string; name: string; qty: number }[]>([]);
+  const [parts, setParts] = useState<{ id: number; partId: string; name: string; qty: number }[]>(
+    [],
+  );
   const [selectedPartId, setSelectedPartId] = useState("");
   const [selectedPartQty, setSelectedPartQty] = useState(1);
 
-  const [timeEntries, setTimeEntries] = useState<{ id: number; worker: string; duration: number; date: string }[]>([]);
+  const [timeEntries, setTimeEntries] = useState<
+    { id: number; worker: string; duration: number; date: string }[]
+  >([]);
   const [newTimeDuration, setNewTimeDuration] = useState("");
   const API_URL = import.meta.env.VITE_API_URL;
 
@@ -93,11 +99,21 @@ const WorkOrderDetail = ({ user }: any) => {
   useEffect(() => {
     fetchWO();
     if (user?.organizationId) {
-      fetch(`http://${API_URL}/api/users/${user.organizationId}`).then((res) => res.json()).then(setOrgUsers);
-      fetch(`http://${API_URL}/api/assets?orgId=${user.organizationId}`).then((res) => res.json()).then(setOrgAssets);
-      fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`).then((res) => res.json()).then(setOrgLocations);
-      fetch(`http://${API_URL}/api/inventory?orgId=${user.organizationId}`).then((res) => res.json()).then(setOrgParts);
-      fetch(`http://${API_URL}/api/teams?orgId=${user.organizationId}`).then((res) => res.json()).then(setOrgTeams);
+      fetch(`http://${API_URL}/api/users/${user.organizationId}`)
+        .then((res) => res.json())
+        .then(setOrgUsers);
+      fetch(`http://${API_URL}/api/assets?orgId=${user.organizationId}`)
+        .then((res) => res.json())
+        .then(setOrgAssets);
+      fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`)
+        .then((res) => res.json())
+        .then(setOrgLocations);
+      fetch(`http://${API_URL}/api/inventory?orgId=${user.organizationId}`)
+        .then((res) => res.json())
+        .then(setOrgParts);
+      fetch(`http://${API_URL}/api/teams?orgId=${user.organizationId}`)
+        .then((res) => res.json())
+        .then(setOrgTeams);
     }
   }, [id, user?.organizationId]);
 
@@ -119,7 +135,7 @@ const WorkOrderDetail = ({ user }: any) => {
         if (primary) assignees.push(primary);
       }
       if (wo.additionalAssigneeEmails) {
-        const emails = wo.additionalAssigneeEmails.split(',').map((e: string) => e.trim());
+        const emails = wo.additionalAssigneeEmails.split(",").map((e: string) => e.trim());
         emails.forEach((email: string) => {
           const matchedUser = orgUsers.find((u: any) => u.email === email);
           if (matchedUser && !assignees.some((a) => a.id === matchedUser.id)) {
@@ -143,7 +159,7 @@ const WorkOrderDetail = ({ user }: any) => {
   const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setNewComment(val);
-    
+
     if (commentInputRef.current) {
       commentInputRef.current.style.height = "auto";
       commentInputRef.current.style.height = `${Math.min(commentInputRef.current.scrollHeight, 120)}px`;
@@ -163,7 +179,7 @@ const WorkOrderDetail = ({ user }: any) => {
       await fetch(`http://${API_URL}/api/workorders/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actorId: user.id, actionLog: actionMsg }), 
+        body: JSON.stringify({ actorId: user.id, actionLog: actionMsg }),
       });
       fetchWO();
     } catch (err) {
@@ -190,8 +206,14 @@ const WorkOrderDetail = ({ user }: any) => {
 
   const saveAssignees = async (newAssignees: any[], logMsg: string) => {
     const primary = newAssignees.length > 0 ? newAssignees[0].id : null;
-    const additional = newAssignees.length > 1 ? newAssignees.slice(1).map(u => u.email).join(',') : null;
-    
+    const additional =
+      newAssignees.length > 1
+        ? newAssignees
+            .slice(1)
+            .map((u) => u.email)
+            .join(",")
+        : null;
+
     try {
       const res = await fetch(`http://${API_URL}/api/workorders/${id}`, {
         method: "PUT",
@@ -210,7 +232,7 @@ const WorkOrderDetail = ({ user }: any) => {
   };
 
   const addAssignee = (member: any) => {
-    if (!selectedAssignees.some(a => a.id === member.id)) {
+    if (!selectedAssignees.some((a) => a.id === member.id)) {
       const updated = [...selectedAssignees, member];
       setSelectedAssignees(updated);
       saveAssignees(updated, `added assignee ${member.firstName} ${member.lastName}`);
@@ -219,15 +241,16 @@ const WorkOrderDetail = ({ user }: any) => {
   };
 
   const removeAssignee = (member: any) => {
-    const updated = selectedAssignees.filter(a => a.id !== member.id);
+    const updated = selectedAssignees.filter((a) => a.id !== member.id);
     setSelectedAssignees(updated);
     saveAssignees(updated, `removed assignee ${member.firstName} ${member.lastName}`);
   };
 
   const selectMentionUser = (userObj: any) => {
-    const lastAtIndex = newComment.lastIndexOf('@');
+    const lastAtIndex = newComment.lastIndexOf("@");
     if (lastAtIndex !== -1) {
-      const updatedText = newComment.slice(0, lastAtIndex) + `@${userObj.firstName} ${userObj.lastName} `;
+      const updatedText =
+        newComment.slice(0, lastAtIndex) + `@${userObj.firstName} ${userObj.lastName} `;
       setNewComment(updatedText);
     }
     setShowMentions(false);
@@ -309,7 +332,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
   const toggleTask = async (taskId: number, text: string, currentStatus: boolean) => {
     setTasks(tasks.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t)));
-    await recordActivity(`marked task "${text}" as ${!currentStatus ? 'completed' : 'incomplete'}`);
+    await recordActivity(`marked task "${text}" as ${!currentStatus ? "completed" : "incomplete"}`);
   };
 
   const removeTask = async (taskId: number, text: string) => {
@@ -321,7 +344,10 @@ const WorkOrderDetail = ({ user }: any) => {
     if (!selectedPartId) return;
     const partObj = orgParts.find((p) => p.id === selectedPartId);
     if (partObj) {
-      setParts([...parts, { id: Date.now(), partId: partObj.id, name: partObj.name, qty: selectedPartQty }]);
+      setParts([
+        ...parts,
+        { id: Date.now(), partId: partObj.id, name: partObj.name, qty: selectedPartQty },
+      ]);
       const addedQty = selectedPartQty;
       setSelectedPartId("");
       setSelectedPartQty(1);
@@ -336,35 +362,44 @@ const WorkOrderDetail = ({ user }: any) => {
 
   const handleAddTime = async () => {
     if (!newTimeDuration) return;
-    setTimeEntries([...timeEntries, { id: Date.now(), worker: `${user.firstName} ${user.lastName}`, duration: parseFloat(newTimeDuration), date: new Date().toLocaleString() }]);
+    setTimeEntries([
+      ...timeEntries,
+      {
+        id: Date.now(),
+        worker: `${user.firstName} ${user.lastName}`,
+        duration: parseFloat(newTimeDuration),
+        date: new Date().toLocaleString(),
+      },
+    ]);
     const hours = newTimeDuration;
     setNewTimeDuration("");
     await recordActivity(`logged ${hours} hours of time`);
   };
 
   const filteredMentionUsers = orgUsers.filter((u) => {
-    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+    const fullName = `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase();
     return fullName.includes(mentionQuery.toLowerCase());
   });
 
   const renderFormattedComment = (text: string) => {
     if (!text) return null;
     const parts = text.split(/(@[a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)?)/g);
-    
+
     return parts.map((part, i) => {
-      if (part.startsWith('@')) {
+      if (part.startsWith("@")) {
         const mentionName = part.substring(1).trim().toLowerCase();
-        
+
         // Attempt to find the user in the orgUsers list
-        const taggedUser = orgUsers.find(u => 
-          `${u.firstName} ${u.lastName}`.toLowerCase() === mentionName || 
-          u.firstName.toLowerCase() === mentionName
+        const taggedUser = orgUsers.find(
+          (u) =>
+            `${u.firstName} ${u.lastName}`.toLowerCase() === mentionName ||
+            u.firstName.toLowerCase() === mentionName,
         );
 
         if (taggedUser) {
           return (
-            <button 
-              key={i} 
+            <button
+              key={i}
               onClick={() => navigate(`/workspace/my-team/${taggedUser.id}`)}
               className="text-blue-600 bg-blue-50 font-black px-1.5 py-0.5 rounded-md inline-flex items-center my-0.5 border border-blue-100 shadow-2xs hover:bg-blue-100 transition-colors"
             >
@@ -375,7 +410,10 @@ const WorkOrderDetail = ({ user }: any) => {
 
         // Fallback if not an exact match but still formatted as a tag
         return (
-          <span key={i} className="text-blue-600 bg-blue-50 font-black px-1.5 py-0.5 rounded-md inline-block my-0.5 border border-blue-100 shadow-2xs">
+          <span
+            key={i}
+            className="text-blue-600 bg-blue-50 font-black px-1.5 py-0.5 rounded-md inline-block my-0.5 border border-blue-100 shadow-2xs"
+          >
             {part}
           </span>
         );
@@ -384,7 +422,12 @@ const WorkOrderDetail = ({ user }: any) => {
     });
   };
 
-  if (loading) return <div className="p-8 text-gray-500 flex items-center justify-center h-full">Loading ticket...</div>;
+  if (loading)
+    return (
+      <div className="p-8 text-gray-500 flex items-center justify-center h-full">
+        Loading ticket...
+      </div>
+    );
   if (!wo) return <div className="p-8 text-gray-500">Work Order not found</div>;
 
   const isCompleted = wo.status === "COMPLETE" || wo.status === "CLOSED";
@@ -392,11 +435,13 @@ const WorkOrderDetail = ({ user }: any) => {
   return (
     // Responsive dynamic height container
     <div className="flex flex-col h-full flex-1 bg-gray-50 font-sans overflow-hidden">
-      
       {/* HEADER - Fixed at top */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between shrink-0 shadow-sm relative z-10">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/workspace/workorders")} className="p-1.5 hover:bg-gray-100 rounded-md text-gray-500 transition-colors">
+          <button
+            onClick={() => navigate("/workspace/workorders")}
+            className="p-1.5 hover:bg-gray-100 rounded-md text-gray-500 transition-colors"
+          >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span className="font-bold text-gray-900 text-base md:text-lg">WO-{wo.id}</span>
@@ -407,7 +452,9 @@ const WorkOrderDetail = ({ user }: any) => {
             value={wo.status}
             onChange={(e) => handleStatusChange(e.target.value)}
             className={`flex items-center px-3 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-xs md:text-sm cursor-pointer outline-none border transition-colors ${
-              isCompleted ? "bg-green-50 text-green-700 border-green-200" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              isCompleted
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
             }`}
           >
             <option value="OPEN">Open</option>
@@ -432,9 +479,10 @@ const WorkOrderDetail = ({ user }: any) => {
 
       {/* MAIN LAYOUT WRAPPER */}
       <div className="flex flex-1 overflow-hidden relative">
-        
         {/* CENTER CONTENT (Hidden on mobile when activity is open) */}
-        <div className={`flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200 transition-all ${isActivityOpen ? "hidden md:flex" : "flex"}`}>
+        <div
+          className={`flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200 transition-all ${isActivityOpen ? "hidden md:flex" : "flex"}`}
+        >
           <div className="px-4 md:px-10 pt-6 md:pt-8 pb-4 md:pb-6 shrink-0 relative group">
             {isEditingHeader ? (
               <div className="space-y-4 max-w-4xl">
@@ -452,10 +500,16 @@ const WorkOrderDetail = ({ user }: any) => {
                   placeholder="Work Order Description"
                 />
                 <div className="flex gap-3">
-                  <button onClick={handleSaveHeader} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors">
+                  <button
+                    onClick={handleSaveHeader}
+                    className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors"
+                  >
                     Save Changes
                   </button>
-                  <button onClick={() => setIsEditingHeader(false)} className="bg-gray-100 text-gray-600 px-5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-200 transition-colors">
+                  <button
+                    onClick={() => setIsEditingHeader(false)}
+                    className="bg-gray-100 text-gray-600 px-5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-200 transition-colors"
+                  >
                     Cancel
                   </button>
                 </div>
@@ -471,10 +525,16 @@ const WorkOrderDetail = ({ user }: any) => {
                   </p>
                 </div>
                 <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={startEditingHeader} className="p-2 text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-md transition-colors shadow-sm">
+                  <button
+                    onClick={startEditingHeader}
+                    className="p-2 text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-md transition-colors shadow-sm"
+                  >
                     <Pencil className="w-4 h-4" />
                   </button>
-                  <button onClick={handleDeleteWO} className="p-2 text-gray-500 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 rounded-md transition-colors shadow-sm">
+                  <button
+                    onClick={handleDeleteWO}
+                    className="p-2 text-gray-500 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 rounded-md transition-colors shadow-sm"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -490,7 +550,9 @@ const WorkOrderDetail = ({ user }: any) => {
                 className={`pb-3 text-xs md:text-sm font-bold tracking-wide transition-colors relative shrink-0 ${activeTab === tab ? "text-blue-600" : "text-gray-500 hover:text-gray-900"}`}
               >
                 {tab.charAt(0) + tab.slice(1).toLowerCase()}
-                {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>}
+                {activeTab === tab && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>
+                )}
               </button>
             ))}
           </div>
@@ -503,12 +565,20 @@ const WorkOrderDetail = ({ user }: any) => {
                   <EditableRow label="LOCATION">
                     <select
                       value={wo.locationName || ""}
-                      onChange={(e) => handleInlineUpdate("locationName", e.target.value, `changed location to ${e.target.options[e.target.selectedIndex].text}`)}
+                      onChange={(e) =>
+                        handleInlineUpdate(
+                          "locationName",
+                          e.target.value,
+                          `changed location to ${e.target.options[e.target.selectedIndex].text}`,
+                        )
+                      }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
                     >
                       <option value="">Select a location...</option>
                       {orgLocations.map((loc) => (
-                        <option key={loc.id} value={loc.name}>{loc.name}</option>
+                        <option key={loc.id} value={loc.name}>
+                          {loc.name}
+                        </option>
                       ))}
                     </select>
                   </EditableRow>
@@ -516,12 +586,20 @@ const WorkOrderDetail = ({ user }: any) => {
                   <EditableRow label="ASSET">
                     <select
                       value={wo.assetId || ""}
-                      onChange={(e) => handleInlineUpdate("assetId", e.target.value || null, `changed asset to ${e.target.options[e.target.selectedIndex].text}`)}
+                      onChange={(e) =>
+                        handleInlineUpdate(
+                          "assetId",
+                          e.target.value || null,
+                          `changed asset to ${e.target.options[e.target.selectedIndex].text}`,
+                        )
+                      }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
                     >
                       <option value="">None</option>
                       {orgAssets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>{asset.name}</option>
+                        <option key={asset.id} value={asset.id}>
+                          {asset.name}
+                        </option>
                       ))}
                     </select>
                   </EditableRow>
@@ -573,8 +651,11 @@ const WorkOrderDetail = ({ user }: any) => {
                                 {u.firstName} {u.lastName}
                               </button>
                             ))}
-                          {orgUsers.filter((u) => !selectedAssignees.some((a) => a.id === u.id)).length === 0 && (
-                            <div className="px-4 py-2 text-xs text-gray-400 italic">No additional users available</div>
+                          {orgUsers.filter((u) => !selectedAssignees.some((a) => a.id === u.id))
+                            .length === 0 && (
+                            <div className="px-4 py-2 text-xs text-gray-400 italic">
+                              No additional users available
+                            </div>
                           )}
                         </div>
                       )}
@@ -584,12 +665,20 @@ const WorkOrderDetail = ({ user }: any) => {
                   <EditableRow label="OPERATIONAL TEAM">
                     <select
                       value={wo.teamId || ""}
-                      onChange={(e) => handleInlineUpdate("teamId", e.target.value || null, `changed operational team to ${e.target.options[e.target.selectedIndex].text}`)}
+                      onChange={(e) =>
+                        handleInlineUpdate(
+                          "teamId",
+                          e.target.value || null,
+                          `changed operational team to ${e.target.options[e.target.selectedIndex].text}`,
+                        )
+                      }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
                     >
                       <option value="">Unassigned</option>
                       {orgTeams.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
                       ))}
                     </select>
                   </EditableRow>
@@ -597,12 +686,20 @@ const WorkOrderDetail = ({ user }: any) => {
                   <EditableRow label="CATEGORY">
                     <select
                       value={wo.category || ""}
-                      onChange={(e) => handleInlineUpdate("category", e.target.value || null, `changed category to ${e.target.value.replace(/_/g, " ")}`)}
+                      onChange={(e) =>
+                        handleInlineUpdate(
+                          "category",
+                          e.target.value || null,
+                          `changed category to ${e.target.value.replace(/_/g, " ")}`,
+                        )
+                      }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 cursor-pointer outline-none"
                     >
                       <option value="">None</option>
                       {CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>{cat.replace(/_/g, " ")}</option>
+                        <option key={cat} value={cat}>
+                          {cat.replace(/_/g, " ")}
+                        </option>
                       ))}
                     </select>
                   </EditableRow>
@@ -610,7 +707,13 @@ const WorkOrderDetail = ({ user }: any) => {
                   <EditableRow label="PRIORITY">
                     <select
                       value={wo.priority || "MEDIUM"}
-                      onChange={(e) => handleInlineUpdate("priority", e.target.value, `changed priority to ${e.target.value}`)}
+                      onChange={(e) =>
+                        handleInlineUpdate(
+                          "priority",
+                          e.target.value,
+                          `changed priority to ${e.target.value}`,
+                        )
+                      }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 cursor-pointer outline-none"
                     >
                       <option value="LOW">Low</option>
@@ -625,7 +728,13 @@ const WorkOrderDetail = ({ user }: any) => {
                       type="number"
                       step="0.5"
                       value={wo.estimatedHours || ""}
-                      onChange={(e) => handleInlineUpdate("estimatedHours", parseFloat(e.target.value) || null, `changed estimated duration to ${e.target.value} hours`)}
+                      onChange={(e) =>
+                        handleInlineUpdate(
+                          "estimatedHours",
+                          parseFloat(e.target.value) || null,
+                          `changed estimated duration to ${e.target.value} hours`,
+                        )
+                      }
                       placeholder="0.0"
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 outline-none"
                     />
@@ -635,7 +744,13 @@ const WorkOrderDetail = ({ user }: any) => {
                     <input
                       type="date"
                       value={wo.dueDate ? wo.dueDate.split("T")[0] : ""}
-                      onChange={(e) => handleInlineUpdate("dueDate", e.target.value ? new Date(e.target.value).toISOString() : null, "changed due date")}
+                      onChange={(e) =>
+                        handleInlineUpdate(
+                          "dueDate",
+                          e.target.value ? new Date(e.target.value).toISOString() : null,
+                          "changed due date",
+                        )
+                      }
                       className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 outline-none cursor-pointer"
                     />
                   </EditableRow>
@@ -655,13 +770,19 @@ const WorkOrderDetail = ({ user }: any) => {
                     onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
                     className="w-full sm:flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none"
                   />
-                  <button onClick={handleAddTask} className="w-full sm:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold active:scale-95 transition-all">
+                  <button
+                    onClick={handleAddTask}
+                    className="w-full sm:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold active:scale-95 transition-all"
+                  >
                     Add
                   </button>
                 </div>
                 <div className="space-y-3">
                   {tasks.map((task) => (
-                    <div key={task.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl">
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
+                    >
                       <div className="flex items-center gap-3">
                         <input
                           type="checkbox"
@@ -669,11 +790,16 @@ const WorkOrderDetail = ({ user }: any) => {
                           onChange={() => toggleTask(task.id, task.text, task.completed)}
                           className="w-5 h-5 accent-blue-600"
                         />
-                        <span className={`text-sm ${task.completed ? "line-through text-gray-400" : "text-gray-800"}`}>
+                        <span
+                          className={`text-sm ${task.completed ? "line-through text-gray-400" : "text-gray-800"}`}
+                        >
                           {task.text}
                         </span>
                       </div>
-                      <button onClick={() => removeTask(task.id, task.text)} className="text-gray-400 hover:text-red-600">
+                      <button
+                        onClick={() => removeTask(task.id, task.text)}
+                        className="text-gray-400 hover:text-red-600"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -693,7 +819,9 @@ const WorkOrderDetail = ({ user }: any) => {
                   >
                     <option value="">Select a part...</option>
                     {orgParts.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
                     ))}
                   </select>
                   <div className="flex gap-3 w-full sm:w-auto">
@@ -704,16 +832,27 @@ const WorkOrderDetail = ({ user }: any) => {
                       onChange={(e) => setSelectedPartQty(parseInt(e.target.value) || 1)}
                       className="w-20 sm:w-16 bg-white border border-gray-300 rounded-lg text-center text-sm py-2.5"
                     />
-                    <button onClick={handleAddPart} className="flex-1 sm:flex-none bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold active:scale-95 transition-all">
+                    <button
+                      onClick={handleAddPart}
+                      className="flex-1 sm:flex-none bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold active:scale-95 transition-all"
+                    >
                       Add
                     </button>
                   </div>
                 </div>
                 <div className="space-y-3">
                   {parts.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl">
-                      <span className="text-sm font-bold">{p.name} (Qty: {p.qty})</span>
-                      <button onClick={() => removePart(p.id, p.name)} className="text-gray-400 hover:text-red-600">
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
+                    >
+                      <span className="text-sm font-bold">
+                        {p.name} (Qty: {p.qty})
+                      </span>
+                      <button
+                        onClick={() => removePart(p.id, p.name)}
+                        className="text-gray-400 hover:text-red-600"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -734,13 +873,19 @@ const WorkOrderDetail = ({ user }: any) => {
                     onChange={(e) => setNewTimeDuration(e.target.value)}
                     className="w-full sm:flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none"
                   />
-                  <button onClick={handleAddTime} className="w-full sm:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold active:scale-95 transition-all">
+                  <button
+                    onClick={handleAddTime}
+                    className="w-full sm:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold active:scale-95 transition-all"
+                  >
                     Log Time
                   </button>
                 </div>
                 <div className="space-y-3">
                   {timeEntries.map((t) => (
-                    <div key={t.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl">
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
+                    >
                       <div>
                         <span className="text-sm font-bold">{t.worker}</span>
                         <span className="block text-xs text-gray-400">{t.date}</span>
@@ -756,15 +901,27 @@ const WorkOrderDetail = ({ user }: any) => {
               <div className="max-w-3xl">
                 <h3 className="text-base font-bold text-gray-900 mb-4">Files</h3>
                 <div className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center bg-gray-50 relative cursor-pointer mb-6">
-                  <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileUpload} />
+                  <input
+                    type="file"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={handleFileUpload}
+                  />
                   <UploadCloud className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm font-bold text-gray-900">Upload attachment</p>
                 </div>
                 <div className="space-y-3">
                   {(wo.documents || []).map((doc: any) => (
-                    <div key={doc.id} className="flex items-center p-3 bg-white border border-gray-200 rounded-xl">
+                    <div
+                      key={doc.id}
+                      className="flex items-center p-3 bg-white border border-gray-200 rounded-xl"
+                    >
                       <FileText className="w-6 h-6 text-blue-600 mr-3" />
-                      <a href={`http://${API_URL}${doc.fileUrl}`} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-600 hover:underline">
+                      <a
+                        href={`http://${API_URL}${doc.fileUrl}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-bold text-blue-600 hover:underline"
+                      >
                         {doc.fileName}
                       </a>
                     </div>
@@ -776,23 +933,35 @@ const WorkOrderDetail = ({ user }: any) => {
         </div>
 
         {/* RIGHT SIDEBAR: COMMENTS & ACTIVITY */}
-        <div className={`flex flex-col bg-gray-50 shrink-0 border-l border-gray-200 transition-all duration-300 ease-in-out h-full overflow-hidden ${isActivityOpen ? "w-full md:w-[380px]" : "w-0 border-l-0"}`}>
-          
+        <div
+          className={`flex flex-col bg-gray-50 shrink-0 border-l border-gray-200 transition-all duration-300 ease-in-out h-full overflow-hidden ${isActivityOpen ? "w-full md:w-[380px]" : "w-0 border-l-0"}`}
+        >
           {/* Sidebar Header */}
           <div className="px-4 py-4 border-b border-gray-200 bg-white shrink-0 flex items-center justify-between h-14 w-full md:w-[380px]">
             <div className="flex items-center">
-              <button onClick={() => setIsActivityOpen(false)} className="md:hidden p-1 hover:bg-gray-100 rounded-md text-gray-400 hover:text-gray-900 transition-colors mr-2">
+              <button
+                onClick={() => setIsActivityOpen(false)}
+                className="md:hidden p-1 hover:bg-gray-100 rounded-md text-gray-400 hover:text-gray-900 transition-colors mr-2"
+              >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <h3 className="text-sm font-black tracking-wide text-gray-900">Comments & Activity</h3>
+              <h3 className="text-sm font-black tracking-wide text-gray-900">
+                Comments & Activity
+              </h3>
             </div>
-            <button onClick={() => setIsActivityOpen(false)} className="text-gray-400 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition-colors">
+            <button
+              onClick={() => setIsActivityOpen(false)}
+              className="text-gray-400 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition-colors"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Activity Scroll Area */}
-          <div ref={activityScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 w-full md:w-[380px] bg-gray-50 pb-6">
+          <div
+            ref={activityScrollRef}
+            className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 w-full md:w-[380px] bg-gray-50 pb-6"
+          >
             {activities.length === 0 ? (
               <div className="text-center text-sm text-gray-400 italic mt-10">No activity yet.</div>
             ) : (
@@ -804,7 +973,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
                 return (
                   <div key={`${item.type}-${item.id}-${idx}`} className="flex gap-3 group">
-                    <button 
+                    <button
                       onClick={() => authorId && navigate(`/workspace/my-team/${authorId}`)}
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 mt-0.5 shadow-sm transition-transform active:scale-95 ${isSystemLog ? "bg-teal-600 cursor-default" : "bg-blue-600 cursor-pointer hover:opacity-90"}`}
                     >
@@ -812,17 +981,22 @@ const WorkOrderDetail = ({ user }: any) => {
                     </button>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between mb-1">
-                        <button 
+                        <button
                           onClick={() => authorId && navigate(`/workspace/my-team/${authorId}`)}
                           className="font-bold text-xs text-gray-900 hover:underline hover:text-blue-600"
                         >
                           {authorName}
                         </button>
                         <span className="text-[10px] text-gray-400 font-medium">
-                          {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {new Date(item.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
                       </div>
-                      <div className={`text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed ${isSystemLog ? "text-gray-500 italic" : "text-gray-800 bg-white border border-gray-200 px-3.5 py-2.5 rounded-2xl rounded-tl-sm shadow-sm"}`}>
+                      <div
+                        className={`text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed ${isSystemLog ? "text-gray-500 italic" : "text-gray-800 bg-white border border-gray-200 px-3.5 py-2.5 rounded-2xl rounded-tl-sm shadow-sm"}`}
+                      >
                         {isSystemLog ? item.action : renderFormattedComment(item.text)}
                       </div>
                     </div>
@@ -834,7 +1008,6 @@ const WorkOrderDetail = ({ user }: any) => {
 
           {/* COMMENT INPUT & MENTIONS POPUP - FIXED AT BOTTOM */}
           <div className="p-3 bg-white border-t border-gray-200 shrink-0 w-full md:w-[380px] relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            
             {/* TAGGING / MENTIONS DROPDOWN POPUP */}
             {showMentions && (
               <div className="absolute bottom-full left-3 right-3 mb-2 bg-white border border-gray-200 shadow-2xl rounded-2xl overflow-hidden z-50 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
@@ -850,13 +1023,17 @@ const WorkOrderDetail = ({ user }: any) => {
                       className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-800 hover:bg-blue-50 border-b border-gray-50 last:border-0 flex items-center gap-2.5 transition-colors"
                     >
                       <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-black">
-                        {u.firstName ? u.firstName.charAt(0).toUpperCase() : 'U'}
+                        {u.firstName ? u.firstName.charAt(0).toUpperCase() : "U"}
                       </div>
-                      <span>{u.firstName} {u.lastName}</span>
+                      <span>
+                        {u.firstName} {u.lastName}
+                      </span>
                     </button>
                   ))
                 ) : (
-                  <div className="px-4 py-3 text-xs text-gray-400 italic">No users found matching "{mentionQuery}"</div>
+                  <div className="px-4 py-3 text-xs text-gray-400 italic">
+                    No users found matching "{mentionQuery}"
+                  </div>
                 )}
               </div>
             )}
@@ -876,8 +1053,8 @@ const WorkOrderDetail = ({ user }: any) => {
                 className="flex-1 bg-transparent py-3 px-4 text-xs md:text-sm outline-none resize-none max-h-32 min-h-[44px] custom-scrollbar"
                 rows={1}
               />
-              <button 
-                onClick={handlePostComment} 
+              <button
+                onClick={handlePostComment}
                 disabled={!newComment.trim()}
                 className="p-3 text-blue-600 disabled:text-gray-300 hover:bg-blue-100 transition-colors shrink-0 mb-0.5 mr-0.5 rounded-xl"
               >

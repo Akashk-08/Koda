@@ -38,7 +38,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
   const [locationFilter, setLocationFilter] = useState("ALL");
   const [teamFilter, setTeamFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
-  
+
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
 
   // Server-Side Pagination State
@@ -171,11 +171,10 @@ const WorkOrders = ({ user, onOpenModal }) => {
 
           <button
             onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
-            className={`p-3 rounded-xl border flex items-center gap-2 text-xs font-black transition-all shrink-0 ${
-              isAdvancedFiltersOpen || statusFilter !== "ALL" || categoryFilter !== "ALL" || locationFilter !== "ALL" || priorityFilter !== "ALL"
+            className={`p-3 rounded-xl border flex items-center gap-2 text-xs font-black transition-all shrink-0 ${isAdvancedFiltersOpen || statusFilter !== "ALL" || categoryFilter !== "ALL" || locationFilter !== "ALL" || priorityFilter !== "ALL"
                 ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
                 : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
-            }`}
+              }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
             <span className="hidden sm:inline">Filters</span>
@@ -185,7 +184,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
         {/* EXPANDED ADVANCED FILTERS PANEL */}
         {isAdvancedFiltersOpen && (
           <div className="pt-3 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in slide-in-from-top-2 duration-150">
-            
+
             {/* Status Select */}
             <div>
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</label>
