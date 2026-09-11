@@ -399,6 +399,14 @@ app.use("/api/calendar", Calendar);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/logs", logRoutes);
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://pulseworkscmms.vercel.app"
+  ],
+  credentials: true
+}));
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error(`[Unhandled Exception] ${req.method} ${req.url} - ${err.message}\nStack Trace: ${err.stack}`);
