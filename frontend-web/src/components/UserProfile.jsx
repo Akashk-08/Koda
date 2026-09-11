@@ -48,8 +48,8 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
       try {
         const orgId = user?.organizationId;
         const url = orgId
-          ? `http://${API_URL}/api/locations?orgId=${orgId}`
-          : `http://${API_URL}/api/assets`;
+          ? `${API_URL}/api/locations?orgId=${orgId}`
+          : `${API_URL}/api/assets`;
 
         const res = await fetch(url);
         if (res.ok) {
@@ -91,7 +91,7 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`http://${API_URL}/api/users/${user.id}/profile`, {
+      const res = await fetch(`${API_URL}/api/users/${user.id}/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, profilePicUrl: profilePic })

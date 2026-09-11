@@ -31,7 +31,7 @@ export default function NotificationBell({ user }) {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`http://${API_URL}/api/notifications/${user.id}`);
+      const res = await fetch(`${API_URL}/api/notifications/${user.id}`);
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);
@@ -43,7 +43,7 @@ export default function NotificationBell({ user }) {
 
   const markAsRead = async (id, referenceId) => {
     try {
-      await fetch(`http://${API_URL}/api/notifications/${id}/read`, { method: 'PUT' });
+      await fetch(`${API_URL}/api/notifications/${id}/read`, { method: 'PUT' });
       setNotifications(prev => prev.filter(n => n.id !== id));
       setIsOpen(false);
 

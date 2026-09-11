@@ -32,7 +32,7 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
   // Check if this email has multiple profiles when the header loads
   useEffect(() => {
     if (user?.email) {
-      fetch(`http://${API_URL}/api/auth/get-profiles`, {
+      fetch(`${API_URL}/api/auth/get-profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user.email }),

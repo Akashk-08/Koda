@@ -46,8 +46,8 @@ const PartsInventory = ({ user }: any) => {
     setIsLoading(true);
     try {
       const [partsRes, locRes] = await Promise.all([
-        fetch(`http://${API_URL}/api/inventory?orgId=${user?.organizationId}`),
-        fetch(`http://${API_URL}/api/locations?orgId=${user?.organizationId}`),
+        fetch(`${API_URL}/api/inventory?orgId=${user?.organizationId}`),
+        fetch(`${API_URL}/api/locations?orgId=${user?.organizationId}`),
       ]);
 
       if (partsRes.ok) setParts(await partsRes.json());
@@ -442,7 +442,7 @@ const CreatePartModal = ({ user, locations, onClose, onCreated }: any) => {
         organizationId: user.organizationId,
       };
 
-      const response = await fetch(`http://${API_URL}/api/inventory`, {
+      const response = await fetch(`${API_URL}/api/inventory`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -811,7 +811,7 @@ const EditPartModal = ({ user, part, locations, onClose, onUpdated, onDeleted }:
         area,
       };
 
-      const response = await fetch(`http://${API_URL}/api/inventory/${part.id}`, {
+      const response = await fetch(`${API_URL}/api/inventory/${part.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -832,7 +832,7 @@ const EditPartModal = ({ user, part, locations, onClose, onUpdated, onDeleted }:
     setIsDeleting(true);
 
     try {
-      const response = await fetch(`http://${API_URL}/api/inventory/${part.id}`, {
+      const response = await fetch(`${API_URL}/api/inventory/${part.id}`, {
         method: "DELETE",
       });
 

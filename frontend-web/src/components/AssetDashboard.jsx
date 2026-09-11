@@ -14,7 +14,7 @@ const AssetDashboard = () => {
   const fetchAssets = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://${API_URL}/api/assets');
+      const response = await fetch('${API_URL}/api/assets');
       if (!response.ok) throw new Error('Failed to fetch assets');
       const data = await response.json();
       setAssets(data);

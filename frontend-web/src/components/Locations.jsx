@@ -32,7 +32,7 @@ const Locations = ({ user: propsUser }) => {
         setLoading(false);
         return;
       }
-      const res = await fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`);
+      const res = await fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`);
       if (res.ok) {
         setLocations(await res.json());
       }
@@ -77,8 +77,8 @@ const Locations = ({ user: propsUser }) => {
     setIsSubmitting(true);
     try {
       const url = editId
-        ? `http://${API_URL}/api/locations/${editId}`
-        : `http://${API_URL}/api/locations`;
+        ? `${API_URL}/api/locations/${editId}`
+        : `${API_URL}/api/locations`;
 
       const method = editId ? "PUT" : "POST";
 
@@ -107,7 +107,7 @@ const Locations = ({ user: propsUser }) => {
     if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
 
     try {
-      const res = await fetch(`http://${API_URL}/api/locations/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/locations/${id}`, { method: "DELETE" });
       if (res.ok) {
         fetchLocations();
       } else {

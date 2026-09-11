@@ -6,7 +6,7 @@ export const logToBackend = async (
   errorObj?: Error,
 ) => {
   try {
-    await fetch(`http://${API_URL}/api/logs`, {
+    await fetch(`${API_URL}/api/logs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

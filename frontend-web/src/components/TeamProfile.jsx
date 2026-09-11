@@ -19,14 +19,14 @@ const TeamProfile = ({ currentUser }) => {
       try {
         setIsLoading(true);
         // Fetch the user's profile details
-        const profileRes = await fetch(`http://${API_URL}/api/users/profile/${id}`);
+        const profileRes = await fetch(`${API_URL}/api/users/profile/${id}`);
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           setUserProfile(profileData);
 
           // Fetch the teams the user belongs to
           if (profileData.organizationId) {
-            const teamRes = await fetch(`http://${API_URL}/api/teams?orgId=${profileData.organizationId}`);
+            const teamRes = await fetch(`${API_URL}/api/teams?orgId=${profileData.organizationId}`);
             if (teamRes.ok) {
               const allTeams = await teamRes.json();
               const filteredTeams = allTeams.filter(team =>

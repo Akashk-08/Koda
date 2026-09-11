@@ -21,9 +21,9 @@ const MyTeam = ({ user }) => {
     try {
       if (user?.organizationId) {
         const [usersRes, teamsRes, locsRes] = await Promise.all([
-          fetch(`http://${API_URL}/api/users/${user.organizationId}`),
-          fetch(`http://${API_URL}/api/teams?orgId=${user.organizationId}`),
-          fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`)
+          fetch(`${API_URL}/api/users/${user.organizationId}`),
+          fetch(`${API_URL}/api/teams?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`)
         ]);
 
         if (usersRes.ok) {
@@ -402,8 +402,8 @@ const TeamManagementModal = ({ team, orgUsers, locations, onClose, onRefresh, is
     try {
       const method = team.id ? 'PUT' : 'POST';
       const url = team.id
-        ? `http://${API_URL}/api/teams/${team.id}`
-        : `http://${API_URL}/api/teams`;
+        ? `${API_URL}/api/teams/${team.id}`
+        : `${API_URL}/api/teams`;
 
       const payload = {
         name,
@@ -436,7 +436,7 @@ const TeamManagementModal = ({ team, orgUsers, locations, onClose, onRefresh, is
   const handleDelete = async () => {
     if (!window.confirm(`Are you sure you want to delete ${team.name}? This action cannot be undone.`)) return;
     try {
-      const res = await fetch(`http://${API_URL}/api/teams/${team.id}?requesterId=${user?.id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/api/teams/${team.id}?requesterId=${user?.id}`, { method: 'DELETE' });
       if (res.ok) {
         onRefresh();
         onClose();

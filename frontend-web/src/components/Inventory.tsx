@@ -90,9 +90,9 @@ const Inventory = ({ user }: any) => {
       if (!user?.organizationId) return;
       try {
         const [locRes, woRes, assetsRes] = await Promise.all([
-          fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`),
-          fetch(`http://${API_URL}/api/workorders?orgId=${user.organizationId}`),
-          fetch(`http://${API_URL}/api/assets?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/workorders?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/assets?orgId=${user.organizationId}`),
         ]);
 
         if (locRes.ok) {
@@ -340,7 +340,7 @@ const Inventory = ({ user }: any) => {
 
       if (!hasExactMatch && /^\d+$/.test(normalizedIdQuery)) {
         try {
-          const singleWoRes = await fetch(`http://${API_URL}/api/workorders/${normalizedIdQuery}`);
+          const singleWoRes = await fetch(`${API_URL}/api/workorders/${normalizedIdQuery}`);
           if (singleWoRes.ok) {
             const singleWo = await singleWoRes.json();
             if (singleWo && singleWo.id && !finalSuggestions.some((w) => w.id === singleWo.id)) {
@@ -408,7 +408,7 @@ const Inventory = ({ user }: any) => {
     setLoading(true);
     setAssetSuggestions([]);
     try {
-      const res = await fetch(`http://${API_URL}/api/assets?orgId=${user?.organizationId}`);
+      const res = await fetch(`${API_URL}/api/assets?orgId=${user?.organizationId}`);
       if (res.ok) {
         const data = await res.json();
         const foundAsset = data.find(
@@ -457,7 +457,7 @@ const Inventory = ({ user }: any) => {
       let woDescription = "";
 
       if (actionType === "IN" || actionType === "OUT") {
-        const assetRes = await fetch(`http://${API_URL}/api/assets/${scannedAsset.id}`, {
+        const assetRes = await fetch(`${API_URL}/api/assets/${scannedAsset.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ locationName: destination }),
@@ -479,7 +479,7 @@ const Inventory = ({ user }: any) => {
         woDescription = `Hardware repair completed.\nComments: ${comment || "None"}\nLinked Parent WO: #${selectedWorkOrderId || "None"}`;
       }
 
-      const newWoRes = await fetch(`http://${API_URL}/api/workorders`, {
+      const newWoRes = await fetch(`${API_URL}/api/workorders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -501,7 +501,7 @@ const Inventory = ({ user }: any) => {
       const newWO = await newWoRes.json();
 
       if (markAsComplete && newWO.id) {
-        await fetch(`http://${API_URL}/api/workorders/${newWO.id}`, {
+        await fetch(`${API_URL}/api/workorders/${newWO.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: "COMPLETE" }),
@@ -509,7 +509,7 @@ const Inventory = ({ user }: any) => {
       }
 
       const freshAssetRes = await fetch(
-        `http://${API_URL}/api/assets?orgId=${user?.organizationId}`,
+        `${API_URL}/api/assets?orgId=${user?.organizationId}`,
       );
       if (freshAssetRes.ok) {
         const freshAssets = await freshAssetRes.json();

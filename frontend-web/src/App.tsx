@@ -105,7 +105,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
   useEffect(() => {
     const kioskEmail = localStorage.getItem("koda_kiosk_email");
     if (kioskEmail && mode === "login") {
-      fetch(`http://${API_URL}/api/auth/get-profiles`, {
+      fetch(`${API_URL}/api/auth/get-profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: kioskEmail }),
@@ -130,7 +130,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
 
     try {
       if (mode === "login") {
-        const response = await fetch(`http://${API_URL}/api/auth/login`, {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -154,7 +154,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
       }
 
       if (mode === "pin_entry") {
-        const response = await fetch(`http://${API_URL}/api/auth/verify-pin`, {
+        const response = await fetch(`${API_URL}/api/auth/verify-pin`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -178,7 +178,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
         if (formData.password !== formData.confirmPassword) {
           return setErrorMsg("Passwords do not match!");
         }
-        const response = await fetch(`http://${API_URL}/api/auth/signup`, {
+        const response = await fetch(`${API_URL}/api/auth/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...formData }),
@@ -193,7 +193,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
       }
 
       if (mode === "forgot_email") {
-        const response = await fetch(`http://${API_URL}/api/auth/forgot-password`, {
+        const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: formData.email }),
@@ -207,7 +207,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
       }
 
       if (mode === "forgot_code") {
-        const response = await fetch(`http://${API_URL}/api/auth/verify-code`, {
+        const response = await fetch(`${API_URL}/api/auth/verify-code`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -228,7 +228,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
         if (formData.password !== formData.confirmPassword) {
           return setErrorMsg("Passwords do not match!");
         }
-        const response = await fetch(`http://${API_URL}/api/auth/reset-password`, {
+        const response = await fetch(`${API_URL}/api/auth/reset-password`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -629,7 +629,7 @@ const DashboardLayout = ({
 
       try {
         // 2. UPDATED TO USE YOUR NEW BULLETPROOF BACKEND ROUTE
-        const res = await fetch(`http://${API_URL}/api/users?orgId=${user.organizationId}`);
+        const res = await fetch(`${API_URL}/api/users?orgId=${user.organizationId}`);
 
         if (res.ok) {
           const usersData = await res.json();
@@ -1051,7 +1051,7 @@ export default function App() {
               try {
                 const currentUser = JSON.parse(currentUserStr);
                 if (currentUser?.id) {
-                  await fetch(`http://${API_URL}/api/users/${currentUser.id}/device-token`, {
+                  await fetch(`${API_URL}/api/users/${currentUser.id}/device-token`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ token: token.value }),

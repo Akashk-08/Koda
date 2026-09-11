@@ -337,13 +337,13 @@ const Assets = ({ user }: any) => {
   const fetchData = async () => {
     try {
       const assetFetchUrl = isFullAccess
-        ? `http://${API_URL}/api/assets?orgId=${user?.organizationId}`
-        : `http://${API_URL}/api/assets?orgId=${user?.organizationId}&locationName=${encodeURIComponent(user?.siteLocation || "")}`;
+        ? `${API_URL}/api/assets?orgId=${user?.organizationId}`
+        : `${API_URL}/api/assets?orgId=${user?.organizationId}&locationName=${encodeURIComponent(user?.siteLocation || "")}`;
 
       const [assetsRes, partsRes, locRes] = await Promise.all([
         fetch(assetFetchUrl),
-        fetch(`http://${API_URL}/api/inventory?orgId=${user?.organizationId}`),
-        fetch(`http://${API_URL}/api/locations?orgId=${user?.organizationId}`),
+        fetch(`${API_URL}/api/inventory?orgId=${user?.organizationId}`),
+        fetch(`${API_URL}/api/locations?orgId=${user?.organizationId}`),
       ]);
 
       if (assetsRes.ok) {
@@ -489,7 +489,7 @@ const Assets = ({ user }: any) => {
         set: editForm.parts?.map((p: any) => ({ id: p.id })) || [],
       };
 
-      const res = await fetch(`http://${API_URL}/api/assets/${selectedAsset.id}`, {
+      const res = await fetch(`${API_URL}/api/assets/${selectedAsset.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(safePayload),
@@ -510,7 +510,7 @@ const Assets = ({ user }: any) => {
   const handleDeleteAsset = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this asset?")) return;
     try {
-      const res = await fetch(`http://${API_URL}/api/assets/${id}`, {
+      const res = await fetch(`${API_URL}/api/assets/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -529,7 +529,7 @@ const Assets = ({ user }: any) => {
     setIsCompletingWO(true);
     try {
       const payload = { ...previewWO, status: "COMPLETE" };
-      const res = await fetch(`http://${API_URL}/api/workorders/${previewWO.id}`, {
+      const res = await fetch(`${API_URL}/api/workorders/${previewWO.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -403,7 +403,8 @@ app.use(cors({
   origin: [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://pulseworkscmms.vercel.app"
+    "https://pulseworkscmms.vercel.app",
+    /\.vercel\.app$/ // Allows all Vercel branch/preview deployments
   ],
   credentials: true
 }));

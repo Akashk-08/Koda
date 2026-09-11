@@ -32,7 +32,7 @@ const AuthCard = ({ onAuthSuccess }: AuthCardProps) => {
 
     const endpoint = isLogin ? "/api/auth/login" : "/api/auth/signup";
     try {
-      const response = await fetch(`http://${API_URL}${endpoint}`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

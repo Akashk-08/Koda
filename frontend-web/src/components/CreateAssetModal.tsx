@@ -79,7 +79,7 @@ const CreateAssetModal = ({
     const fetchLocations = async () => {
       if (isOpen && user?.organizationId) {
         try {
-          const res = await fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`);
+          const res = await fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`);
           if (res.ok) {
             const locData = await res.json();
             const locationNames = locData.map((l: any) => l.name);
@@ -223,7 +223,7 @@ const CreateAssetModal = ({
         organizationId: user.organizationId,
       };
 
-      const res = await fetch(`http://${API_URL}/api/assets`, {
+      const res = await fetch(`${API_URL}/api/assets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

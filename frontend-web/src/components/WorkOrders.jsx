@@ -85,9 +85,9 @@ const WorkOrders = ({ user, onOpenModal }) => {
       if (priorityFilter !== "ALL") params.append("priority", priorityFilter);
 
       const [woRes, locRes, teamsRes] = await Promise.all([
-        fetch(`http://${API_URL}/api/workorders?${params.toString()}`),
-        fetch(`http://${API_URL}/api/locations?orgId=${orgId}`),
-        fetch(`http://${API_URL}/api/teams?orgId=${orgId}`)
+        fetch(`${API_URL}/api/workorders?${params.toString()}`),
+        fetch(`${API_URL}/api/locations?orgId=${orgId}`),
+        fetch(`${API_URL}/api/teams?orgId=${orgId}`)
       ]);
 
       if (woRes.ok) {

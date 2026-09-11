@@ -67,8 +67,8 @@ const AccessRequests = ({ user }) => {
 
     try {
       const [usersRes, locationsRes] = await Promise.all([
-        fetch(`http://${API_URL}/api/users?orgId=${user.organizationId}`),
-        fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`)
+        fetch(`${API_URL}/api/users?orgId=${user.organizationId}`),
+        fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`)
       ]);
 
       if (!usersRes.ok) {
@@ -132,7 +132,7 @@ const AccessRequests = ({ user }) => {
 
   const handleApproval = async (userId, status) => {
     try {
-      const res = await fetch(`http://${API_URL}/api/users/${userId}/approve`, {
+      const res = await fetch(`${API_URL}/api/users/${userId}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -177,7 +177,7 @@ const AccessRequests = ({ user }) => {
     try {
       const locationString = editSiteLocations.length > 0 ? editSiteLocations.join(', ') : null;
 
-      const res = await fetch(`http://${API_URL}/api/users/${selectedUser.id}/permissions`, {
+      const res = await fetch(`${API_URL}/api/users/${selectedUser.id}/permissions`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -234,7 +234,7 @@ const AccessRequests = ({ user }) => {
 
     try {
       if (sharedModalMode === 'ADD') {
-        const res = await fetch(`http://${API_URL}/api/auth/add-shared-profile`, {
+        const res = await fetch(`${API_URL}/api/auth/add-shared-profile`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -251,7 +251,7 @@ const AccessRequests = ({ user }) => {
           alert(`Failed to add profile: ${errorData.error || res.statusText}`);
         }
       } else {
-        const res = await fetch(`http://${API_URL}/api/users/${u.id}/pin`, {
+        const res = await fetch(`${API_URL}/api/users/${u.id}/pin`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pin: sharedPin })

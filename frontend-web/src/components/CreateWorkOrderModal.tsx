@@ -136,8 +136,8 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
       if (!isOpen || !user.organizationId) return;
       try {
         const [usersRes, woRes] = await Promise.all([
-          fetch(`http://${API_URL}/api/users?orgId=${user.organizationId}`),
-          fetch(`http://${API_URL}/api/workorders?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/users?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/workorders?orgId=${user.organizationId}`),
         ]);
 
         if (usersRes.ok) {
@@ -155,20 +155,20 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
 
         try {
           const assetsRes = await fetch(
-            `http://${API_URL}/api/assets?orgId=${user.organizationId}`,
+            `${API_URL}/api/assets?orgId=${user.organizationId}`,
           );
           if (assetsRes.ok) setOrgAssets(await assetsRes.json());
 
-          const teamsRes = await fetch(`http://${API_URL}/api/teams?orgId=${user.organizationId}`);
+          const teamsRes = await fetch(`${API_URL}/api/teams?orgId=${user.organizationId}`);
           if (teamsRes.ok) setOrgTeams(await teamsRes.json());
 
           const partsRes = await fetch(
-            `http://${API_URL}/api/inventory?orgId=${user.organizationId}`,
+            `${API_URL}/api/inventory?orgId=${user.organizationId}`,
           );
           if (partsRes.ok) setOrgParts(await partsRes.json());
 
           const locRes = await fetch(
-            `http://${API_URL}/api/locations?orgId=${user.organizationId}`,
+            `${API_URL}/api/locations?orgId=${user.organizationId}`,
           );
           if (locRes.ok) setOrgLocations(await locRes.json());
         } catch (e) {
@@ -238,7 +238,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         tasks,
       };
 
-      const response = await fetch(`http://${API_URL}/api/workorders`, {
+      const response = await fetch(`${API_URL}/api/workorders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -252,7 +252,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
             const formData = new FormData();
             formData.append("file", file);
             formData.append("uploaderId", user.id);
-            await fetch(`http://${API_URL}/api/workorders/${newWo.id}/documents`, {
+            await fetch(`${API_URL}/api/workorders/${newWo.id}/documents`, {
               method: "POST",
               body: formData,
             });

@@ -53,10 +53,10 @@ const Scheduler = ({ user }: any) => {
     setIsLoading(true);
     try {
       const [pmRes, usersRes, locRes, teamsRes] = await Promise.all([
-        fetch(`http://${API_URL}/api/pm?orgId=${orgId}&userId=${userId}`),
-        fetch(`http://${API_URL}/api/users/${orgId}`),
-        fetch(`http://${API_URL}/api/locations?orgId=${orgId}`),
-        fetch(`http://${API_URL}/api/teams?orgId=${orgId}`),
+        fetch(`${API_URL}/api/pm?orgId=${orgId}&userId=${userId}`),
+        fetch(`${API_URL}/api/users/${orgId}`),
+        fetch(`${API_URL}/api/locations?orgId=${orgId}`),
+        fetch(`${API_URL}/api/teams?orgId=${orgId}`),
       ]);
 
       if (pmRes.ok) setPmSchedules(await pmRes.json());

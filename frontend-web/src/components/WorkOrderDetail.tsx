@@ -87,7 +87,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
   const fetchWO = async () => {
     try {
-      const res = await fetch(`http://${API_URL}/api/workorders/${id}`);
+      const res = await fetch(`${API_URL}/api/workorders/${id}`);
       if (res.ok) setWo(await res.json());
     } catch (err) {
       console.error(err);
@@ -99,19 +99,19 @@ const WorkOrderDetail = ({ user }: any) => {
   useEffect(() => {
     fetchWO();
     if (user?.organizationId) {
-      fetch(`http://${API_URL}/api/users/${user.organizationId}`)
+      fetch(`${API_URL}/api/users/${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgUsers);
-      fetch(`http://${API_URL}/api/assets?orgId=${user.organizationId}`)
+      fetch(`${API_URL}/api/assets?orgId=${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgAssets);
-      fetch(`http://${API_URL}/api/locations?orgId=${user.organizationId}`)
+      fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgLocations);
-      fetch(`http://${API_URL}/api/inventory?orgId=${user.organizationId}`)
+      fetch(`${API_URL}/api/inventory?orgId=${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgParts);
-      fetch(`http://${API_URL}/api/teams?orgId=${user.organizationId}`)
+      fetch(`${API_URL}/api/teams?orgId=${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgTeams);
     }
@@ -176,7 +176,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
   const recordActivity = async (actionMsg: string) => {
     try {
-      await fetch(`http://${API_URL}/api/workorders/${id}`, {
+      await fetch(`${API_URL}/api/workorders/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ actorId: user.id, actionLog: actionMsg }),
@@ -189,7 +189,7 @@ const WorkOrderDetail = ({ user }: any) => {
 
   const handleInlineUpdate = async (field: string, value: any, logMessage: string) => {
     try {
-      const res = await fetch(`http://${API_URL}/api/workorders/${id}`, {
+      const res = await fetch(`${API_URL}/api/workorders/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -215,7 +215,7 @@ const WorkOrderDetail = ({ user }: any) => {
         : null;
 
     try {
-      const res = await fetch(`http://${API_URL}/api/workorders/${id}`, {
+      const res = await fetch(`${API_URL}/api/workorders/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -272,7 +272,7 @@ const WorkOrderDetail = ({ user }: any) => {
   const handleDeleteWO = async () => {
     if (!window.confirm("Are you sure you want to completely delete this Work Order?")) return;
     try {
-      const res = await fetch(`http://${API_URL}/api/workorders/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_URL}/api/workorders/${id}`, { method: "DELETE" });
       if (res.ok) navigate("/workspace/workorders");
     } catch (err) {
       alert("Error deleting work order");
@@ -286,7 +286,7 @@ const WorkOrderDetail = ({ user }: any) => {
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
     try {
-      const res = await fetch(`http://${API_URL}/api/workorders/${id}/comments`, {
+      const res = await fetch(`${API_URL}/api/workorders/${id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: newComment, authorId: user.id }),
@@ -310,7 +310,7 @@ const WorkOrderDetail = ({ user }: any) => {
     formData.append("uploaderId", user.id);
 
     try {
-      const res = await fetch(`http://${API_URL}/api/workorders/${id}/documents`, {
+      const res = await fetch(`${API_URL}/api/workorders/${id}/documents`, {
         method: "POST",
         body: formData,
       });
@@ -917,7 +917,7 @@ const WorkOrderDetail = ({ user }: any) => {
                     >
                       <FileText className="w-6 h-6 text-blue-600 mr-3" />
                       <a
-                        href={`http://${API_URL}${doc.fileUrl}`}
+                        href={`${API_URL}${doc.fileUrl}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm font-bold text-blue-600 hover:underline"

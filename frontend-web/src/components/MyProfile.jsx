@@ -31,7 +31,7 @@ const MyProfile = ({ user, onUpdateUser }) => {
     const fetchFreshProfile = async () => {
       if (!user?.id || !user?.organizationId) return;
       try {
-        const res = await fetch(`http://${API_URL}/api/users/profile/${user.id}?orgId=${user.organizationId}`);
+        const res = await fetch(`${API_URL}/api/users/profile/${user.id}?orgId=${user.organizationId}`);
         if (res.ok) {
           const freshData = await res.json();
           setCurrentUser(freshData);
@@ -66,7 +66,7 @@ const MyProfile = ({ user, onUpdateUser }) => {
     const fetchData = async () => {
       if (!currentUser?.organizationId) return;
       try {
-        const locRes = await fetch(`http://${API_URL}/api/locations?orgId=${currentUser.organizationId}`);
+        const locRes = await fetch(`${API_URL}/api/locations?orgId=${currentUser.organizationId}`);
         if (locRes.ok) {
           const locData = await locRes.json();
           const locSet = new Set();
@@ -76,7 +76,7 @@ const MyProfile = ({ user, onUpdateUser }) => {
           setLocations(Array.from(locSet).sort());
         }
 
-        const teamRes = await fetch(`http://${API_URL}/api/teams?orgId=${currentUser.organizationId}`);
+        const teamRes = await fetch(`${API_URL}/api/teams?orgId=${currentUser.organizationId}`);
         if (teamRes.ok) {
           const allTeams = await teamRes.json();
           const filteredTeams = allTeams.filter(team =>
@@ -109,7 +109,7 @@ const MyProfile = ({ user, onUpdateUser }) => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`http://${API_URL}/api/users/${currentUser.id}/profile`, {
+      const res = await fetch(`${API_URL}/api/users/${currentUser.id}/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, profilePicUrl: profilePic })

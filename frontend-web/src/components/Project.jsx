@@ -14,11 +14,11 @@ const Project = ({ user }) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const projRes = await fetch(`http://${API_URL}/api/projects?orgId=${user?.organizationId}`);
+        const projRes = await fetch(`${API_URL}/api/projects?orgId=${user?.organizationId}`);
         if (projRes.ok) setProjects(await projRes.json());
 
         if (user?.organizationId) {
-          const userRes = await fetch(`http://${API_URL}/api/users/${user.organizationId}`);
+          const userRes = await fetch(`${API_URL}/api/users/${user.organizationId}`);
           if (userRes.ok) setOrgUsers(await userRes.json());
         }
       } catch (error) {
@@ -31,7 +31,7 @@ const Project = ({ user }) => {
   }, [user]);
 
   const refreshProjects = async () => {
-    const res = await fetch(`http://${API_URL}/api/projects?orgId=${user?.organizationId}`);
+    const res = await fetch(`${API_URL}/api/projects?orgId=${user?.organizationId}`);
     if (res.ok) setProjects(await res.json());
   };
 
@@ -132,7 +132,7 @@ const CreateProjectModal = ({ user, orgUsers, onClose, onCreated }) => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('http://${API_URL}/api/projects', {
+      const res = await fetch('${API_URL}/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -256,7 +256,7 @@ const ProjectDetail = ({ project, onBack, user, onProjectUpdated, formatProjectN
 
   const handleUpdateProject = async (field, value) => {
     try {
-      const res = await fetch(`http://${API_URL}/api/projects/${project.id}`, {
+      const res = await fetch(`${API_URL}/api/projects/${project.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: value })
@@ -312,7 +312,7 @@ const ProjectDetail = ({ project, onBack, user, onProjectUpdated, formatProjectN
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
     try {
-      const res = await fetch(`http://${API_URL}/api/projects/${project.id}/comments`, {
+      const res = await fetch(`${API_URL}/api/projects/${project.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: newComment, authorId: user.id })

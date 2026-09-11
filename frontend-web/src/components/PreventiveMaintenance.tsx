@@ -41,7 +41,7 @@ const PreventiveMaintenance = ({ user }: any) => {
   const fetchPMs = useCallback(async () => {
     if (!orgId || !userId) return;
     try {
-      const res = await fetch(`http://${API_URL}/api/pm?orgId=${orgId}&userId=${userId}`);
+      const res = await fetch(`${API_URL}/api/pm?orgId=${orgId}&userId=${userId}`);
       if (res.ok) setPms(await res.json());
     } catch (err) {
       console.error(err);
@@ -52,11 +52,11 @@ const PreventiveMaintenance = ({ user }: any) => {
     if (!orgId) return;
     try {
       const [usersRes, assetsRes, teamsRes, partsRes, locRes] = await Promise.all([
-        fetch(`http://${API_URL}/api/users/${orgId}`),
-        fetch(`http://${API_URL}/api/assets?orgId=${orgId}`),
-        fetch(`http://${API_URL}/api/teams?orgId=${orgId}`),
-        fetch(`http://${API_URL}/api/inventory?orgId=${orgId}`),
-        fetch(`http://${API_URL}/api/locations?orgId=${orgId}`),
+        fetch(`${API_URL}/api/users/${orgId}`),
+        fetch(`${API_URL}/api/assets?orgId=${orgId}`),
+        fetch(`${API_URL}/api/teams?orgId=${orgId}`),
+        fetch(`${API_URL}/api/inventory?orgId=${orgId}`),
+        fetch(`${API_URL}/api/locations?orgId=${orgId}`),
       ]);
       if (usersRes.ok) setOrgUsers(await usersRes.json());
       if (assetsRes.ok) setOrgAssets(await assetsRes.json());
@@ -502,7 +502,7 @@ const CreatePMModal = ({
         creatorId: user.id,
       };
 
-      const res = await fetch("http://${API_URL}/api/pm", {
+      const res = await fetch("${API_URL}/api/pm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
