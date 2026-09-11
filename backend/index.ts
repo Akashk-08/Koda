@@ -27,16 +27,18 @@ const PORT = 8080;
 
 const corsOptions = {
   origin: [
-    "http://localhost:5173", // Your React Web App
-    "capacitor://localhost", // Capacitor iOS App
-    "http://localhost", // Capacitor Android App
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://pulseworkscmms.vercel.app",
+    /\.vercel\.app$/, // Allows all Vercel branch/preview deployments
+    "capacitor://localhost",
+    "http://localhost",
     "http://192.168.1.49:5173",
   ],
   credentials: true,
 };
 
 app.use(cors(corsOptions));
-
 // INCREASED LIMITS MOVED TO THE TOP
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -399,15 +401,7 @@ app.use("/api/calendar", Calendar);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/logs", logRoutes);
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://pulseworkscmms.vercel.app",
-    /\.vercel\.app$/ // Allows all Vercel branch/preview deployments
-  ],
-  credentials: true
-}));
+
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error(`[Unhandled Exception] ${req.method} ${req.url} - ${err.message}\nStack Trace: ${err.stack}`);
