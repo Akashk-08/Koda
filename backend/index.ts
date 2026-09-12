@@ -23,7 +23,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 8080;
+// UPDATED: Dynamically bind to Render's injected PORT environment variable
+const PORT = parseInt(process.env.PORT || "8080", 10);
 
 const corsOptions = {
   origin: [
@@ -43,9 +44,9 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// GLOBAL LOGGING MIDDLEWARE (STEP 4)
+// UPDATED: Standard console.log at the very top so Render captures it before routes execute
 app.use((req, res, next) => {
-  logger.info(`Incoming Request: ${req.method} ${req.url}`);
+  console.log(`[${new Date().toISOString()}] Incoming Request: ${req.method} ${req.url}`);
   next();
 });
 
@@ -55,7 +56,7 @@ const loginLimiter = rateLimit({
   max: 100,
   message: "Too many login attempts, please try again after 15 minutes", // Change this to a string
   keyGenerator: (req, res) => {
-    return req.body.email ? req.body.email.toLowerCase() : (req.ip || "unknown-ip");
+    return req.body.email ? req.body.email.toLowerCase() : req.ip || "unknown-ip";
   },
 });
 app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // serve your images!
@@ -341,7 +342,7 @@ app.post("/api/auth/get-profiles", async (req, res) => {
   }
 });
 
-// 2. ADMIN: ADD A SHARED PROFILE 
+// 2. ADMIN: ADD A SHARED PROFILE
 app.post("/api/auth/add-shared-profile", async (req, res) => {
   const { baseEmail, userId, pin } = req.body;
 
@@ -355,12 +356,12 @@ app.post("/api/auth/add-shared-profile", async (req, res) => {
       data: {
         firstName: sourceUser.firstName,
         lastName: sourceUser.lastName,
-        email: baseEmail, 
-        password: sourceUser.password, 
+        email: baseEmail,
+        password: sourceUser.password,
         organizationId: sourceUser.organizationId,
-        siteLocation: sourceUser.siteLocation, 
-        role: sourceUser.role, 
-        autoAssignCategories: sourceUser.autoAssignCategories, 
+        siteLocation: sourceUser.siteLocation,
+        role: sourceUser.role,
+        autoAssignCategories: sourceUser.autoAssignCategories,
         approvalStatus: "APPROVED",
         pin: pin,
       },
@@ -402,11 +403,16 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/logs", logRoutes);
 
-
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error(`[Unhandled Exception] ${req.method} ${req.url} - ${err.message}\nStack Trace: ${err.stack}`);
+  logger.error(
+    `[Unhandled Exception] ${req.method} ${req.url} - ${err.message}\nStack Trace: ${err.stack}`,
+  );
   res.status(500).json({ error: "An unexpected internal server error occurred." });
 });
-app.listen(PORT, "0.0.0.0", () => logger.info(`Backend running on port ${PORT}`));
+
+// UPDATED: Standard console.log so Render prints successful server startup
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Backend server is actively running on port ${PORT}`);
+});
 
 export default app;
