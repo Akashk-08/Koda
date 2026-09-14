@@ -19,6 +19,7 @@ import nodemailer from "nodemailer";
 import rateLimit from "express-rate-limit";
 import logger from "./utils/logger.js";
 import logRoutes from "./Routes/logs.js";
+import analyticsRouter from "./Routes/analytics.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +38,10 @@ const corsOptions = {
     "http://localhost",
     "http://192.168.1.49:5173",
   ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
+  maxAge: 86400, // Caches preflight responses for 24 hours to eliminate repeated OPTIONS network round-trips
 };
 
 app.use(cors(corsOptions));
@@ -115,7 +119,7 @@ app.post("/api/auth/signup", async (req, res) => {
       return res.status(201).json({ user: result.user });
     }
 
-const newUser = await prisma.user.create({
+    const newUser = await prisma.user.create({
       data: {
         firstName,
         lastName,
@@ -437,6 +441,7 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/notifications", notificationRoutes); // MOUNTED NOTIFICATIONS ROUTER
+app.use("/api/analytics", analyticsRouter);
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error(

@@ -100,12 +100,11 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
   const partsRef = useRef<HTMLDivElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
 
-useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       if (preSelectedAsset) setSelectedAssetId(preSelectedAsset.id);
       if (!isFullAccess) {
         setStartDate(new Date().toISOString().slice(0, 16));
-        // Take only the first location if multiple are listed in the user profile
         const rawLoc = user?.siteLocation || "";
         const cleanLoc = rawLoc.includes(",") ? rawLoc.split(",")[0].trim() : rawLoc;
         setSiteLocation(cleanLoc);
@@ -136,9 +135,13 @@ useEffect(() => {
     const fetchData = async () => {
       if (!isOpen || !user.organizationId) return;
       try {
-        const [usersRes, woRes] = await Promise.all([
+        const [usersRes, woRes, teamsRes, assetsRes, partsRes, locRes] = await Promise.all([
           fetch(`${API_URL}/api/users?orgId=${user.organizationId}`),
           fetch(`${API_URL}/api/workorders?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/teams?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/assets?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/inventory?orgId=${user.organizationId}`),
+          fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`),
         ]);
 
         if (usersRes.ok) {
@@ -153,30 +156,24 @@ useEffect(() => {
           const woData = await woRes.json();
           setExistingWorkOrders(Array.isArray(woData) ? woData : woData.data || []);
         }
-
-        try {
-          const assetsRes = await fetch(
-            `${API_URL}/api/assets?orgId=${user.organizationId}`,
-          );
-          if (assetsRes.ok) setOrgAssets(await assetsRes.json());
-
-          const teamsRes = await fetch(`${API_URL}/api/teams?orgId=${user.organizationId}`);
-          if (teamsRes.ok) setOrgTeams(await teamsRes.json());
-
-          const partsRes = await fetch(
-            `${API_URL}/api/inventory?orgId=${user.organizationId}`,
-          );
-          if (partsRes.ok) setOrgParts(await partsRes.json());
-
-          const locRes = await fetch(
-            `${API_URL}/api/locations?orgId=${user.organizationId}`,
-          );
-          if (locRes.ok) setOrgLocations(await locRes.json());
-        } catch (e) {
-          console.warn("Some related endpoints might not be ready yet.");
+        if (teamsRes.ok) {
+          const teamsData = await teamsRes.json();
+          setOrgTeams(Array.isArray(teamsData) ? teamsData : []);
+        }
+        if (assetsRes.ok) {
+          const assetsData = await assetsRes.json();
+          setOrgAssets(Array.isArray(assetsData) ? assetsData : []);
+        }
+        if (partsRes.ok) {
+          const partsData = await partsRes.json();
+          setOrgParts(Array.isArray(partsData) ? partsData : []);
+        }
+        if (locRes.ok) {
+          const locData = await locRes.json();
+          setOrgLocations(Array.isArray(locData) ? locData : []);
         }
       } catch (err) {
-        console.error(err);
+        console.error("Failed to load modal reference data", err);
       }
     };
     fetchData();
@@ -210,7 +207,6 @@ useEffect(() => {
     setIsSubmitting(true);
 
     try {
-      // PRECISE LOCATION RESOLUTION: Match exact full name from orgLocations list
       let finalLocationName = siteLocation;
       if (siteLocation && orgLocations.length > 0) {
         const matchedLoc = orgLocations.find(
@@ -243,7 +239,7 @@ useEffect(() => {
         additionalAssigneeEmails: additionalEmails,
         teamId: selectedTeamId || null,
         assetId: selectedAssetId || null,
-        locationName: finalLocationName, // USES RESOLVED FULL LOCATION NAME
+        locationName: finalLocationName,
         startDate: startDate ? new Date(startDate).toISOString() : null,
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
         durationHours: duration ? parseFloat(duration) : null,

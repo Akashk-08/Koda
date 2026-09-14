@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -11,28 +11,33 @@ import {
   useLocation,
 } from "react-router-dom";
 
-// Components
-import Project from "./components/Project.jsx";
-import WorkOrders from "./components/WorkOrders.jsx";
-import PreventiveMaintenance from "./components/PreventiveMaintenance";
-import WorkOrderDetail from "./components/WorkOrderDetail";
+// Standard Imports for Core Layout & Auth (Loaded Instantly)
 import CreateWorkOrderModal from "./components/CreateWorkOrderModal";
 import UserProfile from "./components/UserProfile.jsx";
-import AccessRequests from "./components/AccessRequests.jsx";
-import Calendar from "./components/Calendar.jsx";
-import Locations from "./components/Locations.jsx";
-import MyTeam from "./components/MyTeam.jsx";
 import Footer from "./components/Footer.jsx";
-import MyProfile from "./components/MyProfile.jsx";
 import LandingPage from "./components/LandingPage.jsx";
-import PartsInventory from "./components/PartsInventory";
-import Assets from "./components/Assets";
-import Inventory from "./components/Inventory";
-import MobileMoreMenu from "./components/MobileMoreMenu.jsx";
-import TeamProfile from "./components/TeamProfile.jsx";
+import Header from "./components/Header.jsx";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { Capacitor } from "@capacitor/core";
-import NotificationsPage from "./components/NotificationsPage.jsx";
+
+// Lazy-Loaded Dashboard Modules (Code Splitting)
+const Project = lazy(() => import("./components/Project.jsx"));
+const WorkOrders = lazy(() => import("./components/WorkOrders.jsx"));
+const PreventiveMaintenance = lazy(() => import("./components/PreventiveMaintenance"));
+const WorkOrderDetail = lazy(() => import("./components/WorkOrderDetail"));
+const AccessRequests = lazy(() => import("./components/AccessRequests.jsx"));
+const Calendar = lazy(() => import("./components/Calendar.jsx"));
+const Locations = lazy(() => import("./components/Locations.jsx"));
+const MyTeam = lazy(() => import("./components/MyTeam.jsx"));
+const MyProfile = lazy(() => import("./components/MyProfile.jsx"));
+const PartsInventory = lazy(() => import("./components/PartsInventory"));
+const Assets = lazy(() => import("./components/Assets"));
+const Inventory = lazy(() => import("./components/Inventory"));
+const MobileMoreMenu = lazy(() => import("./components/MobileMoreMenu.jsx"));
+const TeamProfile = lazy(() => import("./components/TeamProfile.jsx"));
+const Analytics = lazy(() => import("./components/Analytics.tsx"));
+const NotificationsPage = lazy(() => import("./components/NotificationsPage.jsx"));
+const Scheduler = lazy(() => import("./components/Schedular.js"));
 
 import {
   Box,
@@ -58,8 +63,6 @@ import {
   Plus,
   LogOut,
 } from "lucide-react";
-import Scheduler from "./components/Schedular.js";
-import Header from "./components/Header.jsx";
 
 // INTERFACES
 interface User {
@@ -659,6 +662,7 @@ const DashboardLayout = ({
     "/resources/requests",
     "/more",
     "/workspace/notifications",
+    "/workspace/analytics", 
   ];
   const isRootPage = rootPaths.includes(location.pathname);
 
@@ -709,6 +713,20 @@ const DashboardLayout = ({
                     <ClipboardList className="w-5 h-5" />
                   </span>
                   {!isSidebarCollapsed && <span className="truncate">Work Orders</span>}
+                </div>
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/workspace/analytics"
+                className={linkClass("/workspace/analytics")}
+                title={isSidebarCollapsed ? "Analytics" : ""}
+              >
+                <div className="flex items-center truncate">
+                  <span className={iconClass("/workspace/analytics")}>
+                    <BarChart3 className="w-5 h-5" />
+                  </span>
+                  {!isSidebarCollapsed && <span className="truncate">Analytics</span>}
                 </div>
               </Link>
             </li>
@@ -953,31 +971,42 @@ const DashboardLayout = ({
           )}
 
           <div className="flex-1">
-            <Routes>
-              <Route path="/workspace/notifications" element={<NotificationsPage user={user} />} />
-              <Route path="/workspace/workorder/:id" element={<WorkOrderDetail user={user} />} />
-              <Route
-                path="/workspace/workorders"
-                element={<WorkOrders user={user} onOpenModal={() => setIsModalOpen(true)} />}
-              />
-              <Route path="/workspace/pm" element={<PreventiveMaintenance user={user} />} />
-              <Route path="/workspace/schedular" element={<Scheduler user={user} />} />
-              <Route path="/aisearch/pulseworksAI" />
-              <Route path="/organization/locations" element={<Locations />} />
-              <Route path="/organization/myteam" element={<MyTeam user={user} />} />
-              <Route path="/resources/projects" element={<Project user={user} />} />
-              <Route path="/resources/accessrequests" element={<AccessRequests user={user} />} />
-              <Route path="/resources/calendar" element={<Calendar user={user} />} />
-              <Route path="/procurement/partsinventory" element={<PartsInventory user={user} />} />
-              <Route path="/procurement/assets" element={<Assets user={user} />} />
-              <Route path="/procurement/inventory" element={<Inventory user={user} />} />
-              <Route path="/workspace/my-team/:id" element={<TeamProfile currentUser={user} />} />
-              <Route path="/more" element={<MobileMoreMenu user={user} />} />
-              <Route
-                path="/profile"
-                element={<MyProfile user={user} onUpdateUser={onUpdateUser} />}
-              />
-            </Routes>
+            {/* SUSPENSE BOUNDARY WRAPS ALL LAZY LOADED ROUTES */}
+            <Suspense fallback={
+              <div className="h-full w-full flex items-center justify-center bg-gray-50">
+                <div className="flex flex-col items-center space-y-3">
+                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm font-bold text-gray-500">Loading module...</p>
+                </div>
+              </div>
+            }>
+              <Routes>
+                <Route path="/workspace/notifications" element={<NotificationsPage user={user} />} />
+                <Route path="/workspace/analytics" element={<Analytics user={user} />} />
+                <Route path="/workspace/workorder/:id" element={<WorkOrderDetail user={user} />} />
+                <Route
+                  path="/workspace/workorders"
+                  element={<WorkOrders user={user} onOpenModal={() => setIsModalOpen(true)} />}
+                />
+                <Route path="/workspace/pm" element={<PreventiveMaintenance user={user} />} />
+                <Route path="/workspace/schedular" element={<Scheduler user={user} />} />
+                <Route path="/aisearch/pulseworksAI" />
+                <Route path="/organization/locations" element={<Locations />} />
+                <Route path="/organization/myteam" element={<MyTeam user={user} />} />
+                <Route path="/resources/projects" element={<Project user={user} />} />
+                <Route path="/resources/accessrequests" element={<AccessRequests user={user} />} />
+                <Route path="/resources/calendar" element={<Calendar user={user} />} />
+                <Route path="/procurement/partsinventory" element={<PartsInventory user={user} />} />
+                <Route path="/procurement/assets" element={<Assets user={user} />} />
+                <Route path="/procurement/inventory" element={<Inventory user={user} />} />
+                <Route path="/workspace/my-team/:id" element={<TeamProfile currentUser={user} />} />
+                <Route path="/more" element={<MobileMoreMenu user={user} />} />
+                <Route
+                  path="/profile"
+                  element={<MyProfile user={user} onUpdateUser={onUpdateUser} />}
+                />
+              </Routes>
+            </Suspense>
           </div>
           <Footer />
         </main>
@@ -997,13 +1026,11 @@ const DashboardLayout = ({
 
 export default function App() {
   const [user, setUser] = useState<User | null>(() => {
-    // CHANGED TO SESSION STORAGE: Clears automatically when tab/browser closes
     const saved = sessionStorage.getItem("koda_user");
     return saved ? JSON.parse(saved) : null;
   });
 
-  // INACTIVITY TIMEOUT (Auto-logout after 15 minutes of idle time)
-  const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 minutes in milliseconds
+  const INACTIVITY_LIMIT = 15 * 60 * 1000;
   const inactivityTimerRef = useRef<any>(null);
 
   const handleSignOut = useCallback(() => {
