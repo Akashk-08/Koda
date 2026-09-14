@@ -109,8 +109,17 @@ const WorkOrders = ({ user, onOpenModal }) => {
       if (statusFilter !== "ALL") params.append("status", statusFilter);
       if (categoryFilter !== "ALL") params.append("category", categoryFilter);
 
-      if (isFullAccess && locationFilter !== "ALL") {
-        params.append("locationName", locationFilter);
+      // --- ENFORCE STRICT SITE-LEVEL VISIBILITY ---
+      if (isFullAccess) {
+        if (locationFilter !== "ALL") {
+          params.append("locationName", locationFilter);
+        }
+      } else if (user?.siteLocation) {
+        // Force the API to only return work orders for the restricted user's assigned site
+        const cleanLoc = user.siteLocation.includes(",")
+          ? user.siteLocation.split(",")[0].trim()
+          : user.siteLocation;
+        params.append("locationName", cleanLoc);
       }
 
       if (teamFilter !== "ALL") params.append("teamId", teamFilter);
@@ -135,7 +144,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [orgId, userId, currentPage, debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter]);
+  }, [orgId, userId, currentPage, debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter, isFullAccess, user?.siteLocation]);
 
   useEffect(() => {
     fetchData();
@@ -246,7 +255,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
                 </select>
               </div>
 
-              {/* Location Select */}
+              {/* Location Select (Only visible for Admins / Shop / Warehouse) */}
               {isFullAccess && (
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Location</label>
