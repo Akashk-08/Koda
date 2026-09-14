@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   Plus,
@@ -237,6 +237,8 @@ const INITIAL_HEADSET_TRACKER = [
 
 const Assets = ({ user }: any) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [assets, setAssets] = useState<any[]>([]);
   const [orgParts, setOrgParts] = useState<any[]>([]);
   const [orgLocations, setOrgLocations] = useState<any[]>([]);
@@ -248,13 +250,21 @@ const Assets = ({ user }: any) => {
     user?.siteLocation?.toLowerCase().includes("shop") ||
     user?.siteLocation?.toLowerCase().includes("warehouse");
 
-  const [searchQuery, setSearchQuery] = useState("");
+  // --- URL STATE PERSISTENCE ---
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [statusFilter, setStatusFilter] = useState<
     "ALL" | "OPERATIONAL" | "DAMAGED" | "VR_CONFIGS" | "PC_TRACKER" | "HEADSET_TRACKER"
-  >("ALL");
+  >((searchParams.get("tab") as any) || "ALL");
+  const [locationFilter, setLocationFilter] = useState(searchParams.get("location") || "ALL");
 
-  // --- NEW LOCATION FILTER STATE ---
-  const [locationFilter, setLocationFilter] = useState("ALL");
+  useEffect(() => {
+    const params: any = {};
+    if (searchQuery) params.search = searchQuery;
+    if (statusFilter !== "ALL") params.tab = statusFilter;
+    if (locationFilter !== "ALL") params.location = locationFilter;
+
+    setSearchParams(params, { replace: true });
+  }, [searchQuery, statusFilter, locationFilter, setSearchParams]);
 
   // UI States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

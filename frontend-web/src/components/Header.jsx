@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Wrench, ShieldCheck, MessageSquare, Key, Box, User as UserIcon } from 'lucide-react';
+import { Plus, Wrench, ShieldCheck, Key, User as UserIcon } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
 // Use the dynamic environment variable instead of a hardcoded IP
@@ -51,15 +51,8 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
 
   return (
     <header className="h-14 border-b flex items-center justify-between px-4 md:px-6 shrink-0 relative z-20 bg-white">
-      {/* GLOBAL SEARCH BAR */}
-      <div className="relative hidden md:block">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-        <input
-          type="text"
-          placeholder="Search..."
-          className="pl-9 pr-4 py-1.5 border border-gray-200 rounded-md text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 w-64 shadow-sm"
-        />
-      </div>
+      {/* Empty placeholder or brand spacer */}
+      <div></div>
 
       <div className="flex items-center space-x-3 ml-auto">
 
@@ -115,7 +108,7 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
           )}
         </div>
 
-        {/* USER PROFILE & SIGN OUT DROPDOWN (Properly aligned) */}
+        {/* USER PROFILE & SIGN OUT DROPDOWN */}
         <div className="relative" ref={userDropdownRef}>
           <button
             onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}

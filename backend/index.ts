@@ -14,6 +14,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import inventoryRoutes from "./Routes/inventory.js";
 import assetRoutes from "./Routes/assets.js";
+import notificationRoutes from "./Routes/notifications.js"; // IMPORTED NOTIFICATIONS ROUTE
 import nodemailer from "nodemailer";
 import rateLimit from "express-rate-limit";
 import logger from "./utils/logger.js";
@@ -48,6 +49,15 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] Incoming Request: ${req.method} ${req.url}`);
   next();
+});
+
+//  EMAIL TRANSPORTER CONFIGURATION
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 // Block specific accounts after 100 failed login attempts for 15 minutes
@@ -105,7 +115,7 @@ app.post("/api/auth/signup", async (req, res) => {
       return res.status(201).json({ user: result.user });
     }
 
-    const newUser = await prisma.user.create({
+const newUser = await prisma.user.create({
       data: {
         firstName,
         lastName,
@@ -116,6 +126,39 @@ app.post("/api/auth/signup", async (req, res) => {
         approvalStatus: "PENDING",
       },
     });
+
+    // NEW LOGIC: Notify all Admins of the new pending request
+    try {
+      // 1. Find all users in this org who are Admins
+      const admins = await prisma.user.findMany({
+        where: {
+          organizationId: org.orgId,
+          role: "ADMIN",
+        },
+      });
+
+      // 2. Extract their email addresses
+      const adminEmails = admins.map((admin) => admin.email);
+
+      // 3. Send the notification if admins exist
+      if (adminEmails.length > 0) {
+        const mailOptions = {
+          from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
+          to: adminEmails, // Nodemailer accepts an array of strings to email multiple people
+          subject: "New Workspace Access Request - Pulseworks CMMS",
+          html: `
+            <h3>New Access Request</h3>
+            <p><strong>${firstName} ${lastName}</strong> (${email}) has requested access to join your workspace.</p>
+            <p>Please log in to the <a href="https://pulseworkscmms.vercel.app/#/resources/accessrequests">Pulseworks CMMS dashboard</a> to approve or reject this request.</p>
+          `,
+        };
+        
+        await transporter.sendMail(mailOptions);
+        logger.info(`Admin notification email sent for new user: ${email}`);
+      }
+    } catch (emailErr) {
+      logger.error(`Failed to send admin notification email: ${(emailErr as Error).message}`);
+    }
 
     res.status(201).json({ user: newUser });
   } catch (error) {
@@ -218,15 +261,6 @@ app.post("/api/auth/verify-pin", loginLimiter, async (req, res) => {
     logger.error(`PIN verification error: ${(error as Error).message}`);
     res.status(500).json({ error: "Server error" });
   }
-});
-
-//  EMAIL TRANSPORTER CONFIGURATION
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
 });
 
 // 1. REQUEST PASSWORD RESET
@@ -402,6 +436,7 @@ app.use("/api/calendar", Calendar);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/logs", logRoutes);
+app.use("/api/notifications", notificationRoutes); // MOUNTED NOTIFICATIONS ROUTER
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error(

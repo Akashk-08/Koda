@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -81,7 +81,6 @@ interface AuthCardProps {
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8080";
 
-
 // AUTH COMPONENT
 const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
   const [mode, setMode] = useState<string>(initialMode);
@@ -104,7 +103,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
   });
 
   useEffect(() => {
-    const kioskEmail = localStorage.getItem("koda_kiosk_email");
+    const kioskEmail = sessionStorage.getItem("koda_kiosk_email");
     if (kioskEmail && mode === "login") {
       fetch(`${API_URL}/api/auth/get-profiles`, {
         method: "POST",
@@ -117,7 +116,7 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
             setFormData((prev) => ({ ...prev, email: kioskEmail }));
             setSubUsers(data.profiles);
             setMode("select_profile");
-            localStorage.removeItem("koda_kiosk_email");
+            sessionStorage.removeItem("koda_kiosk_email");
           }
         })
         .catch((err) => console.error("Failed to auto-load profiles", err));
@@ -345,12 +344,11 @@ const AuthCard = ({ initialMode, onAuthSuccess }: AuthCardProps) => {
                     ))}
                   </div>
 
-                  {/* Sign Out / Reset Kiosk Button */}
                   <div className="pt-4 border-t border-gray-100 flex justify-center">
                     <button
                       type="button"
                       onClick={() => {
-                        localStorage.removeItem("koda_kiosk_email");
+                        sessionStorage.removeItem("koda_kiosk_email");
                         setSubUsers([]);
                         setMode("login");
                         setFormData((prev) => ({ ...prev, email: "", password: "" }));
@@ -564,7 +562,6 @@ const MobileNav = ({ onOpenModal }: { onOpenModal: () => void }) => {
 
   return (
     <>
-      {/* BOTTOM NAVIGATION BAR */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 px-6 py-2 flex justify-between items-center z-40 pb-[env(safe-area-inset-bottom)] shadow-lg">
         <Link
           to="/"
@@ -620,16 +617,11 @@ const DashboardLayout = ({
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Polling for pending access requests if user is Admin
   useEffect(() => {
     if (user?.role !== "ADMIN" || !user?.organizationId) return;
 
     const fetchPendingRequests = async () => {
-      // 1. THIS WILL PROVE IF YOUR .ENV IS WORKING
-      console.log("Currently trying to fetch from API_URL:", API_URL);
-
       try {
-        // 2. UPDATED TO USE YOUR NEW BULLETPROOF BACKEND ROUTE
         const res = await fetch(`${API_URL}/api/users?orgId=${user.organizationId}`);
 
         if (res.ok) {
@@ -643,7 +635,6 @@ const DashboardLayout = ({
     };
 
     fetchPendingRequests();
-    // Poll every 30 seconds
     const interval = setInterval(fetchPendingRequests, 30000);
     return () => clearInterval(interval);
   }, [user]);
@@ -663,7 +654,6 @@ const DashboardLayout = ({
   const initials =
     `${user.firstName?.charAt(0) || ""}${user.lastName?.charAt(0) || ""}`.toUpperCase();
 
-  // Root paths where the back button should NOT be shown
   const rootPaths = [
     "/workspace/workorders",
     "/resources/requests",
@@ -674,7 +664,6 @@ const DashboardLayout = ({
 
   return (
     <div className="flex h-screen w-full bg-white text-gray-800 font-sans relative pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-      {/* SIDEBAR (Hidden on mobile via hidden md:flex) */}
       <aside
         className={`hidden md:flex ${isSidebarCollapsed ? "w-20" : "w-64"} relative bg-gray-50 border-r border-gray-200 flex-col h-full shrink-0 transition-all duration-300 ease-in-out z-30`}
       >
@@ -845,7 +834,6 @@ const DashboardLayout = ({
                     {!isSidebarCollapsed && <span className="truncate">Access Requests</span>}
                   </div>
 
-                  {/* DYNAMIC PENDING REQUEST BADGE */}
                   {pendingRequestsCount > 0 &&
                     (isSidebarCollapsed ? (
                       <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 border-2 border-gray-50 rounded-full"></span>
@@ -952,7 +940,6 @@ const DashboardLayout = ({
         />
 
         <main className="flex-1 flex flex-col overflow-y-auto bg-gray-50 relative">
-          {/* MOBILE GLOBAL BACK NAVIGATION */}
           {!isRootPage && (
             <div className="md:hidden w-full bg-white/95 backdrop-blur-md px-4 py-2.5 border-b border-gray-200 sticky top-0 z-40 flex items-center shrink-0">
               <button
@@ -967,9 +954,7 @@ const DashboardLayout = ({
 
           <div className="flex-1">
             <Routes>
-              {/* Added NotificationsPage inside DashboardLayout so header/footer remain visible */}
               <Route path="/workspace/notifications" element={<NotificationsPage user={user} />} />
-
               <Route path="/workspace/workorder/:id" element={<WorkOrderDetail user={user} />} />
               <Route
                 path="/workspace/workorders"
@@ -977,28 +962,17 @@ const DashboardLayout = ({
               />
               <Route path="/workspace/pm" element={<PreventiveMaintenance user={user} />} />
               <Route path="/workspace/schedular" element={<Scheduler user={user} />} />
-
               <Route path="/aisearch/pulseworksAI" />
-
               <Route path="/organization/locations" element={<Locations />} />
               <Route path="/organization/myteam" element={<MyTeam user={user} />} />
-
               <Route path="/resources/projects" element={<Project user={user} />} />
               <Route path="/resources/accessrequests" element={<AccessRequests user={user} />} />
               <Route path="/resources/calendar" element={<Calendar user={user} />} />
-
               <Route path="/procurement/partsinventory" element={<PartsInventory user={user} />} />
               <Route path="/procurement/assets" element={<Assets user={user} />} />
               <Route path="/procurement/inventory" element={<Inventory user={user} />} />
               <Route path="/workspace/my-team/:id" element={<TeamProfile currentUser={user} />} />
               <Route path="/more" element={<MobileMoreMenu user={user} />} />
-              <Route
-                path="/profile"
-                element={<MyProfile user={user} onUpdateUser={onUpdateUser} />}
-              />
-
-              {/* <Route path="/analytics/metrics" /> */}
-
               <Route
                 path="/profile"
                 element={<MyProfile user={user} onUpdateUser={onUpdateUser} />}
@@ -1015,7 +989,6 @@ const DashboardLayout = ({
           onCreated={() => window.location.reload()}
         />
 
-        {/* MOBILE NAVIGATION BAR & FAB */}
         <MobileNav onOpenModal={() => setIsModalOpen(true)} />
       </div>
     </div>
@@ -1024,11 +997,53 @@ const DashboardLayout = ({
 
 export default function App() {
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem("koda_user");
+    // CHANGED TO SESSION STORAGE: Clears automatically when tab/browser closes
+    const saved = sessionStorage.getItem("koda_user");
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Request Push Notifications permissions and register token on app startup for native devices
+  // INACTIVITY TIMEOUT (Auto-logout after 15 minutes of idle time)
+  const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 minutes in milliseconds
+  const inactivityTimerRef = useRef<any>(null);
+
+  const handleSignOut = useCallback(() => {
+    setUser(null);
+    sessionStorage.removeItem("koda_user");
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (!user) return;
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+
+    inactivityTimerRef.current = setTimeout(() => {
+      handleSignOut();
+      alert("You have been automatically logged out due to inactivity.");
+    }, INACTIVITY_LIMIT);
+  }, [user, handleSignOut]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const events = ["mousedown", "mousemove", "keypress", "scroll", "touchstart"];
+    
+    const handleUserActivity = () => {
+      resetInactivityTimer();
+    };
+
+    events.forEach((event) => {
+      window.addEventListener(event, handleUserActivity);
+    });
+
+    resetInactivityTimer();
+
+    return () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      events.forEach((event) => {
+        window.removeEventListener(event, handleUserActivity);
+      });
+    };
+  }, [user, resetInactivityTimer]);
+
   useEffect(() => {
     let registrationListener: any = null;
     let foregroundListener: any = null;
@@ -1043,11 +1058,10 @@ export default function App() {
         }
         if (permStatus.receive !== "granted") return;
 
-        // Listen for token generation and sync with backend
         registrationListener = await PushNotifications.addListener(
           "registration",
           async (token) => {
-            const currentUserStr = localStorage.getItem("koda_user");
+            const currentUserStr = sessionStorage.getItem("koda_user");
             if (currentUserStr) {
               try {
                 const currentUser = JSON.parse(currentUserStr);
@@ -1065,7 +1079,6 @@ export default function App() {
           },
         );
 
-        // Listen for notifications received while app is open in foreground
         foregroundListener = await PushNotifications.addListener(
           "pushNotificationReceived",
           (notification) => {
@@ -1082,34 +1095,25 @@ export default function App() {
     initPushNotifications();
 
     return () => {
-      if (registrationListener) {
-        registrationListener.remove();
-      }
-      if (foregroundListener) {
-        foregroundListener.remove();
-      }
+      if (registrationListener) registrationListener.remove();
+      if (foregroundListener) foregroundListener.remove();
     };
   }, [user]);
 
   const handleLogin = (u: User) => {
     setUser(u);
-    localStorage.setItem("koda_user", JSON.stringify(u));
+    sessionStorage.setItem("koda_user", JSON.stringify(u));
   };
 
   const handleUpdateUser = (u: User) => {
     setUser(u);
-    localStorage.setItem("koda_user", JSON.stringify(u));
-  };
-
-  const handleSignOut = () => {
-    setUser(null);
-    localStorage.removeItem("koda_user");
+    sessionStorage.setItem("koda_user", JSON.stringify(u));
   };
 
   const handleSwitchUser = (email: string) => {
-    localStorage.setItem("koda_kiosk_email", email);
+    sessionStorage.setItem("koda_kiosk_email", email);
     setUser(null);
-    localStorage.removeItem("koda_user");
+    sessionStorage.removeItem("koda_user");
   };
 
   return (

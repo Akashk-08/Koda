@@ -24,35 +24,63 @@ const transporter = nodemailer.createTransport({
 });
 
 export const notifyUser = async (
-  userId: string,
+  userIdOrEmailOrName: string,
   title: string,
   message: string,
   type: string,
   referenceId?: string,
 ) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return;
+    if (!userIdOrEmailOrName) return;
 
-    // 1. Save to In-App Database
+    // Robust user lookup supporting ID, Email, or Name fallback
+    let user = await prisma.user.findUnique({ where: { id: userIdOrEmailOrName } });
+
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { email: userIdOrEmailOrName } });
+    }
+
+    if (!user) {
+      // Try finding by name if ID/email didn't match
+      const users = await prisma.user.findMany();
+      user = users.find(u => 
+        `${u.firstName} ${u.lastName}`.toLowerCase() === userIdOrEmailOrName.toLowerCase() ||
+        u.firstName?.toLowerCase() === userIdOrEmailOrName.toLowerCase()
+      ) || null;
+    }
+
+    if (!user) {
+      console.warn(`[NotificationService] Could not resolve user for target: ${userIdOrEmailOrName}`);
+      return;
+    }
+
+    // 1. Save to In-App Database using the resolved user's actual ID
     await prisma.notification.create({
-      data: { userId, title, message, type, referenceId },
+      data: { 
+        userId: user.id, 
+        title, 
+        message, 
+        type, 
+        referenceId: referenceId ? String(referenceId) : null 
+      },
     });
 
     // 2. Send Email
-    await transporter.sendMail({
-      from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
-      to: user.email,
-      subject: title,
-      html: `<p><b>${title}</b></p><p>${message}</p><a href="https://yourdomain.com/workspace/workorder/${referenceId}">View Work Order</a>`,
-    });
+    if (user.email) {
+      await transporter.sendMail({
+        from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
+        to: user.email,
+        subject: title,
+        html: `<p><b>${title}</b></p><p>${message}</p><a href="https://pulseworkscmms.vercel.app/#/workspace/workorder/${referenceId}">View Work Order</a>`,
+      });
+    }
 
     // 3. Send Mobile Push (if device token exists)
     if (user.deviceToken) {
       await getMessaging().send({
         token: user.deviceToken,
         notification: { title, body: message },
-        data: { type, referenceId: referenceId || "" },
+        data: { type, referenceId: referenceId ? String(referenceId) : "" },
       });
     }
   } catch (error) {

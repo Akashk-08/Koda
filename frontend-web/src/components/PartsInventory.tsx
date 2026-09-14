@@ -22,6 +22,7 @@ import {
   UploadCloud,
   Bug,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 const getStockStatusColor = (status: any, qty: number, minQty: number) => {
   if (status === "OUT_OF_STOCK" || qty === 0)
@@ -31,16 +32,27 @@ const getStockStatusColor = (status: any, qty: number, minQty: number) => {
 };
 
 const PartsInventory = ({ user }: any) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [parts, setParts] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  
+  // URL State Persistence for Search Query
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
 
   // Modal & Debug States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPart, setSelectedPart] = useState<any | null>(null);
   const [debugMode, setDebugMode] = useState(false); // Diagnostic Tool
   const API_URL = import.meta.env.VITE_API_URL;
+
+  // Sync search query changes back to URL parameters
+  useEffect(() => {
+    const params: any = {};
+    if (searchQuery) params.search = searchQuery;
+    setSearchParams(params, { replace: true });
+  }, [searchQuery, setSearchParams]);
 
   const fetchData = async () => {
     setIsLoading(true);

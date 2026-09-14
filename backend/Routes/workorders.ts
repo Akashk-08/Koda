@@ -4,8 +4,19 @@ import multer from "multer";
 import fs from "fs";
 import { notifyUser } from "../services/notificationService.js";
 import logger from "../utils/logger.js";
+import nodemailer from "nodemailer";
+import redis from "../utils/redis.js"; // Import your Redis cache utility
 
 const router = express.Router();
+
+//  EMAIL TRANSPORTER CONFIGURATION
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 // Helper Functions
 const calculateNextDate = (currentDate: Date, scheduleType: string): Date => {
@@ -47,6 +58,9 @@ router.post("/:id/documents", upload.single("file"), async (req: any, res: any) 
       },
     });
 
+    // Invalidate work order cache
+    await redis.del(`workorders:${req.body.organizationId || "*"}`).catch(() => {});
+
     res.status(201).json(document);
   } catch (error) {
     logger.error(`[WorkOrders] Upload Document Error: ${(error as Error).message || error}`);
@@ -54,7 +68,7 @@ router.post("/:id/documents", upload.single("file"), async (req: any, res: any) 
   }
 });
 
-// 2. Get All Work Orders
+// 2. Get All Work Orders (WITH NON-BLOCKING REDIS CACHING)
 router.get("/", async (req, res) => {
   try {
     const {
@@ -69,6 +83,21 @@ router.get("/", async (req, res) => {
     } = req.query;
 
     if (!orgId) return res.status(400).json({ error: "Organization ID is required" });
+
+    // Generate unique cache key based on query parameters
+    const cacheKey = `workorders:${orgId}:${page}:${limit}:${search}:${status || "ALL"}:${category || "ALL"}:${locationName || "ALL"}:${teamId || "ALL"}`;
+
+    let cachedData = null;
+    try {
+      const data = await redis.get(cacheKey);
+      if (data) cachedData = JSON.parse(data);
+    } catch (redisErr) {
+      // Non-blocking fallback if Redis lags or drops
+    }
+
+    if (cachedData) {
+      return res.json(cachedData);
+    }
 
     const queryConditions: any = { organizationId: String(orgId) };
 
@@ -105,7 +134,7 @@ router.get("/", async (req, res) => {
       }),
     ]);
 
-    res.json({
+    const responsePayload = {
       data: workOrders,
       meta: {
         totalRecords,
@@ -113,7 +142,12 @@ router.get("/", async (req, res) => {
         currentPage: pageNumber,
         limit: limitNumber,
       },
-    });
+    };
+
+    // Store in Redis cache with 60-second expiration
+    await redis.setex(cacheKey, 60, JSON.stringify(responsePayload)).catch(() => {});
+
+    res.json(responsePayload);
   } catch (error: any) {
     logger.error(`[WorkOrders] Fetch All Error: ${error.message || error}`);
     res.status(500).json({ error: "Failed to fetch work orders" });
@@ -126,6 +160,15 @@ router.get("/:id", async (req, res) => {
   try {
     const numericId = parseInt(id);
     if (isNaN(numericId)) return res.status(400).json({ error: "Invalid ID format" });
+
+    const cacheKey = `workorder:single:${numericId}`;
+    let cachedWorkOrder = null;
+    try {
+      const data = await redis.get(cacheKey);
+      if (data) cachedWorkOrder = JSON.parse(data);
+    } catch (e) {}
+
+    if (cachedWorkOrder) return res.status(200).json(cachedWorkOrder);
 
     const workOrder = await prisma.workOrder.findUnique({
       where: { id: numericId },
@@ -142,6 +185,8 @@ router.get("/:id", async (req, res) => {
     });
 
     if (!workOrder) return res.status(404).json({ error: "Work order not found" });
+
+    await redis.setex(cacheKey, 60, JSON.stringify(workOrder)).catch(() => {});
     res.status(200).json(workOrder);
   } catch (error) {
     logger.error(`[WorkOrders] Fetch Single Error: ${(error as Error).message || error}`);
@@ -149,7 +194,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// 4. Create Work Order
+// 4. Create Work Order (WITH CACHE INVALIDATION)
 router.post("/", async (req, res) => {
   const {
     title,
@@ -165,7 +210,7 @@ router.post("/", async (req, res) => {
     dueDate,
     durationHours,
     estimatedHours,
-    siteLocation,
+    locationName,
     parentWorkOrderId,
   } = req.body;
 
@@ -174,6 +219,26 @@ router.post("/", async (req, res) => {
     if (durationHours && !isNaN(parseFloat(durationHours))) parsedHours = parseFloat(durationHours);
     else if (estimatedHours && !isNaN(parseFloat(estimatedHours)))
       parsedHours = parseFloat(estimatedHours);
+
+    let resolvedLocationName = locationName || null;
+    if (resolvedLocationName && organizationId) {
+      try {
+        const allLocations = await prisma.location.findMany({
+          where: { organizationId: String(organizationId) },
+        });
+        const matchedLoc = allLocations.find(
+          (l) =>
+            l.name.toLowerCase() === resolvedLocationName.toLowerCase() ||
+            l.name.toLowerCase().includes(resolvedLocationName.toLowerCase()) ||
+            (l.shortName && l.shortName.toLowerCase() === resolvedLocationName.toLowerCase())
+        );
+        if (matchedLoc) {
+          resolvedLocationName = matchedLoc.name;
+        }
+      } catch (locErr) {
+        logger.warn(`Could not resolve location name: ${(locErr as Error).message}`);
+      }
+    }
 
     let finalAssignee = assignedTo || null;
     let finalAdditionalEmails = additionalAssigneeEmails || null;
@@ -189,7 +254,7 @@ router.post("/", async (req, res) => {
       });
 
       if (routingUsers.length > 0) {
-        const localUsers = routingUsers.filter((u) => u.siteLocation === siteLocation);
+        const localUsers = routingUsers.filter((u) => u.siteLocation === resolvedLocationName);
         const centralUsers = routingUsers.filter(
           (u) =>
             u.siteLocation?.toLowerCase().includes("shop") ||
@@ -231,7 +296,7 @@ router.post("/", async (req, res) => {
         additionalAssigneeEmails: finalAdditionalEmails,
         teamId: finalTeam,
         assetId: assetId || null,
-        locationName: siteLocation || null,
+        locationName: resolvedLocationName,
         parentWorkOrderId: parentWorkOrderId ? parseInt(parentWorkOrderId) : null,
         dueDate: dueDate ? new Date(dueDate) : null,
         estimatedHours: parsedHours,
@@ -239,6 +304,10 @@ router.post("/", async (req, res) => {
       include: { creator: true, assignee: true },
     });
 
+    // Invalidate list cache for this organization
+    await redis.del(`workorders:${organizationId}`).catch(() => {});
+
+    // 1. IN-APP NOTIFICATIONS
     if (newWorkOrder.assignedTo) {
       await notifyUser(
         newWorkOrder.assignedTo,
@@ -247,6 +316,58 @@ router.post("/", async (req, res) => {
         "WORK_ORDER_ASSIGNED",
         String(newWorkOrder.id),
       );
+    }
+    
+    if (finalAdditionalEmails) {
+      const emailList = finalAdditionalEmails.split(",").map(e => e.trim());
+      const additionalUsers = await prisma.user.findMany({
+        where: { email: { in: emailList } }
+      });
+      
+      for (const u of additionalUsers) {
+        await notifyUser(
+          u.id,
+          "New Work Order Assigned",
+          `You have been assigned to a new work order: ${newWorkOrder.title}`,
+          "WORK_ORDER_ASSIGNED",
+          String(newWorkOrder.id),
+        );
+      }
+    }
+
+    // 2. EMAIL NOTIFICATIONS
+    try {
+      let emailsToSend: string[] = [];
+      
+      if (newWorkOrder.assignee?.email) {
+        emailsToSend.push(newWorkOrder.assignee.email);
+      }
+      
+      if (finalAdditionalEmails) {
+        const extraEmails = finalAdditionalEmails.split(",").map(e => e.trim());
+        emailsToSend = [...emailsToSend, ...extraEmails];
+      }
+      
+      if (emailsToSend.length > 0) {
+        const mailOptions = {
+          from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
+          to: emailsToSend,
+          subject: `New Assignment: WO-${newWorkOrder.id} - ${newWorkOrder.title}`,
+          html: `
+            <h3>You have been assigned to a new Work Order</h3>
+            <p><strong>Ticket:</strong> WO-${newWorkOrder.id}</p>
+            <p><strong>Title:</strong> ${newWorkOrder.title}</p>
+            <p><strong>Priority:</strong> ${newWorkOrder.priority}</p>
+            <p><strong>Location:</strong> ${newWorkOrder.locationName || 'Unspecified'}</p>
+            <hr />
+            <p>Please log in to the <a href="https://pulseworkscmms.vercel.app/#/workspace/workorder/${newWorkOrder.id}">Pulseworks CMMS dashboard</a> to view the full details.</p>
+          `,
+        };
+        await transporter.sendMail(mailOptions);
+        logger.info(`Assignment emails dispatched for WO-${newWorkOrder.id}`);
+      }
+    } catch (emailErr) {
+       logger.error(`Failed to dispatch assignment email for WO-${newWorkOrder.id}: ${(emailErr as Error).message}`);
     }
 
     if (createdBy) {
@@ -268,7 +389,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// 5. Update Work Order
+// 5. Update Work Order (WITH CACHE INVALIDATION)
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { actorId, actionLog, ...updateData } = req.body;
@@ -280,6 +401,10 @@ router.put("/:id", async (req, res) => {
       where: { id: parseInt(id) },
       data: updateData,
     });
+
+    // Invalidate individual and general list caches
+    await redis.del(`workorder:single:${id}`).catch(() => {});
+    await redis.del(`workorders:${updatedWorkOrder.organizationId}`).catch(() => {});
 
     if (actorId && actionLog) {
       await prisma.activityLog.create({
@@ -354,15 +479,22 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// 6. Delete Work Order
+// 6. Delete Work Order (WITH CACHE INVALIDATION)
 router.delete("/:id", async (req, res) => {
   try {
     const numericId = parseInt(req.params.id);
     if (isNaN(numericId)) return res.status(400).json({ error: "Invalid ID format" });
 
+    const existingWO = await prisma.workOrder.findUnique({ where: { id: numericId } });
+
     await prisma.workOrder.delete({
       where: { id: numericId },
     });
+
+    if (existingWO) {
+      await redis.del(`workorder:single:${numericId}`).catch(() => {});
+      await redis.del(`workorders:${existingWO.organizationId}`).catch(() => {});
+    }
 
     res.status(204).send();
   } catch (error) {
@@ -379,6 +511,9 @@ router.post("/:id/comments", async (req, res) => {
       data: { text, authorId, workOrderId: parseInt(req.params.id) },
       include: { author: true },
     });
+    
+    await redis.del(`workorder:single:${req.params.id}`).catch(() => {});
+
     res.status(201).json(comment);
   } catch (error) {
     logger.error(`[WorkOrders] Add Comment Error: ${(error as Error).message || error}`);
@@ -394,6 +529,9 @@ router.put("/:id/comments/:commentId", async (req, res) => {
       where: { id: req.params.commentId },
       data: { text },
     });
+
+    await redis.del(`workorder:single:${req.params.id}`).catch(() => {});
+
     res.json(comment);
   } catch (error) {
     logger.error(`[WorkOrders] Update Comment Error: ${(error as Error).message || error}`);
@@ -407,6 +545,9 @@ router.delete("/:id/comments/:commentId", async (req, res) => {
     await prisma.comment.delete({
       where: { id: req.params.commentId },
     });
+
+    await redis.del(`workorder:single:${req.params.id}`).catch(() => {});
+
     res.status(204).send();
   } catch (error) {
     logger.error(`[WorkOrders] Delete Comment Error: ${(error as Error).message || error}`);

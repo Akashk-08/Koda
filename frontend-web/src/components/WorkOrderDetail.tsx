@@ -14,6 +14,7 @@ import {
   Pencil,
   MessageSquare,
   AtSign,
+  Check,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -62,6 +63,21 @@ const WorkOrderDetail = ({ user }: any) => {
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
 
+  // Status Dropdown State
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+
+  //Click outside handler for status menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(event.target as Node)) {
+        setIsStatusMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const activityScrollRef = useRef<HTMLDivElement>(null);
 
@@ -99,7 +115,7 @@ const WorkOrderDetail = ({ user }: any) => {
   useEffect(() => {
     fetchWO();
     if (user?.organizationId) {
-      fetch(`${API_URL}/api/users/${user.organizationId}`)
+      fetch(`${API_URL}/api/users?orgId=${user.organizationId}`)
         .then((res) => res.json())
         .then(setOrgUsers);
       fetch(`${API_URL}/api/assets?orgId=${user.organizationId}`)
@@ -279,8 +295,57 @@ const WorkOrderDetail = ({ user }: any) => {
     }
   };
 
-  const handleStatusChange = async (status: string) => {
-    await handleInlineUpdate("status", status, `changed status to ${status.replace("_", " ")}`);
+  const handleStatusChangeOptimistic = async (newStatus: string) => {
+    setIsStatusMenuOpen(false);
+    if (wo.status === newStatus) return;
+
+    const prevStatus = wo.status;
+    setWo({ ...wo, status: newStatus });
+
+    try {
+      const res = await fetch(`${API_URL}/api/workorders/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: newStatus,
+          actorId: user.id,
+          actionLog: `changed status to ${newStatus.replace("_", " ")}`,
+        }),
+      });
+      
+      if (res.ok) {
+        fetchWO();
+      } else {
+        throw new Error("Backend failed");
+      }
+    } catch (err) {
+      setWo({ ...wo, status: prevStatus });
+      alert("Failed to update status");
+    }
+  };
+
+  const STATUS_UI: any = {
+    OPEN: { 
+      label: 'Open', 
+      buttonClasses: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100', 
+      menuItemClasses: 'text-blue-700 bg-blue-50 hover:bg-blue-100', 
+      dotClass: 'bg-blue-500',
+      textClass: 'text-blue-500'
+    },
+    COMPLETE: { 
+      label: 'Complete', 
+      buttonClasses: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100', 
+      menuItemClasses: 'text-green-700 bg-green-50 hover:bg-green-100', 
+      dotClass: 'bg-green-500',
+      textClass: 'text-green-500'
+    },
+    CLOSED: { 
+      label: 'Closed', 
+      buttonClasses: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100', 
+      menuItemClasses: 'text-red-700 bg-red-50 hover:bg-red-100', 
+      dotClass: 'bg-red-500',
+      textClass: 'text-red-500'
+    },
   };
 
   const handlePostComment = async () => {
@@ -389,7 +454,6 @@ const WorkOrderDetail = ({ user }: any) => {
       if (part.startsWith("@")) {
         const mentionName = part.substring(1).trim().toLowerCase();
 
-        // Attempt to find the user in the orgUsers list
         const taggedUser = orgUsers.find(
           (u) =>
             `${u.firstName} ${u.lastName}`.toLowerCase() === mentionName ||
@@ -408,7 +472,6 @@ const WorkOrderDetail = ({ user }: any) => {
           );
         }
 
-        // Fallback if not an exact match but still formatted as a tag
         return (
           <span
             key={i}
@@ -430,12 +493,9 @@ const WorkOrderDetail = ({ user }: any) => {
     );
   if (!wo) return <div className="p-8 text-gray-500">Work Order not found</div>;
 
-  const isCompleted = wo.status === "COMPLETE" || wo.status === "CLOSED";
-
   return (
-    // Responsive dynamic height container
     <div className="flex flex-col h-full flex-1 bg-gray-50 font-sans overflow-hidden">
-      {/* HEADER - Fixed at top */}
+      {/* HEADER */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between shrink-0 shadow-sm relative z-10">
         <div className="flex items-center gap-3">
           <button
@@ -448,21 +508,47 @@ const WorkOrderDetail = ({ user }: any) => {
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            value={wo.status}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            className={`flex items-center px-3 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-xs md:text-sm cursor-pointer outline-none border transition-colors ${
-              isCompleted
-                ? "bg-green-50 text-green-700 border-green-200"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            <option value="OPEN">Open</option>
-            <option value="COMPLETE">Complete</option>
-            <option value="CLOSED">Closed</option>
-          </select>
+          <div className="relative" ref={statusMenuRef}>
+            <button
+              onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
+              className={`inline-flex items-center justify-between w-36 px-4 py-2.5 rounded-full font-bold text-xs md:text-sm border transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${STATUS_UI[wo.status]?.buttonClasses || STATUS_UI.OPEN.buttonClasses}`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className={`w-2 h-2 rounded-full shadow-sm ${STATUS_UI[wo.status]?.dotClass || STATUS_UI.OPEN.dotClass}`}></span>
+                {STATUS_UI[wo.status]?.label || 'Open'}
+              </div>
+              <svg className={`w-4 h-4 ml-2 opacity-70 transition-transform duration-200 ${isStatusMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
 
-          {/* TOGGLE COMMENTS BUTTON (Mobile Only) */}
+            {isStatusMenuOpen && (
+              <div className="absolute right-0 z-50 w-44 mt-2 origin-top-right bg-white border border-gray-100 rounded-2xl shadow-xl ring-1 ring-black/5 focus:outline-none p-1.5 animate-in fade-in zoom-in-95 duration-100">
+                <div className="flex flex-col gap-1">
+                  {Object.keys(STATUS_UI).map((key) => {
+                    const isSelected = wo.status === key;
+                    const ui = STATUS_UI[key];
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleStatusChangeOptimistic(key)}
+                        className={`flex items-center justify-between w-full px-3 py-2.5 text-sm rounded-xl transition-all group ${isSelected ? ui.menuItemClasses + ' font-bold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className={`w-2 h-2 rounded-full transition-colors ${isSelected ? ui.dotClass : 'bg-transparent border border-gray-300 group-hover:border-gray-400'}`}></span>
+                          {ui.label}
+                        </div>
+                        {isSelected && (
+                          <Check className={`w-4 h-4 ${ui.textClass}`} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => setIsActivityOpen(!isActivityOpen)}
             className="md:hidden p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 relative flex items-center gap-1.5 font-bold text-xs shadow-sm hover:bg-blue-100 transition-colors"
@@ -479,7 +565,6 @@ const WorkOrderDetail = ({ user }: any) => {
 
       {/* MAIN LAYOUT WRAPPER */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* CENTER CONTENT (Hidden on mobile when activity is open) */}
         <div
           className={`flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200 transition-all ${isActivityOpen ? "hidden md:flex" : "flex"}`}
         >
@@ -562,9 +647,11 @@ const WorkOrderDetail = ({ user }: any) => {
               <div className="max-w-3xl">
                 <h3 className="text-base font-bold text-gray-900 mb-4">Details</h3>
                 <div className="border border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-100 shadow-sm">
+                  
+                  {/* FIXED LOCATION SELECT FIELD */}
                   <EditableRow label="LOCATION">
                     <select
-                      value={wo.locationName || ""}
+                      value={wo.locationName || wo.location || ""}
                       onChange={(e) =>
                         handleInlineUpdate(
                           "locationName",
@@ -604,7 +691,6 @@ const WorkOrderDetail = ({ user }: any) => {
                     </select>
                   </EditableRow>
 
-                  {/* MULTI-SELECT ASSIGNEE COMPONENT */}
                   <EditableRow label="ASSIGNEES">
                     <div className="relative w-full" ref={assigneesRef}>
                       <div
@@ -651,12 +737,6 @@ const WorkOrderDetail = ({ user }: any) => {
                                 {u.firstName} {u.lastName}
                               </button>
                             ))}
-                          {orgUsers.filter((u) => !selectedAssignees.some((a) => a.id === u.id))
-                            .length === 0 && (
-                            <div className="px-4 py-2 text-xs text-gray-400 italic">
-                              No additional users available
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
@@ -936,7 +1016,6 @@ const WorkOrderDetail = ({ user }: any) => {
         <div
           className={`flex flex-col bg-gray-50 shrink-0 border-l border-gray-200 transition-all duration-300 ease-in-out h-full overflow-hidden ${isActivityOpen ? "w-full md:w-[380px]" : "w-0 border-l-0"}`}
         >
-          {/* Sidebar Header */}
           <div className="px-4 py-4 border-b border-gray-200 bg-white shrink-0 flex items-center justify-between h-14 w-full md:w-[380px]">
             <div className="flex items-center">
               <button
@@ -957,7 +1036,6 @@ const WorkOrderDetail = ({ user }: any) => {
             </button>
           </div>
 
-          {/* Activity Scroll Area */}
           <div
             ref={activityScrollRef}
             className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 w-full md:w-[380px] bg-gray-50 pb-6"
@@ -1006,9 +1084,7 @@ const WorkOrderDetail = ({ user }: any) => {
             )}
           </div>
 
-          {/* COMMENT INPUT & MENTIONS POPUP - FIXED AT BOTTOM */}
           <div className="p-3 bg-white border-t border-gray-200 shrink-0 w-full md:w-[380px] relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            {/* TAGGING / MENTIONS DROPDOWN POPUP */}
             {showMentions && (
               <div className="absolute bottom-full left-3 right-3 mb-2 bg-white border border-gray-200 shadow-2xl rounded-2xl overflow-hidden z-50 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-wider">

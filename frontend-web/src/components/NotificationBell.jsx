@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -21,20 +21,26 @@ export default function NotificationBell({ user }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch notifications on mount and poll every 60 seconds
+  // Fetch notifications on mount and poll every 30 seconds
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id && !user?.email) return;
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
+    const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [user]);
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/notifications/${user.id}`);
+      let res = await fetch(`${API_URL}/api/notifications/${user.id}`);
       if (res.ok) {
-        const data = await res.json();
-        setNotifications(data);
+        let data = await res.json();
+        if ((!data || data.length === 0) && user?.email) {
+          const emailRes = await fetch(`${API_URL}/api/notifications/email/${user.email}`);
+          if (emailRes.ok) {
+            data = await emailRes.json();
+          }
+        }
+        setNotifications(data || []);
       }
     } catch (err) {
       console.error("Failed to fetch notifications", err);
@@ -55,8 +61,24 @@ export default function NotificationBell({ user }) {
     }
   };
 
+  const markAllAsRead = async () => {
+    try {
+      const targetId = user?.id;
+      if (!targetId) return;
+
+      const res = await fetch(`${API_URL}/api/notifications/user/${targetId}/read-all`, {
+        method: 'PUT'
+      });
+
+      if (res.ok) {
+        setNotifications([]); // Clear list immediately
+      }
+    } catch (err) {
+      console.error("Failed to mark all notifications as read", err);
+    }
+  };
+
   const handleBellClick = () => {
-    // If mobile screen, navigate to page. If desktop, toggle dropdown.
     if (window.innerWidth < 768) {
       navigate('/workspace/notifications');
       setIsOpen(false);
@@ -83,15 +105,28 @@ export default function NotificationBell({ user }) {
         )}
       </button>
 
-      {/* Desktop Dropdown Menu (Hidden entirely on mobile logic) */}
+      {/* Desktop Dropdown Menu */}
       {isOpen && window.innerWidth >= 768 && (
         <div className="absolute right-0 mt-3 w-80 bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 overflow-hidden origin-top-right transition-all">
           <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-            <span className="font-extrabold text-gray-900">Notifications</span>
-            {unreadCount > 0 && (
-              <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                {unreadCount} New
-              </span>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-gray-900">Notifications</span>
+              {unreadCount > 0 && (
+                <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                  {unreadCount} New
+                </span>
+              )}
+            </div>
+
+            {/* Clear All / Mark All as Read Button */}
+            {notifications.length > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="text-xs font-bold text-gray-500 hover:text-blue-600 flex items-center gap-1 transition-colors px-2 py-1 rounded-md hover:bg-blue-50"
+                title="Mark all as read"
+              >
+                <CheckCheck className="w-3.5 h-3.5" /> Clear All
+              </button>
             )}
           </div>
 

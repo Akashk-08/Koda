@@ -18,12 +18,24 @@ router.get("/", async (req, res) => {
       whereClause.barcode = String(barcode);
     }
 
-    // Filter securely by location for restricted site users
+    // Filter securely by location supporting multi-location comma-separated strings (e.g. for site users like Alex)
     if (locationName && locationName !== "ALL") {
-      whereClause.locationName = {
-        contains: String(locationName),
-        mode: "insensitive",
-      };
+      const locStr = String(locationName).trim();
+      if (locStr.includes(",")) {
+        // Split comma-separated locations and match any of them
+        const locationsArray = locStr.split(",").map((l) => l.trim()).filter(Boolean);
+        whereClause.OR = locationsArray.map((loc) => ({
+          locationName: {
+            contains: loc,
+            mode: "insensitive",
+          },
+        }));
+      } else {
+        whereClause.locationName = {
+          contains: locStr,
+          mode: "insensitive",
+        };
+      }
     }
 
     const assets = await prisma.asset.findMany({

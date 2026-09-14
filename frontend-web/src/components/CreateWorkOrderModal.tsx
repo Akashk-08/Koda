@@ -75,7 +75,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
   >([]);
   const [partSearch, setPartSearch] = useState("");
 
-  // Start with an EMPTY array for tasks
   const [tasks, setTasks] = useState<{ id: number; text: string; completed: boolean }[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -101,17 +100,19 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
   const partsRef = useRef<HTMLDivElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+useEffect(() => {
     if (isOpen) {
       if (preSelectedAsset) setSelectedAssetId(preSelectedAsset.id);
       if (!isFullAccess) {
         setStartDate(new Date().toISOString().slice(0, 16));
-        setSiteLocation(user?.siteLocation || "");
+        // Take only the first location if multiple are listed in the user profile
+        const rawLoc = user?.siteLocation || "";
+        const cleanLoc = rawLoc.includes(",") ? rawLoc.split(",")[0].trim() : rawLoc;
+        setSiteLocation(cleanLoc);
       }
     }
   }, [isOpen, preSelectedAsset, isFullAccess, user]);
 
-  // Auto-generate title using shortName for Restricted Users
   useEffect(() => {
     if (!isFullAccess && category) {
       const locationObj = orgLocations.find((l) => l.name?.trim() === siteLocation?.trim());
@@ -204,12 +205,25 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
     if (!customRequestSubject.trim() && !isFullAccess)
       return alert("Please specify the subject/issue of your request.");
 
-    // MANDATORY TEAM VALIDATION
     if (!selectedTeamId) return alert("Please select an Operational Team.");
 
     setIsSubmitting(true);
 
     try {
+      // PRECISE LOCATION RESOLUTION: Match exact full name from orgLocations list
+      let finalLocationName = siteLocation;
+      if (siteLocation && orgLocations.length > 0) {
+        const matchedLoc = orgLocations.find(
+          (loc) =>
+            loc.name.toLowerCase() === siteLocation.trim().toLowerCase() ||
+            loc.name.toLowerCase().startsWith(siteLocation.trim().toLowerCase() + " -") ||
+            loc.name.toLowerCase().includes(siteLocation.trim().toLowerCase())
+        );
+        if (matchedLoc) {
+          finalLocationName = matchedLoc.name;
+        }
+      }
+
       const additionalEmails =
         selectedAssignees.length > 1
           ? selectedAssignees
@@ -229,7 +243,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         additionalAssigneeEmails: additionalEmails,
         teamId: selectedTeamId || null,
         assetId: selectedAssetId || null,
-        siteLocation,
+        locationName: finalLocationName, // USES RESOLVED FULL LOCATION NAME
         startDate: startDate ? new Date(startDate).toISOString() : null,
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
         durationHours: duration ? parseFloat(duration) : null,
@@ -237,7 +251,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         parts: selectedParts,
         tasks,
       };
-
+      
       const response = await fetch(`${API_URL}/api/workorders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -259,7 +273,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
           }
         }
 
-        // Reset form
         setTitle("");
         setCustomRequestSubject("");
         setDescription("");
@@ -275,7 +288,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         setSelectedTeamId("");
         setSelectedParts([]);
         setAttachedFiles([]);
-        setTasks([]); // Tasks correctly reset to empty
+        setTasks([]);
         setSelectedParentWo(null);
 
         onCreated();
@@ -347,7 +360,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-gray-900/60 backdrop-blur-md md:p-4 animate-in fade-in duration-200">
       <div className="bg-gray-50 text-gray-900 w-full max-w-4xl rounded-t-[32px] md:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden border border-gray-200">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 md:px-8 py-5 bg-white border-b border-gray-200 shrink-0">
           <div>
             <h2 className="text-xl md:text-2xl font-black tracking-tight text-gray-900">
@@ -367,10 +379,8 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
           </button>
         </div>
 
-        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
           <div className="bg-white p-5 md:p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
-            {/* 1. CATEGORY SELECTION (ALWAYS VISIBLE) */}
             <SectionHeader title="Request Type" icon={FileText} />
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
@@ -396,10 +406,8 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
               </select>
             </div>
 
-            {/* ONLY SHOW REST OF FORM IF CATEGORY IS SELECTED OR USER HAS FULL ACCESS */}
             {(category || isFullAccess) && (
               <>
-                {/* DYNAMIC TITLE FIELD */}
                 {isFullAccess ? (
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
@@ -440,7 +448,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                   </div>
                 )}
 
-                {/* PRIORITY & DESCRIPTION */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className={!isFullAccess ? "hidden" : ""}>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
@@ -472,7 +479,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                   />
                 </div>
 
-                {/* 2. JOB SPECIFICATION */}
                 <SectionHeader title="Job Specification" icon={Settings} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="relative" ref={locationRef}>
@@ -555,7 +561,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                   </div>
                 </div>
 
-                {/* 3. SCHEDULE */}
                 {isFullAccess && (
                   <>
                     <SectionHeader title="Schedule" icon={Calendar} />
@@ -603,12 +608,10 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                   </>
                 )}
 
-                {/* 4. ASSIGNMENT (Visible to all, but restricted for non-admins) */}
                 <SectionHeader title="Assignment" icon={Users} />
                 <div
                   className={`grid grid-cols-1 gap-5 ${isFullAccess ? "md:grid-cols-3" : "md:grid-cols-2"}`}
                 >
-                  {/* AUTHOR (Visible to all) */}
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
                       Author
@@ -618,7 +621,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                     </div>
                   </div>
 
-                  {/* OPERATIONAL TEAM (Visible to all) */}
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
                       Operational Team <span className="text-red-500">*</span>
@@ -638,7 +640,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                     </select>
                   </div>
 
-                  {/* ASSIGNEES MULTI-SELECT (Visible ONLY to Admins/Full Access) */}
                   {isFullAccess && (
                     <div className="relative" ref={assigneesRef}>
                       <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
@@ -715,7 +716,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                   )}
                 </div>
 
-                {/* 5. PARTS & INVENTORY */}
                 {(!isFullAccess && category === "PARTS_REQUEST") || isFullAccess ? (
                   <>
                     <SectionHeader title="Inventory & Parts" icon={Box} />
@@ -805,7 +805,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                   </>
                 ) : null}
 
-                {/* 6. TASKS & ATTACHMENTS */}
                 <SectionHeader title="Tasks & Attachments" icon={Wrench} />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -898,7 +897,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                   </div>
                 </div>
 
-                {/* Parent Linking */}
                 <div className="border-t border-gray-100 pt-6 mt-6" ref={parentWoRef}>
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
                     Link to Parent Work Order (Optional)
@@ -967,7 +965,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end px-6 md:px-8 py-5 bg-white border-t border-gray-200 gap-3 pb-8 md:pb-5">
           <button
             onClick={onClose}
