@@ -1,10 +1,96 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Wrench, ShieldCheck, Key, User as UserIcon } from 'lucide-react';
+import { Plus, Wrench, ShieldCheck, Key, User as UserIcon, Download, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
 // Use the dynamic environment variable instead of a hardcoded IP
 const API_URL = import.meta.env.VITE_API_URL;
+
+// Admin CSV Export Dropdown Component
+const ExportDataButton = ({ user }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const closeMenu = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", closeMenu);
+    return () => document.removeEventListener("mousedown", closeMenu);
+  }, []);
+
+  // Only render for administrators
+  if (user?.role !== "ADMIN") return null;
+
+  const handleDownload = async (entityType) => {
+    setIsExporting(true);
+    setIsOpen(false);
+    try {
+      const response = await fetch(
+        `${API_URL}/api/export/csv?orgId=${user.organizationId}&type=${entityType}`
+      );
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${entityType}_export_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      alert("Failed to export data. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={isExporting}
+        className="flex items-center gap-2 px-3.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold text-xs rounded-xl shadow-sm transition-all"
+      >
+        <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+        <span>{isExporting ? "Exporting..." : "Export CSV"}</span>
+        <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1 text-xs">
+          <div className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400 border-b border-gray-100">
+            Select Dataset
+          </div>
+          <button
+            onClick={() => handleDownload("workorders")}
+            className="w-full text-left px-3.5 py-2.5 hover:bg-gray-50 flex items-center justify-between font-medium text-gray-700"
+          >
+            <span>Work Orders</span>
+            <Download className="w-3.5 h-3.5 text-gray-400" />
+          </button>
+          <button
+            onClick={() => handleDownload("assets")}
+            className="w-full text-left px-3.5 py-2.5 hover:bg-gray-50 flex items-center justify-between font-medium text-gray-700"
+          >
+            <span>Assets</span>
+            <Download className="w-3.5 h-3.5 text-gray-400" />
+          </button>
+          <button
+            onClick={() => handleDownload("inventory")}
+            className="w-full text-left px-3.5 py-2.5 hover:bg-gray-50 flex items-center justify-between font-medium text-gray-700"
+          >
+            <span>Parts Inventory</span>
+            <Download className="w-3.5 h-3.5 text-gray-400" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -51,8 +137,10 @@ const Header = ({ user, onSignOut, onOpenWOModal, onSwitchUser }) => {
 
   return (
     <header className="h-14 border-b flex items-center justify-between px-4 md:px-6 shrink-0 relative z-20 bg-white">
-      {/* Empty placeholder or brand spacer */}
-      <div></div>
+      {/* CSV Export Button placed in the previously empty left space */}
+      <div className="flex items-center">
+        <ExportDataButton user={user} />
+      </div>
 
       <div className="flex items-center space-x-3 ml-auto">
 

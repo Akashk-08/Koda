@@ -19,14 +19,8 @@ import {
 } from 'lucide-react';
 
 const CATEGORIES = [
-  { label: "Annual PM", value: "ANNUAL_PREVENTIVE_MAINTENANCE" },
-  { label: "Assets", value: "ASSETS" },
-  { label: "Large Damage", value: "LARGE_DAMAGE" },
   { label: "Part Request", value: "PARTS_REQUEST" },
-  { label: "Project/Upgrade", value: "PROJECT_UPGRADE" },
-  { label: "Six months PM", value: "SIX_MONTH_PREVENTIVE_MAINTENANCE" },
-  { label: "Support Request", value: "SUPPORT_REQUEST" },
-  { label: "Checklists", value: "WEEKLY_MONTHLY_CHECKLISTS" },
+  { label: "Technical Support Request", value: "Technical SUPPORT_REQUEST" },
 ];
 
 const AccessRequests = ({ user }) => {

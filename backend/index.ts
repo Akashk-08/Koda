@@ -20,6 +20,9 @@ import rateLimit from "express-rate-limit";
 import logger from "./utils/logger.js";
 import logRoutes from "./Routes/logs.js";
 import analyticsRouter from "./Routes/analytics.js";
+import exportRoutes from "./Routes/export.js";
+import categoryRoutes from "./Routes/categories.js";
+import machineRoutes from "./Routes/machines.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -442,6 +445,9 @@ app.use("/api/assets", assetRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/notifications", notificationRoutes); // MOUNTED NOTIFICATIONS ROUTER
 app.use("/api/analytics", analyticsRouter);
+app.use("/api/export", exportRoutes);
+app.use("/api/equipment-categories", categoryRoutes);
+app.use("/api/machine-types", machineRoutes);
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error(

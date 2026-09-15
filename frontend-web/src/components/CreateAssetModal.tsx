@@ -20,12 +20,30 @@ import {
   Cpu,
   Network,
   Sparkles,
-  Info,
+  Plus,
+  Layers,
+  Eye,
 } from "lucide-react";
 
 const CATEGORIES = ["ASSETS", "LARGE_DAMAGE"];
-const MACHINE_TYPES = ["4DX", "DITO", "VRT", "PSB", "MX4D"];
 const API_URL = import.meta.env.VITE_API_URL;
+
+const DEFAULT_SUB_CATEGORIES = [
+  { key: "PC", label: "PC / Computer", icon: Monitor },
+  { key: "HEADSET", label: "VR Headset", icon: Headset },
+  { key: "MACHINE", label: "Machine / Motion", icon: Cpu },
+  { key: "MAT_VR", label: "Mat VR", icon: Eye },
+  { key: "VR_ARENA", label: "VR Arena", icon: Layers },
+  { key: "GENERAL", label: "General Asset", icon: Box },
+];
+
+const DEFAULT_MACHINE_TYPES = [
+  { id: "m-4dx", name: "4DX" },
+  { id: "m-dito", name: "DITO" },
+  { id: "m-vrt", name: "VRT" },
+  { id: "m-psb", name: "PSB" },
+  { id: "m-mx4d", name: "MX4D" },
+];
 
 const CreateAssetModal = ({
   isOpen,
@@ -40,15 +58,25 @@ const CreateAssetModal = ({
   const [locations, setLocations] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Sub-Category Selection (Now mapped directly to the database)
-  const [assetSubtype, setAssetSubtype] = useState<
-    "PC" | "HEADSET" | "MACHINE" | "MAT_VR" | "VR_ARENA" | "GENERAL"
-  >("PC");
+  // Dynamic Sub-Categories State
+  const [customCategories, setCustomCategories] = useState<any[]>([]);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+
+  // Dynamic Machine Simulator Unit State
+  const [customMachineTypes, setCustomMachineTypes] = useState<any[]>([]);
+  const [isAddingMachineType, setIsAddingMachineType] = useState(false);
+  const [newMachineTypeName, setNewMachineTypeName] = useState("");
+  const [isSavingMachineType, setIsSavingMachineType] = useState(false);
+
+  // Sub-Category Selection
+  const [assetSubtype, setAssetSubtype] = useState<string>("PC");
 
   // Specific Sub-type fields
   const [selectedPcType, setSelectedPcType] = useState("");
   const [selectedHeadsetModel, setSelectedHeadsetModel] = useState("");
-  const [selectedMachineType, setSelectedMachineType] = useState(MACHINE_TYPES[0]);
+  const [selectedMachineType, setSelectedMachineType] = useState("4DX");
   const [serverIp, setServerIp] = useState("");
 
   // Dedicated VR Preset state
@@ -60,7 +88,7 @@ const CreateAssetModal = ({
     model: "",
     serialNumber: "",
     barcode: "",
-    category: "ASSETS", // Primary Financial Category
+    category: "ASSETS",
     locationName: "",
     status: "OPERATIONAL",
     uptime: "100%",
@@ -68,7 +96,125 @@ const CreateAssetModal = ({
     reliabilityScore: "A+",
   });
 
-  // Ensure default selections are set when the dynamic arrays load
+  const isAdmin = user?.role === "ADMIN";
+  const currentOrgId = user?.organizationId || user?.orgId || user?.organization_id;
+
+  // Fetch only active custom categories & machine types from DB
+  const fetchCustomData = async () => {
+    if (!currentOrgId) return;
+    try {
+      const [catRes, machRes] = await Promise.all([
+        fetch(`${API_URL}/api/equipment-categories?orgId=${currentOrgId}&activeOnly=true`),
+        fetch(`${API_URL}/api/machine-types?orgId=${currentOrgId}&activeOnly=true`),
+      ]);
+
+      if (catRes.ok) {
+        const catData = await catRes.json();
+        const activeOnly = Array.isArray(catData)
+          ? catData.filter((c: any) => c.isActive !== false)
+          : [];
+        setCustomCategories(activeOnly);
+      }
+
+      if (machRes.ok) {
+        const machData = await machRes.json();
+        const activeMachines = Array.isArray(machData)
+          ? machData.filter((m: any) => m.isActive !== false)
+          : [];
+        setCustomMachineTypes(activeMachines);
+      }
+    } catch (err) {
+      console.error("Failed to load asset templates:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchCustomData();
+    }
+  }, [isOpen, currentOrgId]);
+
+  const allSubCategories = [
+    ...DEFAULT_SUB_CATEGORIES,
+    ...customCategories.map((c) => ({
+      key: c.key,
+      label: c.name,
+      icon: Box,
+    })),
+  ];
+
+  const allMachineUnits = [...DEFAULT_MACHINE_TYPES, ...customMachineTypes];
+
+  // Handle Admin creating a new sub-category directly from modal
+  const handleCreateNewCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim() || !currentOrgId) return;
+
+    setIsSavingCategory(true);
+    try {
+      const res = await fetch(`${API_URL}/api/equipment-categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: currentOrgId,
+          name: newCategoryName.trim(),
+          role: user?.role || "ADMIN",
+        }),
+      });
+
+      if (res.ok) {
+        const created = await res.json();
+        setCustomCategories((prev) => [...prev, created]);
+        setAssetSubtype(created.key);
+        setNewCategoryName("");
+        setIsAddingCategory(false);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "Failed to create equipment category");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error creating category");
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  // Handle Admin creating a new Machine Simulator Unit directly from modal
+  const handleCreateNewMachineType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMachineTypeName.trim() || !currentOrgId) return;
+
+    setIsSavingMachineType(true);
+    try {
+      const res = await fetch(`${API_URL}/api/machine-types`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: currentOrgId,
+          name: newMachineTypeName.trim(),
+          role: user?.role || "ADMIN",
+        }),
+      });
+
+      if (res.ok) {
+        const created = await res.json();
+        setCustomMachineTypes((prev) => [...prev, created]);
+        setSelectedMachineType(created.name);
+        setNewMachineTypeName("");
+        setIsAddingMachineType(false);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "Failed to create machine unit");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error creating machine unit");
+    } finally {
+      setIsSavingMachineType(false);
+    }
+  };
+
   useEffect(() => {
     if (pcTracker.length > 0 && !selectedPcType) setSelectedPcType(pcTracker[0].label);
     if (headsetTracker.length > 0 && !selectedHeadsetModel)
@@ -77,9 +223,9 @@ const CreateAssetModal = ({
 
   useEffect(() => {
     const fetchLocations = async () => {
-      if (isOpen && user?.organizationId) {
+      if (isOpen && currentOrgId) {
         try {
-          const res = await fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`);
+          const res = await fetch(`${API_URL}/api/locations?orgId=${currentOrgId}`);
           if (res.ok) {
             const locData = await res.json();
             const locationNames = locData.map((l: any) => l.name);
@@ -91,15 +237,13 @@ const CreateAssetModal = ({
       }
     };
     fetchLocations();
-  }, [isOpen, user?.organizationId]);
+  }, [isOpen, currentOrgId]);
 
-  // HELPER: Auto-Increment the S/N and format the Asset Name
   const generateNextAssetDetails = (trackerObj: any) => {
     if (!trackerObj) return { serial: "", name: "" };
 
     let nextSerial = trackerObj.prefix || "";
 
-    // Auto increment logic (e.g. VC171 -> VC172)
     if (trackerObj.lastUsed) {
       const match = trackerObj.lastUsed.match(/(\d+)$/);
       if (match) {
@@ -117,7 +261,6 @@ const CreateAssetModal = ({
     const format = trackerObj.assetName || trackerObj.brand || trackerObj.model || "";
     let finalName = "";
 
-    // If they kept "###" in the template, replace it. Otherwise, safely append the serial to the end.
     if (format.includes("###")) {
       const numMatch = nextSerial.match(/(\d+)$/);
       const nums = numMatch ? numMatch[1] : "001";
@@ -129,7 +272,6 @@ const CreateAssetModal = ({
     return { serial: nextSerial, name: finalName };
   };
 
-  // When Sub-type changes, auto-format template values
   useEffect(() => {
     if (assetSubtype === "PC") {
       const pcObj = pcTracker.find((p: any) => p.label === selectedPcType) || pcTracker[0];
@@ -162,10 +304,11 @@ const CreateAssetModal = ({
         serialNumber: "",
       }));
     } else {
+      const customMatch = customCategories.find((c) => c.key === assetSubtype);
       setFormData((prev) => ({
         ...prev,
-        model: "",
-        name: "",
+        model: customMatch ? customMatch.name : "",
+        name: customMatch ? `${customMatch.name} Unit` : "",
         serialNumber: "",
       }));
     }
@@ -176,9 +319,9 @@ const CreateAssetModal = ({
     selectedMachineType,
     pcTracker,
     headsetTracker,
+    customCategories,
   ]);
 
-  // Helper: Find site preset config based on the dynamic vrConfigs array
   const currentSiteConfig = vrPresetSite
     ? vrConfigs.find((c: any) => c.site === vrPresetSite)
     : null;
@@ -206,7 +349,6 @@ const CreateAssetModal = ({
         finalDescription = `${finalDescription ? `${finalDescription}\n` : ""}Server IP: ${serverIp}`;
       }
 
-      // We explicitly pass the assetSubtype down to the API here!
       const payload = {
         name: formData.name,
         description: finalDescription || null,
@@ -214,13 +356,13 @@ const CreateAssetModal = ({
         serialNumber: formData.serialNumber || null,
         barcode: formData.barcode || null,
         category: formData.category || "ASSETS",
-        subCategory: assetSubtype, // NEW FIELD ADDED HERE
+        subCategory: assetSubtype,
         locationName: formData.locationName || null,
         status: formData.status,
         uptime: formData.uptime || "100%",
         downtime: formData.downtime || "0 hrs",
         reliabilityScore: formData.reliabilityScore || "A+",
-        organizationId: user.organizationId,
+        organizationId: currentOrgId,
       };
 
       const res = await fetch(`${API_URL}/api/assets`, {
@@ -230,7 +372,6 @@ const CreateAssetModal = ({
       });
 
       if (res.ok) {
-        // Auto-update the tracker table's "Last Used S/N" with the serial number we just successfully created!
         if (assetSubtype === "PC") {
           const pcObj = pcTracker.find((p: any) => p.label === selectedPcType);
           if (pcObj && formData.serialNumber) {
@@ -258,6 +399,10 @@ const CreateAssetModal = ({
         });
         setServerIp("");
         setVrPresetSite("");
+        setIsAddingCategory(false);
+        setNewCategoryName("");
+        setIsAddingMachineType(false);
+        setNewMachineTypeName("");
         onCreated();
         onClose();
       } else {
@@ -307,84 +452,81 @@ const CreateAssetModal = ({
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6 sm:p-8 space-y-6 custom-scrollbar">
-            {/* 1. ASSET SUB-TYPE SELECTOR TABS */}
+            {/* 1. ASSET SUB-TYPE SELECTOR TABS WITH DATABASE-DRIVEN ITEMS */}
             <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm space-y-3">
-              <label className={labelClasses}>
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Select Equipment Sub-Category
-              </label>
-              <div className="flex flex-wrap gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setAssetSubtype("PC")}
-                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs transition-all border-2 ${
-                    assetSubtype === "PC"
-                      ? "bg-blue-50/80 border-blue-600 text-blue-900 shadow-sm"
-                      : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <Monitor className="w-4 h-4" /> PC / Computer
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAssetSubtype("HEADSET")}
-                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs transition-all border-2 ${
-                    assetSubtype === "HEADSET"
-                      ? "bg-purple-50/80 border-purple-600 text-purple-900 shadow-sm"
-                      : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <Headset className="w-4 h-4" /> VR Headset
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAssetSubtype("MACHINE")}
-                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs transition-all border-2 ${
-                    assetSubtype === "MACHINE"
-                      ? "bg-orange-50/80 border-orange-600 text-orange-900 shadow-sm"
-                      : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <Cpu className="w-4 h-4" /> Machine / Motion
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAssetSubtype("MAT_VR")}
-                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs transition-all border-2 ${
-                    assetSubtype === "MAT_VR"
-                      ? "bg-teal-50/80 border-teal-600 text-teal-900 shadow-sm"
-                      : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <Box className="w-4 h-4" /> Mat VR
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAssetSubtype("VR_ARENA")}
-                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs transition-all border-2 ${
-                    assetSubtype === "VR_ARENA"
-                      ? "bg-indigo-50/80 border-indigo-600 text-indigo-900 shadow-sm"
-                      : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <Settings className="w-4 h-4" /> VR Arena
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAssetSubtype("GENERAL")}
-                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs transition-all border-2 ${
-                    assetSubtype === "GENERAL"
-                      ? "bg-gray-100 border-gray-600 text-gray-900 shadow-sm"
-                      : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  <Box className="w-4 h-4" /> General Asset
-                </button>
+              <div className="flex items-center justify-between">
+                <label className={labelClasses}>
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Select Equipment Sub-Category
+                </label>
               </div>
+
+              <div className="flex flex-wrap gap-2.5">
+                {allSubCategories.map((item) => {
+                  const Icon = item.icon;
+                  const isSelected = assetSubtype === item.key;
+
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setAssetSubtype(item.key)}
+                      className={`min-w-[120px] flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-black text-xs transition-all border-2 ${
+                        isSelected
+                          ? "bg-blue-50/80 border-blue-600 text-blue-900 shadow-sm"
+                          : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+
+                {/* ADMIN-ONLY "+ ADD ITEM" FOR CATEGORIES */}
+                {isAdmin && !isAddingCategory && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCategory(true)}
+                    className="min-w-[120px] flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl font-black text-xs border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50/40 text-gray-500 hover:text-blue-600 transition-all"
+                  >
+                    <Plus className="w-4 h-4" /> Add Item
+                  </button>
+                )}
+              </div>
+
+              {/* INLINE ADMIN FORM TO SAVE NEW EQUIPMENT CATEGORY */}
+              {isAdmin && isAddingCategory && (
+                <div className="mt-3 p-3 bg-blue-50/50 border border-blue-200 rounded-2xl flex flex-col sm:flex-row items-center gap-2 animate-in fade-in duration-150">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Enter new category name..."
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    className="w-full sm:flex-1 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-blue-600"
+                  />
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={handleCreateNewCategory}
+                      disabled={isSavingCategory || !newCategoryName.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+                    >
+                      {isSavingCategory ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingCategory(false);
+                        setNewCategoryName("");
+                      }}
+                      className="px-3 py-2 bg-gray-200 text-gray-700 rounded-xl text-xs font-bold hover:bg-gray-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Dynamic Subtype Specific Selector & Last S/N Reference Card */}
               {assetSubtype === "PC" && activePCObj && (
@@ -395,10 +537,8 @@ const CreateAssetModal = ({
                     </label>
                     <select
                       value={selectedPcType}
-                      onChange={(e) => {
-                        setSelectedPcType(e.target.value);
-                      }}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                      onChange={(e) => setSelectedPcType(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none cursor-pointer"
                     >
                       {pcTracker.map((p: any) => (
                         <option key={p.id} value={p.label}>
@@ -426,10 +566,8 @@ const CreateAssetModal = ({
                     </label>
                     <select
                       value={selectedHeadsetModel}
-                      onChange={(e) => {
-                        setSelectedHeadsetModel(e.target.value);
-                      }}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                      onChange={(e) => setSelectedHeadsetModel(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold outline-none cursor-pointer"
                     >
                       {headsetTracker.map((h: any) => (
                         <option key={h.id} value={h.label}>
@@ -449,29 +587,73 @@ const CreateAssetModal = ({
                 </div>
               )}
 
+              {/* MACHINE SIMULATOR UNIT WITH BASELINE + DYNAMIC DATABASE ITEMS */}
               {assetSubtype === "MACHINE" && (
-                <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between animate-in fade-in duration-200">
-                  <div className="flex-1 w-full">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1">
-                      Machine Simulator Unit
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {MACHINE_TYPES.map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setSelectedMachineType(m)}
-                          className={`px-4 py-2 rounded-lg font-black text-xs border transition-all ${
-                            selectedMachineType === m
-                              ? "bg-orange-500 text-white border-orange-600 shadow-sm"
-                              : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
-                          }`}
-                        >
-                          {m} Unit
-                        </button>
-                      ))}
-                    </div>
+                <div className="pt-3 border-t border-gray-100 flex flex-col gap-3 animate-in fade-in duration-200">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block">
+                    Machine Simulator Unit
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {allMachineUnits.map((m: any) => (
+                      <button
+                        key={m.id || m.name}
+                        type="button"
+                        onClick={() => setSelectedMachineType(m.name)}
+                        className={`px-4 py-2 rounded-lg font-black text-xs border transition-all ${
+                          selectedMachineType === m.name
+                            ? "bg-orange-500 text-white border-orange-600 shadow-sm"
+                            : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        {m.name} Unit
+                      </button>
+                    ))}
+
+                    {/* ADMIN-ONLY "+ ADD MACHINE" BUTTON */}
+                    {isAdmin && !isAddingMachineType && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingMachineType(true)}
+                        className="px-3.5 py-2 rounded-lg font-black text-xs border-2 border-dashed border-gray-300 hover:border-orange-500 hover:bg-orange-50/40 text-gray-500 hover:text-orange-600 flex items-center gap-1 transition-all"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Machine
+                      </button>
+                    )}
                   </div>
+
+                  {/* INLINE ADMIN FORM FOR NEW MACHINE UNIT */}
+                  {isAdmin && isAddingMachineType && (
+                    <div className="mt-2 p-3 bg-orange-50/50 border border-orange-200 rounded-2xl flex flex-col sm:flex-row items-center gap-2 animate-in fade-in duration-150">
+                      <input
+                        type="text"
+                        autoFocus
+                        placeholder="Enter new machine unit name..."
+                        value={newMachineTypeName}
+                        onChange={(e) => setNewMachineTypeName(e.target.value)}
+                        className="w-full sm:flex-1 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-800 outline-none focus:border-orange-500"
+                      />
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button
+                          type="button"
+                          onClick={handleCreateNewMachineType}
+                          disabled={isSavingMachineType || !newMachineTypeName.trim()}
+                          className="px-4 py-2 bg-orange-600 text-white rounded-xl text-xs font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-sm"
+                        >
+                          {isSavingMachineType ? "Saving..." : "Save Unit"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingMachineType(false);
+                            setNewMachineTypeName("");
+                          }}
+                          className="px-3 py-2 bg-gray-200 text-gray-700 rounded-xl text-xs font-bold hover:bg-gray-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -544,8 +726,18 @@ const CreateAssetModal = ({
                     className={`${inputClasses} cursor-pointer font-bold text-blue-700`}
                   >
                     <option value="">Select origin...</option>
-                    <option value="Pulseworks Shop">Pulseworks Shop</option>
-                    <option value="Pulseworks Warehouse">Pulseworks Warehouse</option>
+                    {locations.length > 0 ? (
+                      locations.map((loc) => (
+                        <option key={loc} value={loc}>
+                          {loc}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Pulseworks Shop">Pulseworks Shop</option>
+                        <option value="Pulseworks Warehouse">Pulseworks Warehouse</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>

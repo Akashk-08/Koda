@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
@@ -40,200 +40,7 @@ const CATEGORIES = [
   "WEEKLY_MONTHLY_CHECKLISTS",
 ];
 
-// Added Sub-categories for the Edit Dropdown
 const SUB_CATEGORIES = ["PC", "HEADSET", "MACHINE", "MAT_VR", "VR_ARENA", "GENERAL"];
-
-// --- INITIAL FALLBACK DATA ---
-const INITIAL_VR_CONFIGS = [
-  {
-    id: "1",
-    site: "USS Alabama",
-    headset: "Vive Cosmos",
-    machine: "4DX",
-    pc: "Origin (Red PC)",
-    serverIp: "10.0.0.99",
-    dualEth: "Yes",
-    notes: "",
-  },
-  {
-    id: "2",
-    site: "MSI",
-    headset: "HP Reverb G2",
-    machine: "4DX",
-    pc: "Origin (Red PC)",
-    serverIp: "10.0.0.99",
-    dualEth: "Yes",
-    notes: "",
-  },
-  {
-    id: "3",
-    site: "GAAQ",
-    headset: "Vive Pro 2",
-    machine: "4DX",
-    pc: "Origin v3 (Black PC)",
-    serverIp: "10.0.0.99",
-    dualEth: "Yes",
-    notes: "",
-  },
-  {
-    id: "4",
-    site: "Intrepid",
-    headset: "DPVR E4C",
-    machine: "4DX",
-    pc: "Origin (Red PC)",
-    serverIp: "10.0.0.99",
-    dualEth: "Yes",
-    notes: "",
-  },
-  {
-    id: "5",
-    site: "FMNH (VRT)",
-    headset: "HP Reverb G2",
-    machine: "4DX",
-    pc: "Origin (Red PC)",
-    serverIp: "192.168.1.99",
-    dualEth: "No",
-    notes: "",
-  },
-  {
-    id: "6",
-    site: "FMNH (DITO)",
-    headset: "Oculus Quest2",
-    machine: "DITO",
-    pc: "N/A",
-    serverIp: "DHCP",
-    dualEth: "No",
-    notes: "INUC Server",
-  },
-  {
-    id: "7",
-    site: "Brevard Zoo",
-    headset: "PICO G3",
-    machine: "MX4D",
-    pc: "N/A",
-    serverIp: "DHCP",
-    dualEth: "No",
-    notes: "",
-  },
-];
-
-const INITIAL_PC_TRACKER = [
-  {
-    id: "1",
-    label: "VR PC Red (VC###)",
-    prefix: "VC",
-    lastUsed: "VC171",
-    brand: "Origin (Red PC)",
-    assetName: "VR Client PC VC###",
-  },
-  {
-    id: "2",
-    label: "VR PC Black (BPC###)",
-    prefix: "BPC",
-    lastUsed: "BPC114",
-    brand: "Origin v3 (Black PC)",
-    assetName: "VR Client PC BPC###",
-  },
-  {
-    id: "3",
-    label: "VR PC MSI (VCM###)",
-    prefix: "VCM",
-    lastUsed: "VCM066",
-    brand: "MSI Trident",
-    assetName: "VR Client VCM###",
-  },
-  {
-    id: "4",
-    label: "Control PC (CPC###)",
-    prefix: "CPC",
-    lastUsed: "CPC213",
-    brand: "Control PC",
-    assetName: "Control PC CPC###",
-  },
-  {
-    id: "5",
-    label: "Mini PC (Mini###)",
-    prefix: "Mini",
-    lastUsed: "Mini 021",
-    brand: "Intel NUC / Mini",
-    assetName: "Mini PC Mini###",
-  },
-  {
-    id: "6",
-    label: "ADA PC (ADA###)",
-    prefix: "ADA",
-    lastUsed: "ADA 031",
-    brand: "ADA PC",
-    assetName: "ADA PC ADA###",
-  },
-  {
-    id: "7",
-    label: "Training PC (TPC###)",
-    prefix: "TPC",
-    lastUsed: "TPC012",
-    brand: "Training PC",
-    assetName: "Training PC TPC###",
-  },
-  {
-    id: "8",
-    label: "Photo PC (PHPC###)",
-    prefix: "PHPC",
-    lastUsed: "PHPC001",
-    brand: "Photo PC",
-    assetName: "Photo PC PHPC###",
-  },
-];
-
-const INITIAL_HEADSET_TRACKER = [
-  {
-    id: "1",
-    label: "DPVR (E4C###)",
-    prefix: "E4C",
-    lastUsed: "E4C153",
-    model: "DPVR E4C",
-    assetName: "Headset DP VR E4C###",
-  },
-  {
-    id: "2",
-    label: "HP Reverb (HP###)",
-    prefix: "HP",
-    lastUsed: "HP137",
-    model: "HP Reverb G2",
-    assetName: "Headset HP HP###",
-  },
-  {
-    id: "3",
-    label: "Vive Cosmos (HC###)",
-    prefix: "HC",
-    lastUsed: "HC036",
-    model: "HTC Vive Cosmos",
-    assetName: "Headset Vive Cosmos HC###",
-  },
-  {
-    id: "4",
-    label: "Vive Pro 2 (VP###)",
-    prefix: "VP",
-    lastUsed: "VP031",
-    model: "HTC Vive Pro 2",
-    assetName: "Headset Vive Pro VP###",
-  },
-  {
-    id: "5",
-    label: "Oculus Quest 2",
-    prefix: "Q2",
-    lastUsed: "Q2-050",
-    model: "Meta Oculus Quest 2",
-    assetName: "Headset Quest 2 Q2###",
-  },
-  {
-    id: "6",
-    label: "PICO G3",
-    prefix: "PG3",
-    lastUsed: "PG3-025",
-    model: "PICO G3 VR",
-    assetName: "Headset PICO G3 PG3###",
-  },
-];
 
 const Assets = ({ user }: any) => {
   const navigate = useNavigate();
@@ -245,6 +52,18 @@ const Assets = ({ user }: any) => {
   const [loading, setLoading] = useState(true);
   const API_URL = import.meta.env.VITE_API_URL;
 
+  const currentOrgId = user?.organizationId || user?.orgId || user?.organization_id;
+
+  // Presets & Templates state
+  const [customCategories, setCustomCategories] = useState<any[]>([]);
+  const [machineUnits, setMachineUnits] = useState<any[]>([]);
+
+  // Inline Editing States
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatName, setEditingCatName] = useState("");
+  const [editingMachineId, setEditingMachineId] = useState<string | null>(null);
+  const [editingMachineName, setEditingMachineName] = useState("");
+
   const isFullAccess =
     user?.role === "ADMIN" ||
     user?.siteLocation?.toLowerCase().includes("shop") ||
@@ -253,7 +72,7 @@ const Assets = ({ user }: any) => {
   // --- URL STATE PERSISTENCE ---
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [statusFilter, setStatusFilter] = useState<
-    "ALL" | "OPERATIONAL" | "DAMAGED" | "VR_CONFIGS" | "PC_TRACKER" | "HEADSET_TRACKER"
+    "ALL" | "OPERATIONAL" | "DAMAGED" | "VR_CONFIGS" | "PC_TRACKER" | "HEADSET_TRACKER" | "HARDWARE_TEMPLATES"
   >((searchParams.get("tab") as any) || "ALL");
   const [locationFilter, setLocationFilter] = useState(searchParams.get("location") || "ALL");
 
@@ -283,18 +102,27 @@ const Assets = ({ user }: any) => {
   const [partSearch, setPartSearch] = useState("");
   const [isPartDropdownOpen, setIsPartDropdownOpen] = useState(false);
 
+  // Modal states for direct hardware creation
+  const [isAddCatModalOpen, setIsAddCatModalOpen] = useState(false);
+  const [newCatInput, setNewCatInput] = useState("");
+  const [isSavingCat, setIsSavingCat] = useState(false);
+
+  const [isAddMachineModalOpen, setIsAddMachineModalOpen] = useState(false);
+  const [newMachineInput, setNewMachineInput] = useState("");
+  const [isSavingMachine, setIsSavingMachine] = useState(false);
+
   // --- DYNAMIC TRACKER STATES ---
   const [vrConfigs, setVrConfigs] = useState<any[]>(() => {
     const saved = localStorage.getItem("pulseworks_vr_configs");
-    return saved ? JSON.parse(saved) : INITIAL_VR_CONFIGS;
+    return saved ? JSON.parse(saved) : [];
   });
   const [pcTracker, setPcTracker] = useState<any[]>(() => {
     const saved = localStorage.getItem("pulseworks_pc_tracker");
-    return saved ? JSON.parse(saved) : INITIAL_PC_TRACKER;
+    return saved ? JSON.parse(saved) : [];
   });
   const [headsetTracker, setHeadsetTracker] = useState<any[]>(() => {
     const saved = localStorage.getItem("pulseworks_headset_tracker");
-    return saved ? JSON.parse(saved) : INITIAL_HEADSET_TRACKER;
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Modal States for Trackers
@@ -346,37 +174,78 @@ const Assets = ({ user }: any) => {
 
   const fetchData = async () => {
     try {
-      const assetFetchUrl = isFullAccess
-        ? `${API_URL}/api/assets?orgId=${user?.organizationId}`
-        : `${API_URL}/api/assets?orgId=${user?.organizationId}&locationName=${encodeURIComponent(user?.siteLocation || "")}`;
+      if (!currentOrgId) return;
 
-      const [assetsRes, partsRes, locRes] = await Promise.all([
+      const assetFetchUrl = isFullAccess
+        ? `${API_URL}/api/assets?orgId=${currentOrgId}`
+        : `${API_URL}/api/assets?orgId=${currentOrgId}&locationName=${encodeURIComponent(user?.siteLocation || "")}`;
+
+      const [assetsRes, partsRes, locRes, catRes, machRes] = await Promise.all([
         fetch(assetFetchUrl),
-        fetch(`${API_URL}/api/inventory?orgId=${user?.organizationId}`),
-        fetch(`${API_URL}/api/locations?orgId=${user?.organizationId}`),
+        fetch(`${API_URL}/api/inventory?orgId=${currentOrgId}`),
+        fetch(`${API_URL}/api/locations?orgId=${currentOrgId}`),
+        fetch(`${API_URL}/api/equipment-categories?orgId=${currentOrgId}`),
+        fetch(`${API_URL}/api/machine-types?orgId=${currentOrgId}`),
       ]);
 
       if (assetsRes.ok) {
         const freshAssets = await assetsRes.json();
-        setAssets(freshAssets);
+        setAssets(Array.isArray(freshAssets) ? freshAssets : []);
         if (selectedAsset) {
-          const updatedSelected = freshAssets.find((a: any) => a.id === selectedAsset.id);
+          const updatedSelected = (Array.isArray(freshAssets) ? freshAssets : []).find(
+            (a: any) => a.id === selectedAsset.id,
+          );
           if (updatedSelected) setSelectedAsset(updatedSelected);
         }
       }
 
-      if (partsRes.ok) setOrgParts(await partsRes.json());
-      if (locRes.ok) setOrgLocations(await locRes.json());
+      if (partsRes.ok) {
+        const partsData = await partsRes.json();
+        setOrgParts(Array.isArray(partsData) ? partsData : []);
+      }
+      if (locRes.ok) {
+        const locData = await locRes.json();
+        setOrgLocations(Array.isArray(locData) ? locData : []);
+      }
+      if (catRes.ok) {
+        const catData = await catRes.json();
+        setCustomCategories(Array.isArray(catData) ? catData : []);
+      }
+      if (machRes.ok) {
+        const machData = await machRes.json();
+        setMachineUnits(Array.isArray(machData) ? machData : []);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch assets data:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (user?.organizationId) fetchData();
-  }, [user]);
+    if (currentOrgId) fetchData();
+  }, [currentOrgId]);
+
+  // Combined and deduplicated locations
+  const availableLocations = useMemo(() => {
+    const locSet = new Set<string>();
+
+    if (Array.isArray(orgLocations)) {
+      orgLocations.forEach((l) => {
+        const name = typeof l === "string" ? l : l?.name;
+        if (name && name.trim() && name !== "-") locSet.add(name.trim());
+      });
+    }
+
+    if (Array.isArray(assets)) {
+      assets.forEach((a) => {
+        const loc = a.locationName || a.location || a.siteLocation;
+        if (loc && loc.trim() && loc !== "-") locSet.add(loc.trim());
+      });
+    }
+
+    return Array.from(locSet).sort();
+  }, [orgLocations, assets]);
 
   const handleTrackerUpdate = (type: string, id: string, newLastUsed: string) => {
     if (type === "PC") {
@@ -385,6 +254,203 @@ const Assets = ({ user }: any) => {
       setHeadsetTracker((prev) =>
         prev.map((c) => (c.id === id ? { ...c, lastUsed: newLastUsed } : c)),
       );
+    }
+  };
+
+  // --- Hardware Preset Handlers ---
+  const handleDirectCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatInput.trim()) return;
+
+    if (!currentOrgId) {
+      alert("Organization identifier is missing. Please re-login.");
+      return;
+    }
+
+    setIsSavingCat(true);
+    try {
+      const res = await fetch(`${API_URL}/api/equipment-categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: currentOrgId,
+          organizationId: currentOrgId,
+          name: newCatInput.trim(),
+          role: user?.role || "ADMIN",
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        setCustomCategories((prev) => [...prev, data]);
+        setNewCatInput("");
+        setIsAddCatModalOpen(false);
+        fetchData();
+      } else {
+        alert(data.error || `Server error: ${res.statusText}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Network error connecting to backend.");
+    } finally {
+      setIsSavingCat(false);
+    }
+  };
+
+  const handleDirectCreateMachine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMachineInput.trim()) return;
+
+    if (!currentOrgId) {
+      alert("Organization identifier is missing. Please re-login.");
+      return;
+    }
+
+    setIsSavingMachine(true);
+    try {
+      const res = await fetch(`${API_URL}/api/machine-types`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: currentOrgId,
+          organizationId: currentOrgId,
+          name: newMachineInput.trim(),
+          role: user?.role || "ADMIN",
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        setMachineUnits((prev) => [...prev, data]);
+        setNewMachineInput("");
+        setIsAddMachineModalOpen(false);
+        fetchData();
+      } else {
+        alert(data.error || `Server error: ${res.statusText}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Network error connecting to backend.");
+    } finally {
+      setIsSavingMachine(false);
+    }
+  };
+
+  const handleUpdateCategoryName = async (id: string) => {
+    if (!editingCatName.trim()) return;
+    try {
+      const res = await fetch(`${API_URL}/api/equipment-categories/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingCatName.trim(), role: user?.role || "ADMIN" }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setCustomCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
+        setEditingCatId(null);
+        fetchData();
+      } else {
+        alert("Failed to update category name.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateMachineName = async (id: string) => {
+    if (!editingMachineName.trim()) return;
+    try {
+      const res = await fetch(`${API_URL}/api/machine-types/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingMachineName.trim(), role: user?.role || "ADMIN" }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setMachineUnits((prev) => prev.map((m) => (m.id === id ? updated : m)));
+        setEditingMachineId(null);
+        fetchData();
+      } else {
+        alert("Failed to update machine unit name.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleCategory = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/equipment-categories/${id}/toggle`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: user?.role }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setCustomCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      } else {
+        alert("Failed to update status.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!window.confirm("Permanently delete this category?")) return;
+    try {
+      const userRole = user?.role || "ADMIN";
+      const res = await fetch(
+        `${API_URL}/api/equipment-categories/${id}?role=${encodeURIComponent(userRole)}&orgId=${currentOrgId}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setCustomCategories((prev) => prev.filter((c) => c.id !== id));
+      } else {
+        alert(data.error || "Failed to delete category.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Network error deleting category.");
+    }
+  };
+
+  const handleToggleMachine = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/machine-types/${id}/toggle`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: user?.role }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setMachineUnits((prev) => prev.map((m) => (m.id === id ? updated : m)));
+      } else {
+        alert("Failed to update status.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteMachine = async (id: string) => {
+    if (!window.confirm("Permanently delete this machine type?")) return;
+    try {
+      const userRole = user?.role || "ADMIN";
+      const res = await fetch(
+        `${API_URL}/api/machine-types/${id}?role=${encodeURIComponent(userRole)}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMachineUnits((prev) => prev.filter((m) => m.id !== id));
+      } else {
+        alert(data.error || "Failed to delete machine unit.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Network error deleting machine unit.");
     }
   };
 
@@ -560,21 +626,19 @@ const Assets = ({ user }: any) => {
     }
   };
 
-  // --- UPDATED FILTERING LOGIC FOR ASSETS ---
+  // --- FILTERING LOGIC FOR ASSETS ---
   const filteredAssets = assets.filter((asset) => {
     let matches = true;
 
-    // Status Filter
     if (statusFilter === "OPERATIONAL" || statusFilter === "DAMAGED") {
       matches = matches && asset.status === statusFilter;
     }
 
-    // Location Filter
     if (locationFilter !== "ALL") {
-      matches = matches && asset.locationName === locationFilter;
+      const assetLoc = (asset.locationName || asset.location || asset.siteLocation || "").trim();
+      matches = matches && assetLoc.toLowerCase() === locationFilter.trim().toLowerCase();
     }
 
-    // Search Query Filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       matches =
@@ -812,22 +876,26 @@ const Assets = ({ user }: any) => {
                         </label>
                         {isFullAccess ? (
                           <select
-                            value={editForm.locationName || ""}
+                            value={editForm.locationName || editForm.location || ""}
                             onChange={(e) =>
-                              setEditForm({ ...editForm, locationName: e.target.value })
+                              setEditForm({
+                                ...editForm,
+                                locationName: e.target.value,
+                                location: e.target.value,
+                              })
                             }
                             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-blue-700 outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
                           >
                             <option value="">Select location...</option>
-                            {orgLocations.map((loc: any) => (
-                              <option key={loc.id} value={loc.name}>
-                                {loc.name}
+                            {availableLocations.map((locName) => (
+                              <option key={locName} value={locName}>
+                                {locName}
                               </option>
                             ))}
                           </select>
                         ) : (
                           <div className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-500">
-                            {selectedAsset.locationName || "—"}
+                            {selectedAsset.locationName || selectedAsset.location || "—"}
                           </div>
                         )}
                       </div>
@@ -897,7 +965,7 @@ const Assets = ({ user }: any) => {
                           <MapPin className="w-3.5 h-3.5" /> Location
                         </span>
                         <span className="text-sm font-bold text-gray-900">
-                          {selectedAsset.locationName || "—"}
+                          {selectedAsset.locationName || selectedAsset.location || "—"}
                         </span>
                       </div>
 
@@ -1471,12 +1539,22 @@ const Assets = ({ user }: any) => {
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-pink-600 rounded-t-full"></div>
                     )}
                   </button>
+
+                  <button
+                    onClick={() => setStatusFilter("HARDWARE_TEMPLATES")}
+                    className={`pb-3 relative transition-colors whitespace-nowrap ${statusFilter === "HARDWARE_TEMPLATES" ? "text-amber-600" : "text-gray-500 hover:text-gray-900"}`}
+                  >
+                    Hardware Presets & Templates
+                    {statusFilter === "HARDWARE_TEMPLATES" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-600 rounded-t-full"></div>
+                    )}
+                  </button>
                 </>
               )}
             </div>
           </div>
 
-          {/* Only Full Access users can globally create assets or configs */}
+          {/* Unified Create Button: Always opens CreateAssetModal unless a Tracker sub-modal is active */}
           {isFullAccess && (
             <button
               onClick={() => {
@@ -1502,71 +1580,303 @@ const Assets = ({ user }: any) => {
 
       <div className="flex-1 overflow-auto px-4 md:px-8 pb-8 flex flex-col">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex-1 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row gap-3 justify-between items-start md:items-center bg-white shrink-0">
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:max-w-2xl">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  placeholder={
-                    statusFilter === "VR_CONFIGS"
-                      ? "Search configs by site, pc, or headset..."
-                      : statusFilter === "PC_TRACKER"
-                        ? "Search PC types or serial numbers..."
-                        : statusFilter === "HEADSET_TRACKER"
-                          ? "Search headset models or serial numbers..."
-                          : "Search by name, barcode, serial..."
-                  }
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 bg-gray-50 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all shadow-sm"
-                />
+          {statusFilter !== "HARDWARE_TEMPLATES" && (
+            <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row gap-3 justify-between items-start md:items-center bg-white shrink-0">
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:max-w-2xl">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    placeholder={
+                      statusFilter === "VR_CONFIGS"
+                        ? "Search configs by site, pc, or headset..."
+                        : statusFilter === "PC_TRACKER"
+                          ? "Search PC types or serial numbers..."
+                          : statusFilter === "HEADSET_TRACKER"
+                            ? "Search headset models or serial numbers..."
+                            : "Search by name, barcode, serial..."
+                    }
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 bg-gray-50 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all shadow-sm"
+                  />
+                </div>
+
+                {/* LOCATION FILTER - DYNAMIC DROPDOWN */}
+                {(statusFilter === "ALL" ||
+                  statusFilter === "OPERATIONAL" ||
+                  statusFilter === "DAMAGED") && (
+                  <select
+                    value={locationFilter}
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                    className="w-full sm:w-auto px-4 py-2.5 border border-gray-200 bg-gray-50 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all shadow-sm cursor-pointer"
+                  >
+                    <option value="ALL">All Locations</option>
+                    {availableLocations.map((locName: string) => (
+                      <option key={locName} value={locName}>
+                        {locName}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
-              {/* LOCATION FILTER - ONLY SHOW ON ASSET TABS */}
-              {(statusFilter === "ALL" ||
-                statusFilter === "OPERATIONAL" ||
-                statusFilter === "DAMAGED") && (
-                <select
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
-                  className="w-full sm:w-auto px-4 py-2.5 border border-gray-200 bg-gray-50 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all shadow-sm cursor-pointer"
+              {isFullAccess && (
+                <button
+                  onClick={() => {
+                    if (statusFilter === "VR_CONFIGS") handleOpenVrModal();
+                    else if (statusFilter === "PC_TRACKER") handleOpenPcModal();
+                    else if (statusFilter === "HEADSET_TRACKER") handleOpenHeadsetModal();
+                    else setIsCreateModalOpen(true);
+                  }}
+                  className="md:hidden mt-3 sm:mt-0 w-full bg-blue-600 text-white p-2.5 rounded-xl shadow-md shrink-0 flex items-center justify-center gap-2"
                 >
-                  <option value="ALL">All Locations</option>
-                  {orgLocations.map((loc: any) => (
-                    <option key={loc.id} value={loc.name}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
+                  <Plus className="w-5 h-5" />
+                  {statusFilter === "VR_CONFIGS"
+                    ? "Add Config"
+                    : statusFilter === "PC_TRACKER"
+                      ? "Add PC"
+                      : statusFilter === "HEADSET_TRACKER"
+                        ? "Add Headset"
+                        : "Create"}
+                </button>
               )}
             </div>
-
-            {isFullAccess && (
-              <button
-                onClick={() => {
-                  if (statusFilter === "VR_CONFIGS") handleOpenVrModal();
-                  else if (statusFilter === "PC_TRACKER") handleOpenPcModal();
-                  else if (statusFilter === "HEADSET_TRACKER") handleOpenHeadsetModal();
-                  else setIsCreateModalOpen(true);
-                }}
-                className="md:hidden mt-3 sm:mt-0 w-full bg-blue-600 text-white p-2.5 rounded-xl shadow-md shrink-0 flex items-center justify-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                {statusFilter === "VR_CONFIGS"
-                  ? "Add Config"
-                  : statusFilter === "PC_TRACKER"
-                    ? "Add PC"
-                    : statusFilter === "HEADSET_TRACKER"
-                      ? "Add Headset"
-                      : "Create"}
-              </button>
-            )}
-          </div>
+          )}
 
           <div className="flex-1 overflow-auto p-4 md:p-0 bg-gray-50/30">
-            {/* --- PC S/N TRACKER VIEW --- */}
-            {statusFilter === "PC_TRACKER" && isFullAccess ? (
+            {/* --- HARDWARE PRESETS & TEMPLATES EDITING VIEW --- */}
+            {statusFilter === "HARDWARE_TEMPLATES" && isFullAccess ? (
+              <div className="p-6 md:p-8 space-y-8 bg-white">
+                {/* Custom Sub-Categories Section */}
+                <div>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                    <div>
+                      <h3 className="text-base font-black text-gray-900">Equipment Sub-Categories</h3>
+                      <p className="text-xs text-gray-500">
+                        Add, edit name, discontinue, or delete sub-categories for asset creation.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddCatModalOpen(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95 shrink-0"
+                    >
+                      <Plus className="w-4 h-4" /> Add Category
+                    </button>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                        <tr>
+                          <th className="px-6 py-3.5 text-left">Category Name</th>
+                          <th className="px-6 py-3.5 text-left">Key Identifier</th>
+                          <th className="px-6 py-3.5 text-left">Status</th>
+                          <th className="px-6 py-3.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white text-xs">
+                        {customCategories.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-8 text-center text-gray-400 font-medium">
+                              No custom categories registered yet. Click <b>+ Add Category</b> to create one.
+                            </td>
+                          </tr>
+                        ) : (
+                          customCategories.map((cat: any) => (
+                            <tr key={cat.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 font-bold text-gray-900">
+                                {editingCatId === cat.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={editingCatName}
+                                      onChange={(e) => setEditingCatName(e.target.value)}
+                                      className="px-3 py-1 border border-blue-500 rounded-lg text-xs font-bold outline-none"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => handleUpdateCategoryName(cat.id)}
+                                      className="px-3 py-1 bg-blue-600 text-white rounded-lg font-bold"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingCatId(null)}
+                                      className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg font-bold"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span>{cat.name}</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 font-mono text-gray-500">{cat.key}</td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                    cat.isActive
+                                      ? "bg-green-50 text-green-700 border border-green-200"
+                                      : "bg-gray-100 text-gray-500 border border-gray-200"
+                                  }`}
+                                >
+                                  {cat.isActive ? "Active in Modal" : "Discontinued (Hidden)"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right space-x-2">
+                                {editingCatId !== cat.id && (
+                                  <button
+                                    onClick={() => {
+                                      setEditingCatId(cat.id);
+                                      setEditingCatName(cat.name);
+                                    }}
+                                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-[11px] transition-colors"
+                                  >
+                                    Edit Name
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleToggleCategory(cat.id)}
+                                  className={`px-3 py-1.5 rounded-lg font-bold text-[11px] transition-colors ${
+                                    cat.isActive
+                                      ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                      : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                  }`}
+                                >
+                                  {cat.isActive ? "Discontinue" : "Reactivate"}
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCategory(cat.id)}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Delete Permanently"
+                                >
+                                  <Trash2 className="w-4 h-4 inline" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Machine Simulator Units Section */}
+                <div className="pt-6 border-t border-gray-100">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                    <div>
+                      <h3 className="text-base font-black text-gray-900">Machine Simulator Units</h3>
+                      <p className="text-xs text-gray-500">
+                        Add, edit name, discontinue, or delete machine units for asset creation.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddMachineModalOpen(true)}
+                      className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95 shrink-0"
+                    >
+                      <Plus className="w-4 h-4" /> Add Machine Unit
+                    </button>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                        <tr>
+                          <th className="px-6 py-3.5 text-left">Machine Unit Name</th>
+                          <th className="px-6 py-3.5 text-left">Status</th>
+                          <th className="px-6 py-3.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white text-xs">
+                        {machineUnits.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="px-6 py-8 text-center text-gray-400 font-medium">
+                              No custom machine units saved. Click <b>+ Add Machine Unit</b> to create one.
+                            </td>
+                          </tr>
+                        ) : (
+                          machineUnits.map((m: any) => (
+                            <tr key={m.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 font-bold text-gray-900">
+                                {editingMachineId === m.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={editingMachineName}
+                                      onChange={(e) => setEditingMachineName(e.target.value)}
+                                      className="px-3 py-1 border border-orange-500 rounded-lg text-xs font-bold outline-none"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => handleUpdateMachineName(m.id)}
+                                      className="px-3 py-1 bg-orange-600 text-white rounded-lg font-bold"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingMachineId(null)}
+                                      className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg font-bold"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span>{m.name} Unit</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                    m.isActive
+                                      ? "bg-green-50 text-green-700 border border-green-200"
+                                      : "bg-gray-100 text-gray-500 border border-gray-200"
+                                  }`}
+                                >
+                                  {m.isActive ? "Active in Modal" : "Discontinued (Hidden)"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right space-x-2">
+                                {editingMachineId !== m.id && (
+                                  <button
+                                    onClick={() => {
+                                      setEditingMachineId(m.id);
+                                      setEditingMachineName(m.name);
+                                    }}
+                                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-[11px] transition-colors"
+                                  >
+                                    Edit Name
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleToggleMachine(m.id)}
+                                  className={`px-3 py-1.5 rounded-lg font-bold text-[11px] transition-colors ${
+                                    m.isActive
+                                      ? "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                                      : "bg-green-50 text-green-800 hover:bg-green-100"
+                                  }`}
+                                >
+                                  {m.isActive ? "Discontinue" : "Reactivate"}
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteMachine(m.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : /* --- PC S/N TRACKER VIEW --- */
+            statusFilter === "PC_TRACKER" && isFullAccess ? (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-white sticky top-0 z-10 shadow-sm">
                   <tr>
@@ -1844,7 +2154,9 @@ const Assets = ({ user }: any) => {
                       <div className="bg-gray-50/60 p-3 rounded-xl border border-gray-100 space-y-1.5 text-xs text-gray-600">
                         <div className="flex items-center">
                           <MapPin className="w-3.5 h-3.5 mr-2 text-blue-500 shrink-0" />
-                          <span className="truncate">Location: {asset.locationName || "—"}</span>
+                          <span className="truncate">
+                            Location: {asset.locationName || asset.location || "—"}
+                          </span>
                         </div>
                         <div className="flex justify-between pt-1 border-t border-gray-200/50">
                           <span className="font-mono text-gray-500">
@@ -1912,7 +2224,7 @@ const Assets = ({ user }: any) => {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600 font-semibold">
-                          {asset.locationName || "—"}
+                          {asset.locationName || asset.location || "—"}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500 font-mono bg-gray-50/50">
                           <div className="flex items-center gap-3">
@@ -1967,152 +2279,54 @@ const Assets = ({ user }: any) => {
         onTrackerUpdate={handleTrackerUpdate}
       />
 
-      {/* VR CONFIG EDIT MODAL */}
-      {isVrModalOpen && isFullAccess && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-gray-900/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-2xl rounded-t-[32px] md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100 max-h-[92vh]">
-            <div className="flex items-center justify-between px-6 md:px-8 py-5 border-b border-gray-100 bg-white shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl shadow-sm border border-blue-100">
-                  <Settings2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">
-                    {editingVrConfig ? "Edit VR Config" : "Add VR Config"}
-                  </h2>
-                  <p className="text-[11px] md:text-xs font-medium text-gray-500 mt-0.5">
-                    Configure deployment specifications for a client site.
-                  </p>
-                </div>
-              </div>
+      {/* QUICK MODAL: ADD CATEGORY */}
+      {isAddCatModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-150">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-base font-black text-gray-900">Add Equipment Sub-Category</h4>
               <button
-                type="button"
-                onClick={() => setIsVrModalOpen(false)}
-                className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-full transition-colors"
+                onClick={() => {
+                  setIsAddCatModalOpen(false);
+                  setNewCatInput("");
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <form onSubmit={handleSaveVrConfig} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6 md:p-8 space-y-6 custom-scrollbar">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                      Site / Location Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="text"
-                      value={vrConfigForm.site}
-                      onChange={(e) => setVrConfigForm({ ...vrConfigForm, site: e.target.value })}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 transition-all shadow-sm text-gray-900"
-                      placeholder="e.g. Intrepid Sea Air & Space"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                      Server IP Address
-                    </label>
-                    <input
-                      type="text"
-                      value={vrConfigForm.serverIp}
-                      onChange={(e) =>
-                        setVrConfigForm({ ...vrConfigForm, serverIp: e.target.value })
-                      }
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 transition-all shadow-sm text-gray-900 font-mono"
-                      placeholder="e.g. 10.0.0.99"
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                        Machine Type
-                      </label>
-                      <input
-                        type="text"
-                        value={vrConfigForm.machine}
-                        onChange={(e) =>
-                          setVrConfigForm({ ...vrConfigForm, machine: e.target.value })
-                        }
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 transition-all text-gray-900"
-                        placeholder="e.g. 4DX"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                        Headset Type
-                      </label>
-                      <input
-                        type="text"
-                        value={vrConfigForm.headset}
-                        onChange={(e) =>
-                          setVrConfigForm({ ...vrConfigForm, headset: e.target.value })
-                        }
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 transition-all text-gray-900"
-                        placeholder="e.g. DPVR E4C"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                        PC Brand / Style
-                      </label>
-                      <input
-                        type="text"
-                        value={vrConfigForm.pc}
-                        onChange={(e) => setVrConfigForm({ ...vrConfigForm, pc: e.target.value })}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 transition-all text-gray-900"
-                        placeholder="e.g. Origin (Red PC)"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                        Dual Ethernet?
-                      </label>
-                      <select
-                        value={vrConfigForm.dualEth}
-                        onChange={(e) =>
-                          setVrConfigForm({ ...vrConfigForm, dualEth: e.target.value })
-                        }
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-600 transition-all text-gray-900 cursor-pointer"
-                      >
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                    Notes (Optional)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={vrConfigForm.notes}
-                    onChange={(e) => setVrConfigForm({ ...vrConfigForm, notes: e.target.value })}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 transition-all shadow-sm text-gray-900 resize-y"
-                    placeholder="Any special instructions or INUC server notes..."
-                  />
-                </div>
+            <form onSubmit={handleDirectCreateCategory} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-black uppercase text-gray-400 mb-1.5">
+                  Category Name
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  placeholder="Enter equipment category name..."
+                  value={newCatInput}
+                  onChange={(e) => setNewCatInput(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-blue-600"
+                />
               </div>
-
-              <div className="p-6 md:p-8 bg-white border-t border-gray-100 flex justify-end gap-3 shrink-0 pb-8 md:pb-6">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsVrModalOpen(false)}
-                  className="px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                  onClick={() => {
+                    setIsAddCatModalOpen(false);
+                    setNewCatInput("");
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-8 py-3 text-sm font-black text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md active:scale-95 transition-all"
+                  disabled={isSavingCat || !newCatInput.trim()}
+                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl disabled:opacity-50 shadow-sm"
                 >
-                  Save Config
+                  {isSavingCat ? "Saving..." : "Create Category"}
                 </button>
               </div>
             </form>
@@ -2120,272 +2334,57 @@ const Assets = ({ user }: any) => {
         </div>
       )}
 
-      {/* PC TRACKER EDIT MODAL */}
-      {isPcModalOpen && isFullAccess && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-gray-900/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-md rounded-t-[32px] md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100 max-h-[92vh]">
-            <div className="flex items-center justify-between px-6 md:px-8 py-5 border-b border-gray-100 bg-white shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl shadow-sm border border-indigo-100">
-                  <Monitor className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">
-                    {editingPcConfig ? "Edit PC Tracker" : "Add PC Type"}
-                  </h2>
-                </div>
-              </div>
+      {/* QUICK MODAL: ADD MACHINE UNIT */}
+      {isAddMachineModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-100 animate-in fade-in zoom-in duration-150">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-base font-black text-gray-900">Add Machine Simulator Unit</h4>
               <button
-                type="button"
-                onClick={() => setIsPcModalOpen(false)}
-                className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-full transition-colors"
+                onClick={() => {
+                  setIsAddMachineModalOpen(false);
+                  setNewMachineInput("");
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <form onSubmit={handleSavePcConfig} className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6 md:p-8 space-y-5 custom-scrollbar">
-                <div>
-                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                    Designation Label (Dropdown Display) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. VR PC Red (VC###)"
-                    value={pcConfigForm.label}
-                    onChange={(e) => setPcConfigForm({ ...pcConfigForm, label: e.target.value })}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-sm text-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                    S/N Prefix Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. VC"
-                    value={pcConfigForm.prefix}
-                    onChange={(e) => setPcConfigForm({ ...pcConfigForm, prefix: e.target.value })}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-sm text-gray-900 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black text-indigo-500 uppercase tracking-wider mb-1.5">
-                    Last Used Serial Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. VC171"
-                    value={pcConfigForm.lastUsed}
-                    onChange={(e) => setPcConfigForm({ ...pcConfigForm, lastUsed: e.target.value })}
-                    className="w-full bg-indigo-50/50 border border-indigo-200 rounded-xl px-4 py-3 text-sm font-black outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-sm text-indigo-900 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                    PC Brand / Model <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. Origin (Red PC)"
-                    value={pcConfigForm.brand}
-                    onChange={(e) => setPcConfigForm({ ...pcConfigForm, brand: e.target.value })}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-sm text-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black text-indigo-500 uppercase tracking-wider mb-1.5">
-                    Asset Name Format <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. VR Client PC"
-                    value={pcConfigForm.assetName}
-                    onChange={(e) =>
-                      setPcConfigForm({ ...pcConfigForm, assetName: e.target.value })
-                    }
-                    className="w-full bg-indigo-50/50 border border-indigo-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600 transition-all shadow-sm text-indigo-900"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-2 font-medium">
-                    The new Serial Number will automatically be appended to the end of this name.
-                  </p>
-                </div>
+            <form onSubmit={handleDirectCreateMachine} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-black uppercase text-gray-400 mb-1.5">
+                  Machine Unit Code
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  placeholder="Enter simulator unit code..."
+                  value={newMachineInput}
+                  onChange={(e) => setNewMachineInput(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-orange-600"
+                />
               </div>
-
-              <div className="p-6 md:p-8 bg-white border-t border-gray-100 flex justify-end gap-3 shrink-0 pb-8 md:pb-6">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsPcModalOpen(false)}
-                  className="px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                  onClick={() => {
+                    setIsAddMachineModalOpen(false);
+                    setNewMachineInput("");
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-8 py-3 text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md active:scale-95 transition-all"
+                  disabled={isSavingMachine || !newMachineInput.trim()}
+                  className="px-5 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl disabled:opacity-50 shadow-sm"
                 >
-                  Save PC
+                  {isSavingMachine ? "Saving..." : "Create Unit"}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* HEADSET TRACKER EDIT MODAL */}
-      {isHeadsetModalOpen && isFullAccess && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-gray-900/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-md rounded-t-[32px] md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100 max-h-[92vh]">
-            <div className="flex items-center justify-between px-6 md:px-8 py-5 border-b border-gray-100 bg-white shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-pink-50 text-pink-600 rounded-xl shadow-sm border border-pink-100">
-                  <Headset className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">
-                    {editingHeadsetConfig ? "Edit Headset" : "Add Headset"}
-                  </h2>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsHeadsetModalOpen(false)}
-                className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleSaveHeadsetConfig}
-              className="flex-1 flex flex-col overflow-hidden"
-            >
-              <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6 md:p-8 space-y-5 custom-scrollbar">
-                <div>
-                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                    Designation Label (Dropdown Display) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. DPVR (E4C###)"
-                    value={headsetConfigForm.label}
-                    onChange={(e) =>
-                      setHeadsetConfigForm({ ...headsetConfigForm, label: e.target.value })
-                    }
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-pink-600 transition-all shadow-sm text-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                    S/N Prefix Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. E4C"
-                    value={headsetConfigForm.prefix}
-                    onChange={(e) =>
-                      setHeadsetConfigForm({ ...headsetConfigForm, prefix: e.target.value })
-                    }
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-pink-600 transition-all shadow-sm text-gray-900 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black text-pink-500 uppercase tracking-wider mb-1.5">
-                    Last Used Serial Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. E4C153"
-                    value={headsetConfigForm.lastUsed}
-                    onChange={(e) =>
-                      setHeadsetConfigForm({ ...headsetConfigForm, lastUsed: e.target.value })
-                    }
-                    className="w-full bg-pink-50/50 border border-pink-200 rounded-xl px-4 py-3 text-sm font-black outline-none focus:ring-2 focus:ring-pink-600 transition-all shadow-sm text-pink-900 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                    Full Headset Model Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. DPVR E4C"
-                    value={headsetConfigForm.model}
-                    onChange={(e) =>
-                      setHeadsetConfigForm({ ...headsetConfigForm, model: e.target.value })
-                    }
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-pink-600 transition-all shadow-sm text-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-black text-pink-500 uppercase tracking-wider mb-1.5">
-                    Asset Name Format <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. Headset DP VR"
-                    value={headsetConfigForm.assetName}
-                    onChange={(e) =>
-                      setHeadsetConfigForm({ ...headsetConfigForm, assetName: e.target.value })
-                    }
-                    className="w-full bg-pink-50/50 border border-pink-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-pink-600 transition-all shadow-sm text-pink-900"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-2 font-medium">
-                    The new Serial Number will automatically be appended to the end of this name.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-6 md:p-8 bg-white border-t border-gray-100 flex justify-end gap-3 shrink-0 pb-8 md:pb-6">
-                <button
-                  type="button"
-                  onClick={() => setIsHeadsetModalOpen(false)}
-                  className="px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-8 py-3 text-sm font-black text-white bg-pink-600 hover:bg-pink-700 rounded-xl shadow-md active:scale-95 transition-all"
-                >
-                  Save Headset
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {selectedQrAsset && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl relative w-full max-w-sm flex flex-col items-center p-8 animate-in fade-in zoom-in duration-200">
-            <button
-              onClick={() => setSelectedQrAsset(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h2 className="text-xl font-bold text-gray-900 mb-1">Asset Tag</h2>
-            <p className="text-sm text-gray-500 mb-6 text-center line-clamp-1">
-              {selectedQrAsset.name}
-            </p>
-
-            <AssetQRCode
-              assetName={selectedQrAsset.name}
-              barcodeValue={selectedQrAsset.barcode || selectedQrAsset.serialNumber}
-            />
           </div>
         </div>
       )}

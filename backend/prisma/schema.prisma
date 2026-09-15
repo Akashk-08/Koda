@@ -114,6 +114,8 @@ model Organization {
   preventiveMaintenances PreventiveMaintenance[]
   inventoryParts InventoryPart[]
   assets     Asset[] 
+  equipmentCategories    EquipmentCategory[]
+  machineTypes           MachineType[]
 }
 
 // model comment
@@ -441,4 +443,31 @@ model Notification {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
+}
+
+model EquipmentCategory {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  name           String
+  key            String
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+  @@map("equipment_categories")
+}
+
+model MachineType {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  name           String
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@map("machine_types")
 }
