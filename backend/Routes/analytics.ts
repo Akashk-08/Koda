@@ -44,13 +44,20 @@ router.get("/", async (req, res) => {
       prisma.asset.count({ where: { organizationId: String(orgId) } }),
       prisma.asset.count({ where: { organizationId: String(orgId), status: "OPERATIONAL" } }),
       prisma.asset.count({ where: { organizationId: String(orgId), status: { not: "OPERATIONAL" } } }),
-      (prisma as any).inventory?.count({ where: { organizationId: String(orgId) } }) || 0,
-      (prisma as any).inventory?.count({ where: { organizationId: String(orgId), availableQty: { lte: 5 } } }) || 0,
+      (prisma as any).inventoryPart?.count({ where: { organizationId: String(orgId) } }) || 0,
+      (prisma as any).inventoryPart?.count({ where: { organizationId: String(orgId), availableQty: { lte: 5 } } }) || 0,
       prisma.location.findMany({ where: { organizationId: String(orgId) } }),
+      
+      // UPDATED: Universal Activity Log scoped to the Organization
       prisma.activityLog.findMany({
-        take: 5,
+        where: { organizationId: String(orgId) },
+        take: 15,
         orderBy: { createdAt: "desc" },
-        include: { actor: true, workOrder: true },
+        include: { 
+          actor: { 
+            select: { firstName: true, email: true } 
+          } 
+        },
       }),
     ]);
 

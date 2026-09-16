@@ -21,6 +21,11 @@ const Analytics = ({ user }: any) => {
   const [error, setError] = useState<string | null>(null);
   const API_URL = import.meta.env.VITE_API_URL;
 
+  // STRICT PERMISSION GATE: Only Shop or Warehouse users see the Activity Stream
+  const isShopOrWarehouse = 
+    user?.siteLocation?.toLowerCase().includes("shop") ||
+    user?.siteLocation?.toLowerCase().includes("warehouse");
+
   const fetchMetrics = async () => {
     if (!user?.organizationId) return;
     setLoading(true);
@@ -290,27 +295,29 @@ const Analytics = ({ user }: any) => {
         </div>
       </div>
 
-      {/* THIRD ROW: Live Activity Stream */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
-        <h3 className="text-sm font-black text-gray-900 flex items-center gap-2 mb-4">
-          <Activity className="w-4 h-4 text-blue-600" /> Live Operational Activity Stream
-        </h3>
-        <div className="space-y-3">
-          {metrics?.recentActivity?.length > 0 ? (
-            metrics.recentActivity.map((log: any, idx: number) => (
-              <div key={idx} className="flex items-center justify-between text-xs border-b border-gray-100 pb-2">
-                <span className="font-bold text-gray-800">
-                  <span className="text-blue-600">{log.actor?.firstName || "System"}</span> {log.action}
-                  {log.workOrderId && <span className="text-gray-400 ml-1">(WO-{log.workOrderId})</span>}
-                </span>
-                <span className="text-gray-400 font-medium">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-            ))
-          ) : (
-            <p className="text-xs text-gray-400 italic">Recent activity logs will appear here.</p>
-          )}
+      {/* THIRD ROW: Live Activity Stream - RESTRICTED VISIBILITY */}
+      {isShopOrWarehouse && (
+        <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
+          <h3 className="text-sm font-black text-gray-900 flex items-center gap-2 mb-4">
+            <Activity className="w-4 h-4 text-blue-600" /> Live Operational Activity Stream
+          </h3>
+          <div className="space-y-3">
+            {metrics?.recentActivity?.length > 0 ? (
+              metrics.recentActivity.map((log: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between text-xs border-b border-gray-100 pb-2">
+                  <span className="font-medium text-gray-800">
+                    <span className="text-blue-600 font-bold">{log.actor?.firstName || log.actor?.email || "System"}</span> {log.action}
+                    {log.entityTitle && <span className="text-gray-400 font-bold ml-1">({log.entityTitle})</span>}
+                  </span>
+                  <span className="text-gray-400 font-bold">{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-gray-400 italic">Recent operational activity logs will appear here.</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </main>
   );
 };

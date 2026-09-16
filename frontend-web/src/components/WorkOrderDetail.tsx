@@ -13,7 +13,6 @@ import {
   Trash2,
   Pencil,
   MessageSquare,
-  AtSign,
   Check,
 } from "lucide-react";
 
@@ -28,12 +27,21 @@ const CATEGORIES = [
   "WEEKLY_MONTHLY_CHECKLISTS",
 ];
 
-const combineAndSortActivity = (logs: any[] = [], comments: any[] = []) => {
+// SAFE COMBINER: Prevents White Screen of Death if database returns null
+const combineAndSortActivity = (logs: any, comments: any) => {
+  const validLogs = Array.isArray(logs) ? logs : [];
+  const validComments = Array.isArray(comments) ? comments : [];
+
   const combined = [
-    ...logs.map((log) => ({ ...log, type: "log" })),
-    ...comments.map((comment) => ({ ...comment, type: "comment" })),
+    ...validLogs.map((log) => ({ ...log, type: "log" })),
+    ...validComments.map((comment) => ({ ...comment, type: "comment" })),
   ];
-  return combined.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  return combined.sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeA - timeB;
+  });
 };
 
 const WorkOrderDetail = ({ user }: any) => {
@@ -67,7 +75,6 @@ const WorkOrderDetail = ({ user }: any) => {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const statusMenuRef = useRef<HTMLDivElement>(null);
 
-  //Click outside handler for status menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (statusMenuRef.current && !statusMenuRef.current.contains(event.target as Node)) {
@@ -104,9 +111,15 @@ const WorkOrderDetail = ({ user }: any) => {
   const fetchWO = async () => {
     try {
       const res = await fetch(`${API_URL}/api/workorders/${id}`);
-      if (res.ok) setWo(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setWo(data);
+      } else {
+        setWo(null);
+      }
     } catch (err) {
       console.error(err);
+      setWo(null);
     } finally {
       setLoading(false);
     }
@@ -114,22 +127,33 @@ const WorkOrderDetail = ({ user }: any) => {
 
   useEffect(() => {
     fetchWO();
+    
+    // SAFE FETCHING LOGIC: If a backend route crashes, return an empty array instead of crashing React
     if (user?.organizationId) {
       fetch(`${API_URL}/api/users?orgId=${user.organizationId}`)
-        .then((res) => res.json())
-        .then(setOrgUsers);
+        .then(async (res) => res.ok ? await res.json() : [])
+        .then((data) => setOrgUsers(Array.isArray(data) ? data : []))
+        .catch(() => setOrgUsers([]));
+
       fetch(`${API_URL}/api/assets?orgId=${user.organizationId}`)
-        .then((res) => res.json())
-        .then(setOrgAssets);
+        .then(async (res) => res.ok ? await res.json() : [])
+        .then((data) => setOrgAssets(Array.isArray(data) ? data : []))
+        .catch(() => setOrgAssets([]));
+
       fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`)
-        .then((res) => res.json())
-        .then(setOrgLocations);
+        .then(async (res) => res.ok ? await res.json() : [])
+        .then((data) => setOrgLocations(Array.isArray(data) ? data : []))
+        .catch(() => setOrgLocations([]));
+
       fetch(`${API_URL}/api/inventory?orgId=${user.organizationId}`)
-        .then((res) => res.json())
-        .then(setOrgParts);
+        .then(async (res) => res.ok ? await res.json() : [])
+        .then((data) => setOrgParts(Array.isArray(data) ? data : []))
+        .catch(() => setOrgParts([]));
+
       fetch(`${API_URL}/api/teams?orgId=${user.organizationId}`)
-        .then((res) => res.json())
-        .then(setOrgTeams);
+        .then(async (res) => res.ok ? await res.json() : [])
+        .then((data) => setOrgTeams(Array.isArray(data) ? data : []))
+        .catch(() => setOrgTeams([]));
     }
   }, [id, user?.organizationId]);
 

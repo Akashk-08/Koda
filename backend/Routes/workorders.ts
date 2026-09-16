@@ -5,7 +5,7 @@ import fs from "fs";
 import { notifyUser } from "../services/notificationService.js";
 import logger from "../utils/logger.js";
 import nodemailer from "nodemailer";
-import redis from "../utils/redis.js"; // Import your Redis cache utility
+import redis from "../utils/redis.js";
 
 const router = express.Router();
 
@@ -49,17 +49,34 @@ router.post("/:id/documents", upload.single("file"), async (req: any, res: any) 
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
+    const numericId = parseInt(req.params.id);
     const document = await prisma.document.create({
       data: {
         fileName: req.file.originalname,
         fileUrl: `/uploads/${req.file.filename}`,
-        workOrderId: parseInt(req.params.id),
+        workOrderId: numericId,
         uploaderId: req.body.uploaderId,
       },
     });
 
-    // Invalidate work order cache
-    await redis.del(`workorders:${req.body.organizationId || "*"}`).catch(() => {});
+    const wo = await prisma.workOrder.findUnique({ where: { id: numericId }, select: { organizationId: true, title: true }});
+
+    if (wo) {
+      await redis.del(`workorders:${wo.organizationId}`).catch(() => {});
+      await redis.del(`workorder:single:${numericId}`).catch(() => {});
+      
+      // LOG ACTIVITY TO UNIVERSAL STREAM
+      await prisma.activityLog.create({
+        data: {
+          action: `uploaded a file: ${req.file.originalname}`,
+          entityType: "WORK_ORDER",
+          entityTitle: `WO-${numericId}`,
+          workOrderId: numericId,
+          actorId: req.body.uploaderId,
+          organizationId: wo.organizationId,
+        }
+      });
+    }
 
     res.status(201).json(document);
   } catch (error) {
@@ -68,7 +85,7 @@ router.post("/:id/documents", upload.single("file"), async (req: any, res: any) 
   }
 });
 
-// 2. Get All Work Orders (WITH NON-BLOCKING REDIS CACHING)
+// 2. Get All Work Orders
 router.get("/", async (req, res) => {
   try {
     const {
@@ -84,16 +101,13 @@ router.get("/", async (req, res) => {
 
     if (!orgId) return res.status(400).json({ error: "Organization ID is required" });
 
-    // Generate unique cache key based on query parameters
     const cacheKey = `workorders:${orgId}:${page}:${limit}:${search}:${status || "ALL"}:${category || "ALL"}:${locationName || "ALL"}:${teamId || "ALL"}`;
 
     let cachedData = null;
     try {
       const data = await redis.get(cacheKey);
       if (data) cachedData = JSON.parse(data);
-    } catch (redisErr) {
-      // Non-blocking fallback if Redis lags or drops
-    }
+    } catch (redisErr) {}
 
     if (cachedData) {
       return res.json(cachedData);
@@ -144,7 +158,6 @@ router.get("/", async (req, res) => {
       },
     };
 
-    // Store in Redis cache with 60-second expiration
     await redis.setex(cacheKey, 60, JSON.stringify(responsePayload)).catch(() => {});
 
     res.json(responsePayload);
@@ -194,7 +207,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// 4. Create Work Order (WITH CACHE INVALIDATION)
+// 4. Create Work Order
 router.post("/", async (req, res) => {
   const {
     title,
@@ -304,10 +317,8 @@ router.post("/", async (req, res) => {
       include: { creator: true, assignee: true },
     });
 
-    // Invalidate list cache for this organization
     await redis.del(`workorders:${organizationId}`).catch(() => {});
 
-    // 1. IN-APP NOTIFICATIONS
     if (newWorkOrder.assignedTo) {
       await notifyUser(
         newWorkOrder.assignedTo,
@@ -335,7 +346,6 @@ router.post("/", async (req, res) => {
       }
     }
 
-    // 2. EMAIL NOTIFICATIONS
     try {
       let emailsToSend: string[] = [];
       
@@ -364,18 +374,18 @@ router.post("/", async (req, res) => {
           `,
         };
         await transporter.sendMail(mailOptions);
-        logger.info(`Assignment emails dispatched for WO-${newWorkOrder.id}`);
       }
-    } catch (emailErr) {
-       logger.error(`Failed to dispatch assignment email for WO-${newWorkOrder.id}: ${(emailErr as Error).message}`);
-    }
+    } catch (emailErr) {}
 
     if (createdBy) {
       await prisma.activityLog.create({
         data: {
           action: "created the work order",
+          entityType: "WORK_ORDER",
+          entityTitle: `WO-${newWorkOrder.id}`,
           workOrderId: newWorkOrder.id,
           actorId: createdBy,
+          organizationId: newWorkOrder.organizationId,
         },
       });
     }
@@ -389,29 +399,36 @@ router.post("/", async (req, res) => {
   }
 });
 
-// 5. Update Work Order (WITH CACHE INVALIDATION)
+// 5. Update Work Order
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
+  const numericId = parseInt(id);
   const { actorId, actionLog, ...updateData } = req.body;
 
   try {
     if (updateData.dueDate) updateData.dueDate = new Date(updateData.dueDate);
 
+    const existingWO = await prisma.workOrder.findUnique({ where: { id: numericId }});
+    if (!existingWO) return res.status(404).json({error: "Not Found"});
+
     const updatedWorkOrder = await prisma.workOrder.update({
-      where: { id: parseInt(id) },
+      where: { id: numericId },
       data: updateData,
     });
 
-    // Invalidate individual and general list caches
     await redis.del(`workorder:single:${id}`).catch(() => {});
     await redis.del(`workorders:${updatedWorkOrder.organizationId}`).catch(() => {});
 
+    // LOG ACTIVITY TO UNIVERSAL STREAM
     if (actorId && actionLog) {
       await prisma.activityLog.create({
         data: {
           action: actionLog,
-          workOrderId: parseInt(id),
+          entityType: "WORK_ORDER",
+          entityTitle: `WO-${numericId}`,
+          workOrderId: numericId,
           actorId: actorId,
+          organizationId: updatedWorkOrder.organizationId,
         },
       });
     }
@@ -479,7 +496,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// 6. Delete Work Order (WITH CACHE INVALIDATION)
+// 6. Delete Work Order
 router.delete("/:id", async (req, res) => {
   try {
     const numericId = parseInt(req.params.id);
@@ -503,16 +520,84 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// 7. Post a Comment
+// 7. Post a Comment & HANDLE MENTIONS
 router.post("/:id/comments", async (req, res) => {
   const { text, authorId } = req.body;
+  const numericId = parseInt(req.params.id);
+  
   try {
+    const wo = await prisma.workOrder.findUnique({ 
+      where: { id: numericId }, 
+      select: { organizationId: true, title: true }
+    });
+    if (!wo) return res.status(404).json({error: "Work order not found"});
+
     const comment = await prisma.comment.create({
-      data: { text, authorId, workOrderId: parseInt(req.params.id) },
+      data: { text, authorId, workOrderId: numericId },
       include: { author: true },
     });
     
-    await redis.del(`workorder:single:${req.params.id}`).catch(() => {});
+    // Log comment event in universal activity stream
+    await prisma.activityLog.create({
+      data: {
+        action: `added a comment: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`,
+        entityType: "WORK_ORDER",
+        entityTitle: `WO-${numericId}`,
+        workOrderId: numericId,
+        actorId: authorId,
+        organizationId: wo.organizationId,
+      }
+    });
+
+    await redis.del(`workorder:single:${numericId}`).catch(() => {});
+
+    // MENTION PARSING & NOTIFICATIONS
+    const mentionRegex = /@([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)?)/g;
+    const mentions = [...text.matchAll(mentionRegex)].map(m => m[1].trim().toLowerCase());
+
+    if (mentions.length > 0) {
+      const allUsers = await prisma.user.findMany({
+        where: { organizationId: wo.organizationId }
+      });
+      
+      const taggedUsers = allUsers.filter(u => {
+        const full = `${u.firstName} ${u.lastName}`.toLowerCase();
+        const first = u.firstName.toLowerCase();
+        return mentions.includes(full) || mentions.includes(first);
+      });
+
+      for (const taggedUser of taggedUsers) {
+        // Send In-App Notification
+        await notifyUser(
+          taggedUser.id,
+          "You were mentioned",
+          `${comment.author.firstName} mentioned you in WO-${numericId}`,
+          "MENTION",
+          String(numericId)
+        );
+
+        // Send Email Alert
+        if (taggedUser.email) {
+          try {
+             await transporter.sendMail({
+              from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
+              to: taggedUser.email,
+              subject: `You were mentioned in WO-${numericId}`,
+              html: `
+                <h3>${comment.author.firstName} mentioned you in a comment</h3>
+                <p><strong>WO-${numericId}:</strong> ${wo.title}</p>
+                <blockquote style="border-left: 4px solid #ccc; padding-left: 10px; color: #555;">
+                  ${text}
+                </blockquote>
+                <p><a href="https://pulseworkscmms.vercel.app/#/workspace/workorder/${numericId}">Click here to view the ticket</a></p>
+              `,
+            });
+          } catch(e) {
+            logger.error(`Mention email dispatch failed: ${e}`);
+          }
+        }
+      }
+    }
 
     res.status(201).json(comment);
   } catch (error) {

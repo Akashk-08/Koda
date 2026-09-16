@@ -116,6 +116,7 @@ model Organization {
   assets     Asset[] 
   equipmentCategories    EquipmentCategory[]
   machineTypes           MachineType[]
+  activityLogs           ActivityLog[] // <-- Added Relation
 }
 
 // model comment
@@ -133,17 +134,25 @@ model Comment {
   @@map("comments")
 }
 
-// Model ActivityLog
+// UNIVERSAL ACTIVITY LOG
 model ActivityLog {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  action      String   @db.VarChar(255)
-  createdAt   DateTime @default(now()) @map("created_at")
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  action         String   @db.VarChar(255) // e.g. "checked out inventory", "created work order"
+  entityType     String?  @db.VarChar(50)  // e.g. "WORK_ORDER", "INVENTORY", "ASSET", "PM"
+  entityTitle    String?  @db.VarChar(255) // e.g. "WO-13842" or "Vive Cosmos"
+  details        String?  @db.Text         // Optional JSON payload or extra context
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  workOrderId Int      @map("work_order_id")
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  // Make WorkOrder optional to allow other entities to be logged
+  workOrderId    Int?     @map("work_order_id")
+  workOrder      WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
-  actorId     String   @map("actor_id")
-  actor       User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  actorId        String?  @map("actor_id")
+  actor          User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  // Scope logs universally to the org
+  organizationId String?  @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
 
   @@map("activity_logs")
 }

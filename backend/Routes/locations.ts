@@ -5,15 +5,30 @@ import logger from "../utils/logger.js";
 
 const router = express.Router();
 
-// GET all locations for an organization (Cached)
+// Helper to safely invalidate cache without crashing route
+const safeRedisDel = async (key: string) => {
+  try {
+    await redis.del(key);
+  } catch (e) {
+    logger.warn(`Redis DEL error for ${key}: ${e}`);
+  }
+};
+
+// GET all locations for an organization (Cached safely)
 router.get("/", async (req, res) => {
   const { orgId } = req.query;
   const cacheKey = `org:${orgId}:locations`;
 
   try {
-    // 1. Check Redis cache first
+    // 1. Safely check Redis cache first
+    let cached = null;
     if (orgId) {
-      const cached = await redis.get(cacheKey);
+      try {
+        cached = await redis.get(cacheKey);
+      } catch (e) {
+        logger.warn(`Redis GET error: ${e}`);
+      }
+      
       if (cached) {
         return res.status(200).json(JSON.parse(cached));
       }
@@ -25,9 +40,13 @@ router.get("/", async (req, res) => {
       orderBy: { name: "asc" },
     });
 
-    // 3. Save to Redis cache for 10 minutes (600 seconds)
+    // 3. Safely save to Redis cache for 10 minutes (600 seconds)
     if (orgId) {
-      await redis.setex(cacheKey, 600, JSON.stringify(locations));
+      try {
+        await redis.setex(cacheKey, 600, JSON.stringify(locations));
+      } catch (e) {
+        logger.warn(`Redis SET error: ${e}`);
+      }
     }
 
     res.status(200).json(locations);
@@ -37,7 +56,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// CREATE a new location (Invalidates cache)
+// CREATE a new location (Invalidates cache safely)
 router.post("/", async (req, res) => {
   const { name, shortName, address, latitude, longitude, teamAssignedNames, organizationId } =
     req.body;
@@ -55,9 +74,9 @@ router.post("/", async (req, res) => {
       },
     });
 
-    // Invalidate cache
+    // Invalidate cache safely
     if (organizationId) {
-      await redis.del(`org:${organizationId}:locations`);
+      await safeRedisDel(`org:${organizationId}:locations`);
     }
 
     res.status(201).json(newLocation);
@@ -67,7 +86,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// UPDATE an existing location (Invalidates cache)
+// UPDATE an existing location (Invalidates cache safely)
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { name, shortName, address, latitude, longitude, teamAssignedNames, organizationId } = req.body;
@@ -86,7 +105,7 @@ router.put("/:id", async (req, res) => {
     });
 
     if (organizationId) {
-      await redis.del(`org:${organizationId}:locations`);
+      await safeRedisDel(`org:${organizationId}:locations`);
     }
 
     res.status(200).json(updatedLocation);
@@ -96,7 +115,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE a location (Invalidates cache)
+// DELETE a location (Invalidates cache safely)
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -106,7 +125,7 @@ router.delete("/:id", async (req, res) => {
     });
 
     if (loc?.organizationId) {
-      await redis.del(`org:${loc.organizationId}:locations`);
+      await safeRedisDel(`org:${loc.organizationId}:locations`);
     }
 
     res.status(200).json({ success: true });

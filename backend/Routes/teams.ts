@@ -5,17 +5,34 @@ import logger from "../utils/logger.js";
 
 const router = express.Router();
 
-// GET ALL TEAMS FOR AN ORGANIZATION (Cached)
+// Helper to safely invalidate cache without crashing route
+const safeRedisDel = async (key: string) => {
+  try {
+    await redis.del(key);
+  } catch (e) {
+    logger.warn(`Redis DEL error for ${key}: ${e}`);
+  }
+};
+
+// GET ALL TEAMS FOR AN ORGANIZATION (Cached safely)
 router.get("/", async (req, res) => {
   const { orgId } = req.query;
   const cacheKey = `org:${orgId}:teams`;
 
   try {
+    // 1. Safely check Redis
     if (orgId) {
-      const cached = await redis.get(cacheKey);
+      let cached = null;
+      try {
+        cached = await redis.get(cacheKey);
+      } catch (e) {
+        logger.warn(`Redis GET error: ${e}`);
+      }
+      
       if (cached) return res.status(200).json(JSON.parse(cached));
     }
 
+    // 2. Fallback to Prisma
     const teams = await prisma.team.findMany({
       where: { organizationId: orgId as string },
       include: {
@@ -33,8 +50,13 @@ router.get("/", async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
+    // 3. Safely set Redis
     if (orgId) {
-      await redis.setex(cacheKey, 600, JSON.stringify(teams));
+      try {
+        await redis.setex(cacheKey, 600, JSON.stringify(teams));
+      } catch (e) {
+        logger.warn(`Redis SET error: ${e}`);
+      }
     }
 
     res.status(200).json(teams);
@@ -44,7 +66,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// CREATE A NEW TEAM (Invalidates cache)
+// CREATE A NEW TEAM (Invalidates cache safely)
 router.post("/", async (req, res) => {
   const { name, description, locationId, organizationId, userIds, requesterId } = req.body;
 
@@ -67,7 +89,7 @@ router.post("/", async (req, res) => {
       include: { location: true, users: true },
     });
 
-    await redis.del(`org:${organizationId}:teams`);
+    await safeRedisDel(`org:${organizationId}:teams`);
     res.status(201).json(newTeam);
   } catch (error) {
     logger.error(`[Teams] Create Error: ${(error as Error).message || error}`);
@@ -75,7 +97,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// UPDATE TEAM (Invalidates cache)
+// UPDATE TEAM (Invalidates cache safely)
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { name, description, locationId, userIds, organizationId } = req.body;
@@ -97,7 +119,7 @@ router.put("/:id", async (req, res) => {
     });
 
     if (updatedTeam.organizationId) {
-      await redis.del(`org:${updatedTeam.organizationId}:teams`);
+      await safeRedisDel(`org:${updatedTeam.organizationId}:teams`);
     }
 
     res.status(200).json(updatedTeam);
@@ -107,7 +129,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE TEAM (Invalidates cache)
+// DELETE TEAM (Invalidates cache safely)
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   const { requesterId } = req.query;
@@ -124,7 +146,7 @@ router.delete("/:id", async (req, res) => {
     await prisma.team.delete({ where: { id } });
 
     if (team?.organizationId) {
-      await redis.del(`org:${team.organizationId}:teams`);
+      await safeRedisDel(`org:${team.organizationId}:teams`);
     }
 
     res.status(200).json({ success: true });

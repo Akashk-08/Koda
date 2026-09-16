@@ -5,7 +5,16 @@ import logger from "../utils/logger.js";
 
 const router = express.Router();
 
-// GET all parts for an organization (Cached)
+// Helper to safely invalidate cache without crashing route
+const safeRedisDel = async (key: string) => {
+  try {
+    await redis.del(key);
+  } catch (e) {
+    logger.warn(`Redis DEL error for ${key}: ${e}`);
+  }
+};
+
+// GET all parts for an organization (Cached safely)
 router.get("/", async (req, res) => {
   const { orgId } = req.query;
 
@@ -14,8 +23,14 @@ router.get("/", async (req, res) => {
   const cacheKey = `org:${orgId}:inventory`;
 
   try {
-    // 1. Check Redis cache first
-    const cached = await redis.get(cacheKey);
+    // 1. Safely check Redis cache (fails gracefully if Redis is offline)
+    let cached = null;
+    try {
+      cached = await redis.get(cacheKey);
+    } catch (e) {
+      logger.warn(`Redis GET error: ${e}`);
+    }
+
     if (cached) {
       return res.status(200).json(JSON.parse(cached));
     }
@@ -26,8 +41,12 @@ router.get("/", async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    // 3. Save to Redis cache for 10 minutes (600 seconds)
-    await redis.setex(cacheKey, 600, JSON.stringify(parts));
+    // 3. Safely save to Redis cache
+    try {
+      await redis.setex(cacheKey, 600, JSON.stringify(parts));
+    } catch (e) {
+      logger.warn(`Redis SET error: ${e}`);
+    }
 
     res.json(parts);
   } catch (error: any) {
@@ -36,7 +55,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST to create a new part (Invalidates cache)
+// POST to create a new part
 router.post("/", async (req, res) => {
   try {
     const {
@@ -56,7 +75,6 @@ router.post("/", async (req, res) => {
       siteLocation,
       area,
       organizationId,
-      model,
     } = req.body;
 
     if (!organizationId) {
@@ -84,9 +102,7 @@ router.post("/", async (req, res) => {
       },
     });
 
-    // Invalidate inventory cache
-    await redis.del(`org:${organizationId}:inventory`);
-
+    await safeRedisDel(`org:${organizationId}:inventory`);
     res.status(201).json(newPart);
   } catch (error: any) {
     logger.error(`[Inventory] PRISMA CREATE ERROR: ${error.message || error}`);
@@ -94,7 +110,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT to update an existing part (Invalidates cache)
+// PUT to update an existing part
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -106,7 +122,7 @@ router.put("/:id", async (req, res) => {
     });
 
     if (updatedPart.organizationId) {
-      await redis.del(`org:${updatedPart.organizationId}:inventory`);
+      await safeRedisDel(`org:${updatedPart.organizationId}:inventory`);
     }
 
     res.json(updatedPart);
@@ -116,7 +132,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE a part (Invalidates cache)
+// DELETE a part
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -127,7 +143,7 @@ router.delete("/:id", async (req, res) => {
     });
 
     if (part?.organizationId) {
-      await redis.del(`org:${part.organizationId}:inventory`);
+      await safeRedisDel(`org:${part.organizationId}:inventory`);
     }
 
     res.json({ message: "Part deleted successfully" });
