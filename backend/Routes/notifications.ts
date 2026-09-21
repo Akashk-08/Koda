@@ -18,11 +18,19 @@ router.get("/:userId", async (req, res) => {
   }
 });
 
-// Get unread notifications for a user by Email (Fallback for mismatched IDs)
+// Get unread notifications for a user by Email (Robust case-insensitive fallback)
 router.get("/email/:email", async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { email: req.params.email }
+    const rawEmail = decodeURIComponent(req.params.email).trim().toLowerCase();
+    
+    // Use findFirst with mode insensitive to prevent 500 crashes on case mismatch
+    const user = await prisma.user.findFirst({
+      where: { 
+        email: { 
+          equals: rawEmail, 
+          mode: 'insensitive' 
+        } 
+      }
     });
 
     if (!user) {
@@ -68,4 +76,5 @@ router.put("/user/:userId/read-all", async (req, res) => {
     res.status(500).json({ error: "Failed to update notifications" });
   }
 });
+
 export default router;

@@ -1,11 +1,9 @@
 import prisma from "../utils/prisma.js";
-// backend/services/notificationService.ts
 import nodemailer from "nodemailer";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 import path from "path";
 
-// Initialize Firebase Admin using the JSON file referenced in your .env
 if (!getApps().length) {
   initializeApp({
     credential: cert(
@@ -14,7 +12,6 @@ if (!getApps().length) {
   });
 }
 
-// Update to use EMAIL_USER and EMAIL_PASS from your .env
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -33,15 +30,15 @@ export const notifyUser = async (
   try {
     if (!userIdOrEmailOrName) return;
 
-    // Robust user lookup supporting ID, Email, or Name fallback
-    let user = await prisma.user.findUnique({ where: { id: userIdOrEmailOrName } });
+    let user = await prisma.user.findUnique({ where: { id: userIdOrEmailOrName } }).catch(() => null);
 
     if (!user) {
-      user = await prisma.user.findUnique({ where: { email: userIdOrEmailOrName } });
+      user = await prisma.user.findFirst({
+        where: { email: { equals: userIdOrEmailOrName.trim().toLowerCase(), mode: 'insensitive' } }
+      });
     }
 
     if (!user) {
-      // Try finding by name if ID/email didn't match
       const users = await prisma.user.findMany();
       user = users.find(u => 
         `${u.firstName} ${u.lastName}`.toLowerCase() === userIdOrEmailOrName.toLowerCase() ||
@@ -54,7 +51,6 @@ export const notifyUser = async (
       return;
     }
 
-    // 1. Save to In-App Database using the resolved user's actual ID
     await prisma.notification.create({
       data: { 
         userId: user.id, 
@@ -65,7 +61,6 @@ export const notifyUser = async (
       },
     });
 
-    // 2. Send Email
     if (user.email) {
       await transporter.sendMail({
         from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
@@ -75,7 +70,6 @@ export const notifyUser = async (
       });
     }
 
-    // 3. Send Mobile Push (if device token exists)
     if (user.deviceToken) {
       await getMessaging().send({
         token: user.deviceToken,
