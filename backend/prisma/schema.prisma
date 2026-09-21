@@ -61,7 +61,7 @@ model User {
   id                 String   @id @default(uuid())
   firstName          String   @map("first_name") @db.VarChar(50)
   lastName           String   @map("last_name") @db.VarChar(50)
-  email              String   @unique           @db.VarChar(100)
+  email              String   @db.VarChar(100) // REMOVED STRICT UNIQUE FOR TERMINAL SHARING
   password           String   @db.VarChar(255)
   @@unique([email, firstName, lastName])
   deviceToken        String?
@@ -116,7 +116,7 @@ model Organization {
   assets     Asset[] 
   equipmentCategories    EquipmentCategory[]
   machineTypes           MachineType[]
-  activityLogs           ActivityLog[] // <-- Added Relation
+  activityLogs           ActivityLog[]
 }
 
 // model comment
@@ -137,20 +137,18 @@ model Comment {
 // UNIVERSAL ACTIVITY LOG
 model ActivityLog {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  action         String   @db.VarChar(255) // e.g. "checked out inventory", "created work order"
-  entityType     String?  @db.VarChar(50)  // e.g. "WORK_ORDER", "INVENTORY", "ASSET", "PM"
-  entityTitle    String?  @db.VarChar(255) // e.g. "WO-13842" or "Vive Cosmos"
-  details        String?  @db.Text         // Optional JSON payload or extra context
+  action         String   @db.VarChar(255) 
+  entityType     String?  @db.VarChar(50)  
+  entityTitle    String?  @db.VarChar(255) 
+  details        String?  @db.Text         
   createdAt      DateTime @default(now()) @map("created_at")
 
-  // Make WorkOrder optional to allow other entities to be logged
   workOrderId    Int?     @map("work_order_id")
   workOrder      WorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   actorId        String?  @map("actor_id")
   actor          User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
-  // Scope logs universally to the org
   organizationId String?  @map("organization_id")
   organization   Organization? @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
 
@@ -202,27 +200,26 @@ model AssetDependency {
 // model workorder
 model WorkOrder {
   id             Int             @id @default(autoincrement())
-  upkeepId       String?         @map("upkeep_id") // Maps to CSV 'Work Order ID'
-  workOrderNumber Int?           @map("work_order_number") // Maps to CSV 'Work Order #'
+  upkeepId       String?         @map("upkeep_id") 
+  workOrderNumber Int?           @map("work_order_number") 
   title          String          @db.VarChar(150)
   description    String?         @db.Text
   
   priority       Priority        @default(MEDIUM)
   status         WorkOrderStatus @default(OPEN)
-  customStatus   String?         @map("custom_status") // Maps to CSV 'Custom Work Order Status'
+  customStatus   String?         @map("custom_status") 
   category       Category?
 
   startDate      DateTime?       @map("start_date")
   dueDate        DateTime?       @map("due_date")
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at")
-  closedAt       DateTime?       @map("closed_at") // Maps to CSV 'Completed On'
-  nextDueDate    DateTime?       @map("next_due_date") // Maps to CSV 'Next Due Date'
+  closedAt       DateTime?       @map("closed_at") 
+  nextDueDate    DateTime?       @map("next_due_date") 
 
   organizationId String          @map("organization_id")
   organization   Organization    @relation(fields: [organizationId], references: [orgId], onDelete: Cascade)
 
-  // RELATIONS AND FKs
   assetId        String?         @map("asset_id") @db.Uuid
   assignedTo     String?         @map("assigned_to")
   createdBy      String?         @map("created_by")
@@ -238,7 +235,6 @@ model WorkOrder {
   parentWorkOrder WorkOrder?     @relation("ParentChildWorkOrder", fields: [parentWorkOrderId], references: [id], onDelete: SetNull)
   childWorkOrders WorkOrder[]    @relation("ParentChildWorkOrder")
 
-  // UPKEEP CSV FLAT DATA COLUMNS
   completedByEmail             String? @map("completed_by_email")
   assignedByEmail              String? @map("assigned_by_email")
   assignedToEmail              String? @map("assigned_to_email")
@@ -249,31 +245,26 @@ model WorkOrder {
   locationName                 String? @map("location_name") @db.VarChar(150)
   assetCategory                String? @map("asset_category")
   
-  // JOB DETAILS & COSTS
   estimatedHours               Float?  @map("estimated_hours")
   timeHours                    Float?  @map("time_hours")
   additionalCost               Float?  @map("additional_cost")
   laborCost                    Float?  @map("labor_cost")
   
-  // INVENTORY & TASKS
   checklistId                  String? @map("checklist_id")
-  taskData                     Json?   @map("task_data") // Stores structured 'Task Data'
+  taskData                     Json?   @map("task_data") 
   partsNames                   String? @map("parts_names")
   partQuantities               String? @map("part_quantities")
   purchaseOrderNames           String? @map("purchase_order_names")
   fileId                       String? @map("file_id")
   
-  // BOOLEAN FLAGS
   requiresSignature            Boolean @default(false) @map("requires_signature")
   isArchived                   Boolean @default(false) @map("is_archived")
   rootWorkOrderExists          Boolean @default(false) @map("root_work_order_exists")
   rescheduleBasedOnCompletion  Boolean @default(false) @map("reschedule_based_on_completion")
   
-  // REPEATING SCHEDULES
   repeatingSchedule            String? @map("repeating_schedule")
   stopRepeatingOn              DateTime? @map("stop_repeating_on")
 
-  // RELATED ARRAYS
   comments       Comment[]
   activityLogs   ActivityLog[]
   documents      Document[]
@@ -336,11 +327,10 @@ model PreventiveMaintenance {
   assigneeId     String?      @map("assignee_id")
   assignee       User?        @relation("PMAssignee", fields: [assigneeId], references: [id])
 
-  // MASTER TEMPLATE FIELDS 
   assetId        String?      @map("asset_id") @db.Uuid
   teamId         String?      @map("team_id")
-  taskData       Json?        @map("task_data") // Stores the master checklist
-  partsData      Json?        @map("parts_data") // Stores required parts & quantities
+  taskData       Json?        @map("task_data") 
+  partsData      Json?        @map("parts_data") 
 
   workOrders     WorkOrder[]
 
@@ -351,7 +341,7 @@ model PreventiveMaintenance {
 model Location {
   id                    String   @id @default(uuid())
   name                  String
-  shortName             String?  // NEW FIELD
+  shortName             String?  
   address               String?
   longitude             String?
   latitude              String?
@@ -382,7 +372,7 @@ model Team {
   location       Location?    @relation(fields: [locationId], references: [id])
   
   users          User[]       
-  workOrders     WorkOrder[]  // Added backward relation for Work Orders
+  workOrders     WorkOrder[]  
   
   createdAt      DateTime     @default(now())
 }
@@ -430,13 +420,13 @@ model InventoryPart {
   assets          Asset[]         @relation("AssetParts")
 }
 
-// systemAuditlog for Admin and Users(for developer mode debug only)
+// systemAuditlog
 model SystemAuditLog {
   id             String   @id @default(uuid())
   organizationId String
   userId         String
   userName       String
-  role           String   // 'ADMIN' or 'USER'
+  role           String   
   action         String
   details        String
   createdAt      DateTime @default(now())
@@ -447,8 +437,8 @@ model Notification {
   title       String
   message     String
   isRead      Boolean  @default(false)
-  type        String   // e.g., 'WORK_ORDER', 'MENTION'
-  referenceId String?  // ID of the work order
+  type        String   
+  referenceId String?  
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

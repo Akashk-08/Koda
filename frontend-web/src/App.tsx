@@ -760,7 +760,7 @@ const DashboardLayout = ({
             </li>
           </ul>
 
-          <div
+          {/* <div
             className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
           >
             {isSidebarCollapsed ? "..." : "AI Search"}
@@ -780,7 +780,7 @@ const DashboardLayout = ({
                 </div>
               </Link>
             </li>
-          </ul>
+          </ul> */}
 
           <div
             className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}

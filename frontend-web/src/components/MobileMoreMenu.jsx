@@ -20,12 +20,12 @@ const MobileMoreMenu = ({ user }) => {
 
   // Grouped exactly like your desktop sidebar
   const menuSections = [
-    {
-      title: "AI Search",
-      items: [
-        { label: "Pulseworks AI", icon: Sparkles, to: "/aisearch/pulseworksAI", color: "text-purple-600", bg: "bg-purple-100" }
-      ]
-    },
+    // {
+    //   title: "AI Search",
+    //   items: [
+    //     { label: "Pulseworks AI", icon: Sparkles, to: "/aisearch/pulseworksAI", color: "text-purple-600", bg: "bg-purple-100" }
+    //   ]
+    // },
     {
       title: "Organization",
       items: [

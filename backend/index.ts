@@ -14,7 +14,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import inventoryRoutes from "./Routes/inventory.js";
 import assetRoutes from "./Routes/assets.js";
-import notificationRoutes from "./Routes/notifications.js"; // IMPORTED NOTIFICATIONS ROUTE
+import notificationRoutes from "./Routes/notifications.js"; 
 import nodemailer from "nodemailer";
 import rateLimit from "express-rate-limit";
 import logger from "./utils/logger.js";
@@ -28,7 +28,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-// UPDATED: Dynamically bind to Render's injected PORT environment variable
 const PORT = parseInt(process.env.PORT || "8080", 10);
 
 const corsOptions = {
@@ -36,7 +35,9 @@ const corsOptions = {
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://pulseworkscmms.vercel.app",
-    /\.vercel\.app$/, // Allows all Vercel branch/preview deployments
+    "https://cmms.pulseworks.com", 
+    "http://cmms.pulseworks.com",  
+    /\.vercel\.app$/, 
     "capacitor://localhost",
     "http://localhost",
     "http://192.168.1.49:5173",
@@ -44,21 +45,18 @@ const corsOptions = {
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-  maxAge: 86400, // Caches preflight responses for 24 hours to eliminate repeated OPTIONS network round-trips
+  maxAge: 86400, 
 };
 
 app.use(cors(corsOptions));
-// INCREASED LIMITS MOVED TO THE TOP
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// UPDATED: Standard console.log at the very top so Render captures it before routes execute
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] Incoming Request: ${req.method} ${req.url}`);
   next();
 });
 
-//  EMAIL TRANSPORTER CONFIGURATION
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -67,19 +65,17 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Block specific accounts after 100 failed login attempts for 15 minutes
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  message: "Too many login attempts, please try again after 15 minutes", // Change this to a string
+  message: "Too many login attempts, please try again after 15 minutes", 
   keyGenerator: (req, res) => {
     return req.body.email ? req.body.email.toLowerCase() : req.ip || "unknown-ip";
   },
 });
-app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // serve your images!
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); 
 
 // AUTH ROUTES
-// CREATE ACCOUNT (First Seat Rule Applied & Transaction Safe)
 app.post("/api/auth/signup", async (req, res) => {
   const { organizationName, firstName, lastName, email, password } = req.body;
 
@@ -134,9 +130,7 @@ app.post("/api/auth/signup", async (req, res) => {
       },
     });
 
-    // NEW LOGIC: Notify all Admins of the new pending request
     try {
-      // 1. Find all users in this org who are Admins
       const admins = await prisma.user.findMany({
         where: {
           organizationId: org.orgId,
@@ -144,14 +138,12 @@ app.post("/api/auth/signup", async (req, res) => {
         },
       });
 
-      // 2. Extract their email addresses
       const adminEmails = admins.map((admin) => admin.email);
 
-      // 3. Send the notification if admins exist
       if (adminEmails.length > 0) {
         const mailOptions = {
           from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
-          to: adminEmails, // Nodemailer accepts an array of strings to email multiple people
+          to: adminEmails, 
           subject: "New Workspace Access Request - Pulseworks CMMS",
           html: `
             <h3>New Access Request</h3>
@@ -174,23 +166,19 @@ app.post("/api/auth/signup", async (req, res) => {
   }
 });
 
-// LOGIN (UPDATED FOR MULTI-PROFILE SUPPORT)
 app.post("/api/auth/login", loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Fetch all users associated with this email
     const users = await prisma.user.findMany({ where: { email } });
 
     if (!users || users.length === 0) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Check the password against the first user record
     const isValid = await bcrypt.compare(password, users[0].password);
     if (!isValid) return res.status(401).json({ error: "Invalid credentials" });
 
-    // Shared MODE: If multiple profiles exist, return a list to the frontend
     if (users.length > 1) {
       const approvedProfiles = users
         .filter((u) => u.approvalStatus === "APPROVED")
@@ -202,7 +190,6 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
       return res.status(200).json({ profiles: approvedProfiles });
     }
 
-    // STANDARD MODE: Only 1 user found, log them in directly
     const user = users[0];
 
     if (user.approvalStatus === "PENDING") {
@@ -230,7 +217,6 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
   }
 });
 
-// VERIFY PIN (NEW FOR Shared MODE)
 app.post("/api/auth/verify-pin", loginLimiter, async (req, res) => {
   const { email, profileId, pin } = req.body;
 
@@ -270,7 +256,6 @@ app.post("/api/auth/verify-pin", loginLimiter, async (req, res) => {
   }
 });
 
-// 1. REQUEST PASSWORD RESET
 app.post("/api/auth/forgot-password", async (req, res) => {
   const { email } = req.body;
   try {
@@ -306,7 +291,6 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   }
 });
 
-// 2. VERIFY THE 4-DIGIT CODE
 app.post("/api/auth/verify-code", async (req, res) => {
   const { email, code } = req.body;
   try {
@@ -327,7 +311,6 @@ app.post("/api/auth/verify-code", async (req, res) => {
   }
 });
 
-// 3. SET THE NEW PASSWORD
 app.post("/api/auth/reset-password", async (req, res) => {
   const { email, code, newPassword } = req.body;
   try {
@@ -360,7 +343,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
   }
 });
 
-// 1. FETCH PROFILES FOR QUICK-SWITCHING
 app.post("/api/auth/get-profiles", async (req, res) => {
   const { email } = req.body;
   try {
@@ -409,13 +391,15 @@ app.post("/api/auth/add-shared-profile", async (req, res) => {
     });
 
     res.status(201).json({ message: "Shared profile added!", user: newSharedUser });
-  } catch (error) {
-    logger.error(`Add Shared Profile Error: ${(error as Error).message}`);
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: "This user is already linked to this terminal email." });
+    }
+    logger.error(`Add Shared Profile Error: ${error.message}`);
     res.status(500).json({ error: "Failed to add shared profile." });
   }
 });
 
-// PUT: Update User PIN
 app.put("/api/users/:id/pin", async (req, res) => {
   const { id } = req.params;
   const { pin } = req.body;
@@ -443,7 +427,7 @@ app.use("/api/calendar", Calendar);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/logs", logRoutes);
-app.use("/api/notifications", notificationRoutes); // MOUNTED NOTIFICATIONS ROUTER
+app.use("/api/notifications", notificationRoutes); 
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/export", exportRoutes);
 app.use("/api/equipment-categories", categoryRoutes);
@@ -456,9 +440,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ error: "An unexpected internal server error occurred." });
 });
 
-// UPDATED: Standard console.log so Render prints successful server startup
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Backend server is actively running on port ${PORT}`);
+  console.log(` Backend server is actively running on port ${PORT}`);
 });
 
 export default app;
