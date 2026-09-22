@@ -662,7 +662,7 @@ const DashboardLayout = ({
     "/resources/requests",
     "/more",
     "/workspace/notifications",
-    "/workspace/analytics", 
+    "/workspace/analytics",
   ];
   const isRootPage = rootPaths.includes(location.pathname);
 
@@ -972,16 +972,21 @@ const DashboardLayout = ({
 
           <div className="flex-1">
             {/* SUSPENSE BOUNDARY WRAPS ALL LAZY LOADED ROUTES */}
-            <Suspense fallback={
-              <div className="h-full w-full flex items-center justify-center bg-gray-50">
-                <div className="flex flex-col items-center space-y-3">
-                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sm font-bold text-gray-500">Loading module...</p>
+            <Suspense
+              fallback={
+                <div className="h-full w-full flex items-center justify-center bg-gray-50">
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-sm font-bold text-gray-500">Loading module...</p>
+                  </div>
                 </div>
-              </div>
-            }>
+              }
+            >
               <Routes>
-                <Route path="/workspace/notifications" element={<NotificationsPage user={user} />} />
+                <Route
+                  path="/workspace/notifications"
+                  element={<NotificationsPage user={user} />}
+                />
                 <Route path="/workspace/analytics" element={<Analytics user={user} />} />
                 <Route path="/workspace/workorder/:id" element={<WorkOrderDetail user={user} />} />
                 <Route
@@ -991,12 +996,15 @@ const DashboardLayout = ({
                 <Route path="/workspace/pm" element={<PreventiveMaintenance user={user} />} />
                 <Route path="/workspace/schedular" element={<Scheduler user={user} />} />
                 <Route path="/aisearch/pulseworksAI" />
-                <Route path="/organization/locations" element={<Locations />} />
+                <Route path="/organization/locations" element={<Locations user={user} />} />
                 <Route path="/organization/myteam" element={<MyTeam user={user} />} />
                 <Route path="/resources/projects" element={<Project user={user} />} />
                 <Route path="/resources/accessrequests" element={<AccessRequests user={user} />} />
                 <Route path="/resources/calendar" element={<Calendar user={user} />} />
-                <Route path="/procurement/partsinventory" element={<PartsInventory user={user} />} />
+                <Route
+                  path="/procurement/partsinventory"
+                  element={<PartsInventory user={user} />}
+                />
                 <Route path="/procurement/assets" element={<Assets user={user} />} />
                 <Route path="/procurement/inventory" element={<Inventory user={user} />} />
                 <Route path="/workspace/my-team/:id" element={<TeamProfile currentUser={user} />} />
@@ -1052,7 +1060,7 @@ export default function App() {
     if (!user) return;
 
     const events = ["mousedown", "mousemove", "keypress", "scroll", "touchstart"];
-    
+
     const handleUserActivity = () => {
       resetInactivityTimer();
     };

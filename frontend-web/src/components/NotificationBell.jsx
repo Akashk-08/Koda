@@ -21,29 +21,45 @@ export default function NotificationBell({ user }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch notifications on mount and poll every 30 seconds
+  // Fetch notifications with a deferred initial load to unblock dashboard rendering
   useEffect(() => {
-    if (!user?.id && !user?.email) return;
-    fetchNotifications();
+    // Prevent fetching if user object isn't fully ready or contains "undefined"
+    if (!user || (!user.id && !user.email) || user.id === "undefined") return;
+
+    // DEFER initial fetch by 3 seconds so the main dashboard data loads instantly
+    const initialTimer = setTimeout(() => {
+      fetchNotifications();
+    }, 3000);
+
+    // Then quietly poll every 30 seconds in the background
     const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
   }, [user]);
 
   const fetchNotifications = async () => {
     try {
-      let res = await fetch(`${API_URL}/api/notifications/${user.id}`);
-      if (res.ok) {
-        let data = await res.json();
-        if ((!data || data.length === 0) && user?.email) {
-          const emailRes = await fetch(`${API_URL}/api/notifications/email/${user.email}`);
-          if (emailRes.ok) {
-            data = await emailRes.json();
-          }
-        }
-        setNotifications(data || []);
+      let data = [];
+      
+      // Ensure we don't accidentally query "undefined"
+      if (user?.id && user.id !== "undefined") {
+        const res = await fetch(`${API_URL}/api/notifications/${user.id}`);
+        if (res.ok) data = await res.json();
       }
+
+      // Fallback to email if needed
+      if ((!data || data.length === 0) && user?.email && user.email !== "undefined") {
+        const emailRes = await fetch(`${API_URL}/api/notifications/email/${user.email}`);
+        if (emailRes.ok) data = await emailRes.json();
+      }
+      
+      setNotifications(data || []);
     } catch (err) {
-      console.error("Failed to fetch notifications", err);
+      // Suppress aggressive console errors for background syncs
+      console.warn("Background notification sync delayed or network unavailable.");
     }
   };
 
@@ -64,14 +80,14 @@ export default function NotificationBell({ user }) {
   const markAllAsRead = async () => {
     try {
       const targetId = user?.id;
-      if (!targetId) return;
+      if (!targetId || targetId === "undefined") return;
 
       const res = await fetch(`${API_URL}/api/notifications/user/${targetId}/read-all`, {
         method: 'PUT'
       });
 
       if (res.ok) {
-        setNotifications([]); // Clear list immediately
+        setNotifications([]); 
       }
     } catch (err) {
       console.error("Failed to mark all notifications as read", err);

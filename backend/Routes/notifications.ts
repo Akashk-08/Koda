@@ -7,8 +7,15 @@ const router = express.Router();
 // Get unread notifications for a user by ID
 router.get("/:userId", async (req, res) => {
   try {
+    const userId = req.params.userId;
+    
+    // Block invalid/undefined IDs from crashing or querying the DB
+    if (!userId || userId === "undefined" || userId === "null") {
+      return res.json([]);
+    }
+
     const notifications = await prisma.notification.findMany({
-      where: { userId: req.params.userId, isRead: false },
+      where: { userId: userId, isRead: false },
       orderBy: { createdAt: "desc" },
     });
     res.json(notifications);
@@ -21,7 +28,14 @@ router.get("/:userId", async (req, res) => {
 // Get unread notifications for a user by Email (Robust case-insensitive fallback)
 router.get("/email/:email", async (req, res) => {
   try {
-    const rawEmail = decodeURIComponent(req.params.email).trim().toLowerCase();
+    const emailParam = req.params.email;
+    
+    // Block invalid emails
+    if (!emailParam || emailParam === "undefined" || emailParam === "null") {
+      return res.json([]);
+    }
+
+    const rawEmail = decodeURIComponent(emailParam).trim().toLowerCase();
     
     // Use findFirst with mode insensitive to prevent 500 crashes on case mismatch
     const user = await prisma.user.findFirst({
@@ -66,6 +80,10 @@ router.put("/:id/read", async (req, res) => {
 router.put("/user/:userId/read-all", async (req, res) => {
   try {
     const userId = req.params.userId;
+    if (!userId || userId === "undefined") {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
     await prisma.notification.updateMany({
       where: { userId: userId, isRead: false },
       data: { isRead: true },
