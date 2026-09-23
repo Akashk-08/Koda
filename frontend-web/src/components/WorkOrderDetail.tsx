@@ -44,6 +44,16 @@ const combineAndSortActivity = (logs: any, comments: any) => {
   });
 };
 
+// URL HELPER: Prevents API_URL from being appended to absolute S3/Cloudinary URLs
+const getAttachmentUrl = (url: string) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  const baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8080";
+  return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 const WorkOrderDetail = ({ user }: any) => {
   const { id } = useParams();
   const useNavigateHook = useNavigate();
@@ -1021,7 +1031,7 @@ const WorkOrderDetail = ({ user }: any) => {
                     >
                       <FileText className="w-6 h-6 text-blue-600 mr-3" />
                       <a
-                        href={`${API_URL}${doc.fileUrl}`}
+                        href={getAttachmentUrl(doc.fileUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm font-bold text-blue-600 hover:underline"
