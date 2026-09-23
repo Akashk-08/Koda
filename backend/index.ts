@@ -57,6 +57,15 @@ app.use((req, res, next) => {
   next();
 });
 
+// HEALTH CHECK ROUTE (Keeps UptimeRobot Green & Prevents Render Cold Starts)
+app.get("/", (req, res) => {
+  res.status(200).json({ status: "ok", message: "Pulseworks CMMS backend is active and running!" });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -140,7 +149,8 @@ app.post("/api/auth/signup", async (req, res) => {
 
       const adminEmails = admins.map((admin) => admin.email);
 
-      if (adminEmails.length > 0) {
+      // Only attempt email delivery if credentials are provided on the server
+      if (adminEmails.length > 0 && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
         const mailOptions = {
           from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
           to: adminEmails, 
@@ -154,6 +164,8 @@ app.post("/api/auth/signup", async (req, res) => {
         
         await transporter.sendMail(mailOptions);
         logger.info(`Admin notification email sent for new user: ${email}`);
+      } else {
+        logger.warn(`Skipped admin email notification: EMAIL_USER or EMAIL_PASS environment variables are not configured.`);
       }
     } catch (emailErr) {
       logger.error(`Failed to send admin notification email: ${(emailErr as Error).message}`);
@@ -273,13 +285,15 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     });
 
     try {
-      const mailOptions = {
-        from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "Your Pulseworks Password Reset Code",
-        text: `Your password reset code is: ${resetCode}. It will expire in 15 minutes.`,
-      };
-      await transporter.sendMail(mailOptions);
+      if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+        const mailOptions = {
+          from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
+          to: email,
+          subject: "Your Pulseworks Password Reset Code",
+          text: `Your password reset code is: ${resetCode}. It will expire in 15 minutes.`,
+        };
+        await transporter.sendMail(mailOptions);
+      }
     } catch (emailErr) {
       logger.warn(`Warning: Could not send actual email via Gmail, check terminal configuration.`);
     }
@@ -365,7 +379,7 @@ app.post("/api/auth/get-profiles", async (req, res) => {
   }
 });
 
-// 2. ADMIN: ADD A SHARED PROFILE
+// ADMIN: ADD A SHARED PROFILE
 app.post("/api/auth/add-shared-profile", async (req, res) => {
   const { baseEmail, userId, pin } = req.body;
 
