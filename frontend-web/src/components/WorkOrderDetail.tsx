@@ -14,6 +14,8 @@ import {
   Pencil,
   MessageSquare,
   Check,
+  Sparkles,
+  Activity as ActivityIcon,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -27,7 +29,6 @@ const CATEGORIES = [
   "WEEKLY_MONTHLY_CHECKLISTS",
 ];
 
-// SAFE COMBINER: Prevents White Screen of Death if database returns null
 const combineAndSortActivity = (logs: any, comments: any) => {
   const validLogs = Array.isArray(logs) ? logs : [];
   const validComments = Array.isArray(comments) ? comments : [];
@@ -44,7 +45,6 @@ const combineAndSortActivity = (logs: any, comments: any) => {
   });
 };
 
-// URL HELPER: Prevents API_URL from being appended to absolute S3/Cloudinary URLs
 const getAttachmentUrl = (url: string) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -56,9 +56,7 @@ const getAttachmentUrl = (url: string) => {
 
 const WorkOrderDetail = ({ user }: any) => {
   const { id } = useParams();
-  const useNavigateHook = useNavigate();
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const navigate = (path: string) => useNavigateHook(path);
+  const navigate = useNavigate();
   const [wo, setWo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -71,9 +69,8 @@ const WorkOrderDetail = ({ user }: any) => {
   const [activeTab, setActiveTab] = useState<"DETAILS" | "TASKS" | "TIME" | "PARTS" | "FILES">(
     "DETAILS",
   );
-  const [isActivityOpen, setIsActivityOpen] = useState(window.innerWidth >= 768);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const [isEditingHeader, setIsEditingHeader] = useState(false);
   const [headerTitle, setHeaderTitle] = useState("");
   const [headerDesc, setHeaderDesc] = useState("");
 
@@ -81,7 +78,10 @@ const WorkOrderDetail = ({ user }: any) => {
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
 
-  // Status Dropdown State
+  // Comment Edit States
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const statusMenuRef = useRef<HTMLDivElement>(null);
 
@@ -98,7 +98,6 @@ const WorkOrderDetail = ({ user }: any) => {
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const activityScrollRef = useRef<HTMLDivElement>(null);
 
-  // --- MULTI-ASSIGNEE STATE & REFS ---
   const [selectedAssignees, setSelectedAssignees] = useState<any[]>([]);
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
   const assigneesRef = useRef<HTMLDivElement>(null);
@@ -124,6 +123,8 @@ const WorkOrderDetail = ({ user }: any) => {
       if (res.ok) {
         const data = await res.json();
         setWo(data);
+        setHeaderTitle(data.title);
+        setHeaderDesc(data.description || "");
       } else {
         setWo(null);
       }
@@ -138,7 +139,6 @@ const WorkOrderDetail = ({ user }: any) => {
   useEffect(() => {
     fetchWO();
     
-    // SAFE FETCHING LOGIC: If a backend route crashes, return an empty array instead of crashing React
     if (user?.organizationId) {
       fetch(`${API_URL}/api/users?orgId=${user.organizationId}`)
         .then(async (res) => res.ok ? await res.json() : [])
@@ -199,12 +199,11 @@ const WorkOrderDetail = ({ user }: any) => {
 
   const activities = useMemo(() => combineAndSortActivity(wo?.activityLogs, wo?.comments), [wo]);
 
-  // Auto-scroll to the bottom of the activity list whenever it updates or opens
   useEffect(() => {
-    if (isActivityOpen && activityScrollRef.current) {
+    if (activityScrollRef.current) {
       activityScrollRef.current.scrollTop = activityScrollRef.current.scrollHeight;
     }
-  }, [activities, isActivityOpen]);
+  }, [activities]);
 
   const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -237,20 +236,31 @@ const WorkOrderDetail = ({ user }: any) => {
     }
   };
 
-  const handleInlineUpdate = async (field: string, value: any, logMessage: string) => {
+  const handleSaveAllEdits = async () => {
     try {
       const res = await fetch(`${API_URL}/api/workorders/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          [field]: value,
+          title: headerTitle,
+          description: headerDesc,
+          locationName: wo.locationName,
+          assetId: wo.assetId || null,
+          teamId: wo.teamId || null,
+          category: wo.category || null,
+          priority: wo.priority,
+          estimatedHours: wo.estimatedHours ? parseFloat(wo.estimatedHours) : null,
+          dueDate: wo.dueDate,
           actorId: user.id,
-          actionLog: logMessage,
+          actionLog: "updated work order details",
         }),
       });
-      if (res.ok) fetchWO();
+      if (res.ok) {
+        setIsEditing(false);
+        fetchWO();
+      }
     } catch (err) {
-      alert(`Failed to update ${field}`);
+      alert("Failed to save changes");
     }
   };
 
@@ -305,18 +315,6 @@ const WorkOrderDetail = ({ user }: any) => {
     }
     setShowMentions(false);
     if (commentInputRef.current) commentInputRef.current.focus();
-  };
-
-  const startEditingHeader = () => {
-    setHeaderTitle(wo.title);
-    setHeaderDesc(wo.description || "");
-    setIsEditingHeader(true);
-  };
-
-  const handleSaveHeader = async () => {
-    await handleInlineUpdate("title", headerTitle, "updated work order title");
-    await handleInlineUpdate("description", headerDesc, "updated work order description");
-    setIsEditingHeader(false);
   };
 
   const handleDeleteWO = async () => {
@@ -398,6 +396,38 @@ const WorkOrderDetail = ({ user }: any) => {
       }
     } catch (err) {
       alert("Failed to post comment");
+    }
+  };
+
+  const handleUpdateComment = async (commentId: string) => {
+    if (!editText.trim()) return;
+    try {
+      const res = await fetch(`${API_URL}/api/workorders/${id}/comments/${commentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: editText, actorId: user.id }),
+      });
+      if (res.ok) {
+        setEditingCommentId(null);
+        setEditText("");
+        fetchWO();
+      }
+    } catch (err) {
+      alert("Failed to update comment");
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      const res = await fetch(`${API_URL}/api/workorders/${id}/comments/${commentId}?actorId=${user.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetchWO();
+      }
+    } catch (err) {
+      alert("Failed to delete comment");
     }
   };
 
@@ -541,7 +571,31 @@ const WorkOrderDetail = ({ user }: any) => {
           <span className="font-bold text-gray-900 text-base md:text-lg">WO-{wo.id}</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {!isEditing ? (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Edit Work Order
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveAllEdits}
+                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm"
+              >
+                <Check className="w-3.5 h-3.5" /> Save
+              </button>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           <div className="relative" ref={statusMenuRef}>
             <button
               onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
@@ -582,28 +636,14 @@ const WorkOrderDetail = ({ user }: any) => {
               </div>
             )}
           </div>
-
-          <button
-            onClick={() => setIsActivityOpen(!isActivityOpen)}
-            className="md:hidden p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 relative flex items-center gap-1.5 font-bold text-xs shadow-sm hover:bg-blue-100 transition-colors"
-          >
-            <MessageSquare className="w-4 h-4" />
-            {activities.length > 0 && (
-              <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full absolute -top-1 -right-1 shadow-sm">
-                {activities.length}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 
       {/* MAIN LAYOUT WRAPPER */}
       <div className="flex flex-1 overflow-hidden relative">
-        <div
-          className={`flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200 transition-all ${isActivityOpen ? "hidden md:flex" : "flex"}`}
-        >
+        <div className="flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200">
           <div className="px-4 md:px-10 pt-6 md:pt-8 pb-4 md:pb-6 shrink-0 relative group">
-            {isEditingHeader ? (
+            {isEditing ? (
               <div className="space-y-4 max-w-4xl">
                 <input
                   autoFocus
@@ -618,20 +658,6 @@ const WorkOrderDetail = ({ user }: any) => {
                   onChange={(e) => setHeaderDesc(e.target.value)}
                   placeholder="Work Order Description"
                 />
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleSaveHeader}
-                    className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors"
-                  >
-                    Save Changes
-                  </button>
-                  <button
-                    onClick={() => setIsEditingHeader(false)}
-                    className="bg-gray-100 text-gray-600 px-5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
               </div>
             ) : (
               <div className="flex justify-between items-start max-w-4xl">
@@ -643,20 +669,13 @@ const WorkOrderDetail = ({ user }: any) => {
                     {wo.description || "No description provided."}
                   </p>
                 </div>
-                <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={startEditingHeader}
-                    className="p-2 text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-md transition-colors shadow-sm"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleDeleteWO}
-                    className="p-2 text-gray-500 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 rounded-md transition-colors shadow-sm"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={handleDeleteWO}
+                  className="p-2 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 rounded-md transition-colors shadow-sm"
+                  title="Delete Work Order"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             )}
           </div>
@@ -679,57 +698,71 @@ const WorkOrderDetail = ({ user }: any) => {
           <div className="flex-1 overflow-y-auto px-4 md:px-10 py-6 md:py-8 bg-white pb-32 md:pb-8">
             {activeTab === "DETAILS" && (
               <div className="max-w-3xl">
-                <h3 className="text-base font-bold text-gray-900 mb-4">Details</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-bold text-gray-900">Details</h3>
+                  {!isEditing && (
+                    <span className="text-xs font-semibold text-gray-400 italic">
+                      Click "Edit Work Order" above to modify details.
+                    </span>
+                  )}
+                </div>
                 <div className="border border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-100 shadow-sm">
                   
-                  {/* FIXED LOCATION SELECT FIELD */}
                   <EditableRow label="LOCATION">
-                    <select
-                      value={wo.locationName || wo.location || ""}
-                      onChange={(e) =>
-                        handleInlineUpdate(
-                          "locationName",
-                          e.target.value,
-                          `changed location to ${e.target.options[e.target.selectedIndex].text}`,
-                        )
-                      }
-                      className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
-                    >
-                      <option value="">Select a location...</option>
-                      {orgLocations.map((loc) => (
-                        <option key={loc.id} value={loc.name}>
-                          {loc.name}
-                        </option>
-                      ))}
-                    </select>
+                    {isEditing ? (
+                      <select
+                        value={wo.locationName || wo.location || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWo({ ...wo, locationName: val });
+                        }}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs md:text-sm font-medium text-gray-900 outline-none"
+                      >
+                        <option value="">Select a location...</option>
+                        {orgLocations.map((loc) => (
+                          <option key={loc.id} value={loc.name}>
+                            {loc.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs md:text-sm font-medium text-gray-800">
+                        {wo.locationName || wo.location || "Unspecified"}
+                      </span>
+                    )}
                   </EditableRow>
 
                   <EditableRow label="ASSET">
-                    <select
-                      value={wo.assetId || ""}
-                      onChange={(e) =>
-                        handleInlineUpdate(
-                          "assetId",
-                          e.target.value || null,
-                          `changed asset to ${e.target.options[e.target.selectedIndex].text}`,
-                        )
-                      }
-                      className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
-                    >
-                      <option value="">None</option>
-                      {orgAssets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.name}
-                        </option>
-                      ))}
-                    </select>
+                    {isEditing ? (
+                      <select
+                        value={wo.assetId || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWo({ ...wo, assetId: val || null });
+                        }}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs md:text-sm font-medium text-gray-900 outline-none"
+                      >
+                        <option value="">None</option>
+                        {orgAssets.map((asset) => (
+                          <option key={asset.id} value={asset.id}>
+                            {asset.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs md:text-sm font-medium text-gray-800">
+                        {orgAssets.find(a => a.id === wo.assetId)?.name || "None"}
+                      </span>
+                    )}
                   </EditableRow>
 
                   <EditableRow label="ASSIGNEES">
                     <div className="relative w-full" ref={assigneesRef}>
                       <div
-                        onClick={() => setIsAssigneeDropdownOpen(!isAssigneeDropdownOpen)}
-                        className="w-full bg-transparent min-h-[32px] flex flex-wrap gap-1.5 items-center cursor-pointer outline-none"
+                        onClick={() => {
+                          if (isEditing) setIsAssigneeDropdownOpen(!isAssigneeDropdownOpen);
+                        }}
+                        className={`w-full bg-transparent min-h-[32px] flex flex-wrap gap-1.5 items-center ${isEditing ? "cursor-pointer" : "cursor-default"}`}
                       >
                         {selectedAssignees.length > 0 ? (
                           selectedAssignees.map((assignee) => (
@@ -738,26 +771,28 @@ const WorkOrderDetail = ({ user }: any) => {
                               className="bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold px-2 py-1 rounded-md flex items-center gap-1.5 shadow-sm"
                             >
                               {assignee.firstName} {assignee.lastName}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeAssignee(assignee);
-                                }}
-                                className="hover:text-red-600 transition-colors"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
+                              {isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeAssignee(assignee);
+                                  }}
+                                  className="hover:text-red-600 transition-colors"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
                             </span>
                           ))
                         ) : (
-                          <span className="text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800">
-                            Unassigned (Click to add)
+                          <span className="text-xs md:text-sm font-medium text-gray-400 italic">
+                            Unassigned
                           </span>
                         )}
                       </div>
 
-                      {isAssigneeDropdownOpen && (
+                      {isEditing && isAssigneeDropdownOpen && (
                         <div className="absolute top-full left-0 mt-2 w-full bg-white border border-gray-200 shadow-xl rounded-xl z-50 py-2 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                           {orgUsers
                             .filter((u) => !selectedAssignees.some((a) => a.id === u.id))
@@ -777,96 +812,111 @@ const WorkOrderDetail = ({ user }: any) => {
                   </EditableRow>
 
                   <EditableRow label="OPERATIONAL TEAM">
-                    <select
-                      value={wo.teamId || ""}
-                      onChange={(e) =>
-                        handleInlineUpdate(
-                          "teamId",
-                          e.target.value || null,
-                          `changed operational team to ${e.target.options[e.target.selectedIndex].text}`,
-                        )
-                      }
-                      className="w-full bg-transparent text-xs md:text-sm font-medium text-blue-600 hover:text-blue-800 cursor-pointer outline-none"
-                    >
-                      <option value="">Unassigned</option>
-                      {orgTeams.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                    {isEditing ? (
+                      <select
+                        value={wo.teamId || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWo({ ...wo, teamId: val || null });
+                        }}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs md:text-sm font-medium text-gray-900 outline-none"
+                      >
+                        <option value="">Unassigned</option>
+                        {orgTeams.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs md:text-sm font-medium text-gray-800">
+                        {orgTeams.find(t => t.id === wo.teamId)?.name || "Unassigned"}
+                      </span>
+                    )}
                   </EditableRow>
 
                   <EditableRow label="CATEGORY">
-                    <select
-                      value={wo.category || ""}
-                      onChange={(e) =>
-                        handleInlineUpdate(
-                          "category",
-                          e.target.value || null,
-                          `changed category to ${e.target.value.replace(/_/g, " ")}`,
-                        )
-                      }
-                      className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 cursor-pointer outline-none"
-                    >
-                      <option value="">None</option>
-                      {CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat.replace(/_/g, " ")}
-                        </option>
-                      ))}
-                    </select>
+                    {isEditing ? (
+                      <select
+                        value={wo.category || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWo({ ...wo, category: val || null });
+                        }}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs md:text-sm font-medium text-gray-900 outline-none"
+                      >
+                        <option value="">None</option>
+                        {CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat.replace(/_/g, " ")}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs md:text-sm font-medium text-gray-800">
+                        {wo.category ? wo.category.replace(/_/g, " ") : "None"}
+                      </span>
+                    )}
                   </EditableRow>
 
                   <EditableRow label="PRIORITY">
-                    <select
-                      value={wo.priority || "MEDIUM"}
-                      onChange={(e) =>
-                        handleInlineUpdate(
-                          "priority",
-                          e.target.value,
-                          `changed priority to ${e.target.value}`,
-                        )
-                      }
-                      className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 cursor-pointer outline-none"
-                    >
-                      <option value="LOW">Low</option>
-                      <option value="MEDIUM">Medium</option>
-                      <option value="HIGH">High</option>
-                      <option value="CRITICAL">Critical</option>
-                    </select>
+                    {isEditing ? (
+                      <select
+                        value={wo.priority || "MEDIUM"}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWo({ ...wo, priority: val });
+                        }}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs md:text-sm font-medium text-gray-900 outline-none"
+                      >
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                        <option value="CRITICAL">Critical</option>
+                      </select>
+                    ) : (
+                      <span className="text-xs md:text-sm font-medium text-gray-800 uppercase">
+                        {wo.priority}
+                      </span>
+                    )}
                   </EditableRow>
 
                   <EditableRow label="EST. DURATION">
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={wo.estimatedHours || ""}
-                      onChange={(e) =>
-                        handleInlineUpdate(
-                          "estimatedHours",
-                          parseFloat(e.target.value) || null,
-                          `changed estimated duration to ${e.target.value} hours`,
-                        )
-                      }
-                      placeholder="0.0"
-                      className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 outline-none"
-                    />
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={wo.estimatedHours || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWo({ ...wo, estimatedHours: val });
+                        }}
+                        placeholder="0.0"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs md:text-sm font-medium text-gray-900 outline-none"
+                      />
+                    ) : (
+                      <span className="text-xs md:text-sm font-medium text-gray-800">
+                        {wo.estimatedHours ? `${wo.estimatedHours} hrs` : "0.0 hrs"}
+                      </span>
+                    )}
                   </EditableRow>
 
                   <EditableRow label="DUE DATE">
-                    <input
-                      type="date"
-                      value={wo.dueDate ? wo.dueDate.split("T")[0] : ""}
-                      onChange={(e) =>
-                        handleInlineUpdate(
-                          "dueDate",
-                          e.target.value ? new Date(e.target.value).toISOString() : null,
-                          "changed due date",
-                        )
-                      }
-                      className="w-full bg-transparent text-xs md:text-sm font-medium text-gray-900 outline-none cursor-pointer"
-                    />
+                    {isEditing ? (
+                      <input
+                        type="date"
+                        value={wo.dueDate ? wo.dueDate.split("T")[0] : ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setWo({ ...wo, dueDate: val ? new Date(val).toISOString() : null });
+                        }}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs md:text-sm font-medium text-gray-900 outline-none cursor-pointer"
+                      />
+                    ) : (
+                      <span className="text-xs md:text-sm font-medium text-gray-800">
+                        {wo.dueDate ? new Date(wo.dueDate).toLocaleDateString() : "No due date"}
+                      </span>
+                    )}
                   </EditableRow>
                 </div>
               </div>
@@ -1027,7 +1077,7 @@ const WorkOrderDetail = ({ user }: any) => {
                   {(wo.documents || []).map((doc: any) => (
                     <div
                       key={doc.id}
-                      className="flex items-center p-3 bg-white border border-gray-200 rounded-xl"
+                      className="flex items-center p-3 bg-white border border-gray-200 rounded-xl shadow-2xs"
                     >
                       <FileText className="w-6 h-6 text-blue-600 mr-3" />
                       <a
@@ -1046,48 +1096,61 @@ const WorkOrderDetail = ({ user }: any) => {
           </div>
         </div>
 
-        {/* RIGHT SIDEBAR: COMMENTS & ACTIVITY */}
-        <div
-          className={`flex flex-col bg-gray-50 shrink-0 border-l border-gray-200 transition-all duration-300 ease-in-out h-full overflow-hidden ${isActivityOpen ? "w-full md:w-[380px]" : "w-0 border-l-0"}`}
-        >
-          <div className="px-4 py-4 border-b border-gray-200 bg-white shrink-0 flex items-center justify-between h-14 w-full md:w-[380px]">
-            <div className="flex items-center">
-              <button
-                onClick={() => setIsActivityOpen(false)}
-                className="md:hidden p-1 hover:bg-gray-100 rounded-md text-gray-400 hover:text-gray-900 transition-colors mr-2"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <h3 className="text-sm font-black tracking-wide text-gray-900">
-                Comments & Activity
-              </h3>
+        {/* RIGHT SIDEBAR: MODERNIZED COMMENTS & ACTIVITY STREAM */}
+        <div className="flex flex-col bg-[#F8FAFC] shrink-0 border-l border-gray-200/80 w-full md:w-[400px] h-full overflow-hidden shadow-sm">
+          {/* Stream Header */}
+          <div className="px-5 py-4 border-b border-gray-200/80 bg-white/80 backdrop-blur-md shrink-0 flex items-center justify-between h-16 w-full md:w-[400px]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-2xs">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-gray-900">
+                  Activity Stream
+                </h3>
+                <p className="text-[10px] font-medium text-gray-400">
+                  Real-time updates & comments
+                </p>
+              </div>
             </div>
-            <button
-              onClick={() => setIsActivityOpen(false)}
-              className="text-gray-400 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200/60">
+              {activities.length} items
+            </span>
           </div>
 
+          {/* Activity Scroll Body */}
           <div
             ref={activityScrollRef}
-            className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 w-full md:w-[380px] bg-gray-50 pb-6"
+            className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4 w-full md:w-[400px] pb-6 custom-scrollbar"
           >
             {activities.length === 0 ? (
-              <div className="text-center text-sm text-gray-400 italic mt-10">No activity yet.</div>
+              <div className="text-center py-16">
+                <div className="w-12 h-12 bg-white rounded-2xl border border-gray-200 flex items-center justify-center mx-auto mb-3 shadow-2xs text-gray-300">
+                  <ActivityIcon className="w-6 h-6" />
+                </div>
+                <p className="text-xs font-bold text-gray-700">No activity recorded yet</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Start the conversation or make updates below.
+                </p>
+              </div>
             ) : (
               activities.map((item: any, idx: number) => {
                 const isSystemLog = item.type === "log";
                 const authorId = item.actor?.id || item.author?.id;
                 const authorName = item.actor?.firstName || item.author?.firstName || "System";
                 const initial = authorName.charAt(0).toUpperCase();
+                const isMyComment = !isSystemLog && authorId === user.id;
+                const isEditingThisComment = editingCommentId === item.id;
 
                 return (
-                  <div key={`${item.type}-${item.id}-${idx}`} className="flex gap-3 group">
+                  <div key={`${item.type}-${item.id}-${idx}`} className="flex gap-3 group animate-in fade-in duration-200">
                     <button
                       onClick={() => authorId && navigate(`/workspace/my-team/${authorId}`)}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 mt-0.5 shadow-sm transition-transform active:scale-95 ${isSystemLog ? "bg-teal-600 cursor-default" : "bg-blue-600 cursor-pointer hover:opacity-90"}`}
+                      className={`w-9 h-9 rounded-2xl flex items-center justify-center text-white font-black text-xs shrink-0 mt-0.5 shadow-sm transition-transform active:scale-95 ${
+                        isSystemLog
+                          ? "bg-gradient-to-br from-teal-500 to-emerald-600 cursor-default ring-2 ring-teal-500/10"
+                          : "bg-gradient-to-br from-blue-600 to-indigo-600 cursor-pointer hover:opacity-90 ring-2 ring-blue-600/10"
+                      }`}
                     >
                       {initial}
                     </button>
@@ -1095,22 +1158,74 @@ const WorkOrderDetail = ({ user }: any) => {
                       <div className="flex items-baseline justify-between mb-1">
                         <button
                           onClick={() => authorId && navigate(`/workspace/my-team/${authorId}`)}
-                          className="font-bold text-xs text-gray-900 hover:underline hover:text-blue-600"
+                          className="font-bold text-xs text-gray-900 hover:underline hover:text-blue-600 tracking-tight"
                         >
                           {authorName}
                         </button>
-                        <span className="text-[10px] text-gray-400 font-medium">
-                          {new Date(item.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {isMyComment && !isSystemLog && !isEditingThisComment && (
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-[10px] font-bold">
+                              <button
+                                onClick={() => {
+                                  setEditingCommentId(item.id);
+                                  setEditText(item.text);
+                                }}
+                                className="text-blue-600 hover:underline"
+                              >
+                                Edit
+                              </button>
+                              <span className="text-gray-300">•</span>
+                              <button
+                                onClick={() => handleDeleteComment(item.id)}
+                                className="text-red-500 hover:underline"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                          <span className="text-[10px] text-gray-400 font-semibold">
+                            {new Date(item.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
                       </div>
-                      <div
-                        className={`text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed ${isSystemLog ? "text-gray-500 italic" : "text-gray-800 bg-white border border-gray-200 px-3.5 py-2.5 rounded-2xl rounded-tl-sm shadow-sm"}`}
-                      >
-                        {isSystemLog ? item.action : renderFormattedComment(item.text)}
-                      </div>
+
+                      {isEditingThisComment ? (
+                        <div className="space-y-2 mt-1">
+                          <textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="w-full bg-white border border-blue-300 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                            rows={2}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleUpdateComment(item.id)}
+                              className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-2xs"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingCommentId(null)}
+                              className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg text-xs font-bold"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          className={`text-xs md:text-sm whitespace-pre-wrap break-words leading-relaxed ${
+                            isSystemLog
+                              ? "text-gray-500 italic bg-gray-100/70 border border-gray-200/60 px-3.5 py-2 rounded-xl text-[11px] shadow-2xs"
+                              : "text-gray-800 bg-white border border-gray-200/80 px-4 py-3 rounded-2xl rounded-tl-sm shadow-2xs"
+                          }`}
+                        >
+                          {isSystemLog ? item.action : renderFormattedComment(item.text)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1118,11 +1233,12 @@ const WorkOrderDetail = ({ user }: any) => {
             )}
           </div>
 
-          <div className="p-3 bg-white border-t border-gray-200 shrink-0 w-full md:w-[380px] relative shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          {/* Modernized Chat Input Box */}
+          <div className="p-3.5 bg-white border-t border-gray-200/80 shrink-0 w-full md:w-[400px] relative shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.03)]">
             {showMentions && (
-              <div className="absolute bottom-full left-3 right-3 mb-2 bg-white border border-gray-200 shadow-2xl rounded-2xl overflow-hidden z-50 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                  Tag Teammate
+              <div className="absolute bottom-full left-3.5 right-3.5 mb-2.5 bg-white border border-gray-200 shadow-xl rounded-2xl overflow-hidden z-50 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-blue-600" /> Tag Teammate
                 </div>
                 {filteredMentionUsers.length > 0 ? (
                   filteredMentionUsers.map((u) => (
@@ -1148,7 +1264,7 @@ const WorkOrderDetail = ({ user }: any) => {
               </div>
             )}
 
-            <div className="flex items-end bg-gray-50 border border-gray-200 rounded-2xl shadow-inner overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-600 transition-all">
+            <div className="flex items-end bg-[#F8FAFC] border border-gray-200 rounded-2xl shadow-inner overflow-hidden focus-within:bg-white focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all">
               <textarea
                 ref={commentInputRef}
                 value={newComment}
@@ -1160,13 +1276,13 @@ const WorkOrderDetail = ({ user }: any) => {
                   }
                 }}
                 placeholder="Write a message (type @ to tag)..."
-                className="flex-1 bg-transparent py-3 px-4 text-xs md:text-sm outline-none resize-none max-h-32 min-h-[44px] custom-scrollbar"
+                className="flex-1 bg-transparent py-3 px-4 text-xs md:text-sm outline-none resize-none max-h-32 min-h-[44px] custom-scrollbar text-gray-800 placeholder-gray-400 font-medium"
                 rows={1}
               />
               <button
                 onClick={handlePostComment}
                 disabled={!newComment.trim()}
-                className="p-3 text-blue-600 disabled:text-gray-300 hover:bg-blue-100 transition-colors shrink-0 mb-0.5 mr-0.5 rounded-xl"
+                className="p-2.5 bg-blue-600 text-white disabled:bg-gray-200 disabled:text-gray-400 hover:bg-blue-700 transition-colors shrink-0 mb-1.5 mr-1.5 rounded-xl shadow-sm active:scale-95"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -1179,7 +1295,7 @@ const WorkOrderDetail = ({ user }: any) => {
 };
 
 const EditableRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div className="flex items-center py-3 px-4 md:px-6 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
+  <div className="flex items-center py-3.5 px-4 md:px-6 hover:bg-gray-50/80 transition-colors border-b border-gray-100 last:border-0">
     <div className="w-36 md:w-48 text-[11px] md:text-xs font-bold text-gray-400 tracking-wider shrink-0">
       {label}
     </div>

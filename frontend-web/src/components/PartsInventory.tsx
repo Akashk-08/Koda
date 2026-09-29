@@ -80,7 +80,7 @@ const PartsInventory = ({ user }: any) => {
 
   const filteredParts = parts.filter((part) => {
     if (debugMode) return true;
-    if (user?.role === "ADMIN") return true;
+    if (user?.role === "ADMIN" || user?.role === "ROOT") return true; // ROOT bypass
 
     const partLocation = part.siteLocation || part.location || "";
     const matchesUserSite = partLocation === user?.siteLocation;
@@ -103,7 +103,7 @@ const PartsInventory = ({ user }: any) => {
   return (
     <main className="flex-1 flex flex-col h-full bg-[#fafafa] p-4 md:p-10 overflow-hidden font-sans pb-24 md:pb-10">
       {/* MISSING LOCATION WARNING */}
-      {!user?.siteLocation && user?.role !== "ADMIN" && (
+      {!user?.siteLocation && user?.role !== "ADMIN" && user?.role !== "ROOT" && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl mb-6 text-[14px] font-bold flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
           <AlertTriangle className="w-6 h-6 shrink-0" />
           <div>
@@ -193,7 +193,7 @@ const PartsInventory = ({ user }: any) => {
                 </div>
                 <p className="text-[15px] font-bold text-gray-900">No parts found</p>
                 <p className="text-[13px] text-gray-500 mt-1">
-                  {user?.role === "ADMIN"
+                  {(user?.role === "ADMIN" || user?.role === "ROOT")
                     ? "Create a new part to start building your inventory."
                     : "No inventory items are currently assigned to your site location or global inventory."}
                 </p>

@@ -18,6 +18,21 @@ const CATEGORIES = [
   "WEEKLY_MONTHLY_CHECKLISTS",
 ];
 
+// Helper to format date cleanly: 09/29/2026 at 4:03 AM
+const formatDateTime = (dateString) => {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "N/A";
+  
+  const optionsDate = { month: '2-digit', day: '2-digit', year: 'numeric' };
+  const optionsTime = { hour: 'numeric', minute: '2-digit', hour12: true };
+  
+  const formattedDate = date.toLocaleDateString('en-US', optionsDate);
+  const formattedTime = date.toLocaleTimeString('en-US', optionsTime);
+  
+  return `${formattedDate} at ${formattedTime}`;
+};
+
 const WorkOrders = ({ user, onOpenModal }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -29,6 +44,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
 
   // Determine user access level based on location
   const isFullAccess = user?.role === 'ADMIN' ||
+    user?.role === 'ROOT' ||
     user?.siteLocation === 'Pulseworks Shop' ||
     user?.siteLocation === 'Pulseworks Warehouse';
 
@@ -40,10 +56,11 @@ const WorkOrders = ({ user, onOpenModal }) => {
   const [locationFilter, setLocationFilter] = useState(searchParams.get("locationName") || "ALL");
   const [teamFilter, setTeamFilter] = useState(searchParams.get("teamId") || "ALL");
   const [priorityFilter, setPriorityFilter] = useState(searchParams.get("priority") || "ALL");
+  const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "newest");
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1", 10));
 
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(
-    Boolean(searchParams.get("status") || searchParams.get("category") || searchParams.get("priority") || searchParams.get("locationName"))
+    Boolean(searchParams.get("status") || searchParams.get("category") || searchParams.get("priority") || searchParams.get("locationName") || searchParams.get("sortBy"))
   );
 
   // Server-Side Pagination State
@@ -70,15 +87,16 @@ const WorkOrders = ({ user, onOpenModal }) => {
     if (locationFilter !== "ALL") params.locationName = locationFilter;
     if (teamFilter !== "ALL") params.teamId = teamFilter;
     if (priorityFilter !== "ALL") params.priority = priorityFilter;
+    if (sortBy !== "newest") params.sortBy = sortBy;
     if (currentPage > 1) params.page = currentPage.toString();
 
     setSearchParams(params, { replace: true });
-  }, [debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter, currentPage, setSearchParams]);
+  }, [debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter, sortBy, currentPage, setSearchParams]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter]);
+  }, [debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter, sortBy]);
 
   const handleClearFilters = () => {
     setSearchQuery("");
@@ -88,10 +106,11 @@ const WorkOrders = ({ user, onOpenModal }) => {
     setLocationFilter("ALL");
     setTeamFilter("ALL");
     setPriorityFilter("ALL");
+    setSortBy("newest");
     setSearchParams({}, { replace: true });
   };
 
-  const hasActiveFilters = searchQuery || statusFilter !== "ALL" || categoryFilter !== "ALL" || locationFilter !== "ALL" || priorityFilter !== "ALL";
+  const hasActiveFilters = searchQuery || statusFilter !== "ALL" || categoryFilter !== "ALL" || locationFilter !== "ALL" || priorityFilter !== "ALL" || sortBy !== "newest";
 
   const fetchData = useCallback(async () => {
     if (!orgId || !userId) return;
@@ -115,7 +134,6 @@ const WorkOrders = ({ user, onOpenModal }) => {
           params.append("locationName", locationFilter);
         }
       } else if (user?.siteLocation) {
-        // Force the API to only return work orders for the restricted user's assigned site
         const cleanLoc = user.siteLocation.includes(",")
           ? user.siteLocation.split(",")[0].trim()
           : user.siteLocation;
@@ -124,6 +142,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
 
       if (teamFilter !== "ALL") params.append("teamId", teamFilter);
       if (priorityFilter !== "ALL") params.append("priority", priorityFilter);
+      if (sortBy) params.append("sortBy", sortBy);
 
       const [woRes, locRes, teamsRes] = await Promise.all([
         fetch(`${API_URL}/api/workorders?${params.toString()}`),
@@ -133,7 +152,14 @@ const WorkOrders = ({ user, onOpenModal }) => {
 
       if (woRes.ok) {
         const json = await woRes.json();
-        setWorkOrders(json.data);
+        let sortedData = json.data;
+        
+        // Client-side sort fallback if backend doesn't sort by updated
+        if (sortBy === "lastUpdated") {
+          sortedData = [...sortedData].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        }
+
+        setWorkOrders(sortedData);
         setTotalPages(json.meta.totalPages);
         setTotalRecords(json.meta.totalRecords);
       }
@@ -144,7 +170,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [orgId, userId, currentPage, debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter, isFullAccess, user?.siteLocation]);
+  }, [orgId, userId, currentPage, debouncedSearch, statusFilter, categoryFilter, locationFilter, teamFilter, priorityFilter, sortBy, isFullAccess, user?.siteLocation]);
 
   useEffect(() => {
     fetchData();
@@ -189,7 +215,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
         </button>
       </div>
 
-      {/* REDESIGNED SEARCH & FILTER DASHBOARD */}
+      {/* SEARCH & FILTER DASHBOARD */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6 p-4 shrink-0 relative z-10 space-y-3">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
@@ -223,7 +249,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
         {/* EXPANDED ADVANCED FILTERS PANEL */}
         {isAdvancedFiltersOpen && (
           <div className="pt-3 border-t border-gray-100 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-150">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
 
               {/* Status Select */}
               <div>
@@ -255,7 +281,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
                 </select>
               </div>
 
-              {/* Location Select (Only visible for Admins / Shop / Warehouse) */}
+              {/* Location Select */}
               {isFullAccess && (
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Location</label>
@@ -288,9 +314,21 @@ const WorkOrders = ({ user, onOpenModal }) => {
                 </select>
               </div>
 
+              {/* Sort By (Includes Last Updated) */}
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Sort By</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 outline-none cursor-pointer"
+                >
+                  <option value="newest">Newest Created</option>
+                  <option value="lastUpdated">Last Updated</option>
+                </select>
+              </div>
+
             </div>
 
-            {/* CLEAR FILTER BUTTON */}
             {hasActiveFilters && (
               <div className="flex justify-end pt-2 border-t border-gray-50">
                 <button
@@ -305,7 +343,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
         )}
       </div>
 
-      {/* CONTENT AREA: RESPONSIVE CARDS FOR MOBILE & TABLE FOR DESKTOP */}
+      {/* CONTENT AREA */}
       {isLoading ? (
         <div className="py-24 text-center text-gray-500 font-medium">
           <div className="flex flex-col items-center justify-center">
@@ -331,10 +369,17 @@ const WorkOrders = ({ user, onOpenModal }) => {
                   className="bg-white border border-gray-200/90 rounded-2xl p-4 shadow-sm active:scale-[0.99] transition-all cursor-pointer relative space-y-3 group"
                 >
                   <div className="flex justify-between items-center">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${getStatusUI(wo.status).bg}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${getStatusUI(wo.status).dot}`}></span>
-                      {wo.status.replace("_", " ")}
-                    </span>
+                    <div>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${getStatusUI(wo.status).bg}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${getStatusUI(wo.status).dot}`}></span>
+                        {wo.status.replace("_", " ")}
+                      </span>
+                      {/* Last updated below status badge on mobile */}
+                      <p className="text-[10px] font-medium text-gray-400 mt-1">
+                        Last updated: {formatDateTime(wo.updatedAt || wo.createdAt)}
+                      </p>
+                    </div>
+
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-mono font-black text-gray-400">#{wo.id}</span>
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${getPriorityUI(wo.priority).bg}`}>
@@ -378,6 +423,7 @@ const WorkOrders = ({ user, onOpenModal }) => {
                     <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider w-48">Assignee</th>
                     <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider w-32">Priority</th>
                     <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider w-36">Status</th>
+                    <th className="px-6 py-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-wider w-48">Last Updated</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -432,6 +478,10 @@ const WorkOrders = ({ user, onOpenModal }) => {
                             <span className={`w-1.5 h-1.5 rounded-full ${statusUI.dot}`}></span>
                             {wo.status.replace("_", " ")}
                           </span>
+                        </td>
+                        {/* Last Updated Column */}
+                        <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-gray-600">
+                          {formatDateTime(wo.updatedAt || wo.createdAt)}
                         </td>
                       </tr>
                     );

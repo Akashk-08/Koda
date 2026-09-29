@@ -39,10 +39,12 @@ const RESTRICTED_CATEGORIES = [
   { label: "Technical Support Request", value: "SUPPORT_REQUEST" },
 ];
 
-const SectionHeader = ({ title, icon: Icon }: any) => (
+const SectionHeader = ({ title, icon: Icon, isError }: any) => (
   <div className="flex items-center space-x-2 text-gray-800 border-b border-gray-100 pb-2 mb-4 mt-8 first:mt-0">
-    <Icon className="w-5 h-5 text-blue-600" />
-    <h3 className="text-sm font-extrabold uppercase tracking-wider">{title}</h3>
+    <Icon className={`w-5 h-5 ${isError ? "text-red-500 animate-pulse" : "text-blue-600"}`} />
+    <h3 className={`text-sm font-extrabold uppercase tracking-wider ${isError ? "text-red-600" : ""}`}>
+      {title}
+    </h3>
   </div>
 );
 
@@ -51,6 +53,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAsset }: any) => {
   const isFullAccess =
     user?.role === "ADMIN" ||
+    user?.role === "ROOT" ||
     user?.siteLocation === "Pulseworks Shop" ||
     user?.siteLocation === "Pulseworks Warehouse";
 
@@ -68,7 +71,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
   const [duration, setDuration] = useState("");
 
   const [selectedAssignees, setSelectedAssignees] = useState<any[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState("");
 
   const [selectedParts, setSelectedParts] = useState<
     { partId: string; quantity: number; name: string }[]
@@ -91,7 +93,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
   const [orgUsers, setOrgUsers] = useState<any[]>([]);
   const [existingWorkOrders, setExistingWorkOrders] = useState<any[]>([]);
   const [orgAssets, setOrgAssets] = useState<any[]>([]);
-  const [orgTeams, setOrgTeams] = useState<any[]>([]);
   const [orgParts, setOrgParts] = useState<any[]>([]);
   const [orgLocations, setOrgLocations] = useState<any[]>([]);
 
@@ -135,10 +136,9 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
     const fetchData = async () => {
       if (!isOpen || !user.organizationId) return;
       try {
-        const [usersRes, woRes, teamsRes, assetsRes, partsRes, locRes] = await Promise.all([
+        const [usersRes, woRes, assetsRes, partsRes, locRes] = await Promise.all([
           fetch(`${API_URL}/api/users?orgId=${user.organizationId}`),
           fetch(`${API_URL}/api/workorders?orgId=${user.organizationId}`),
-          fetch(`${API_URL}/api/teams?orgId=${user.organizationId}`),
           fetch(`${API_URL}/api/assets?orgId=${user.organizationId}`),
           fetch(`${API_URL}/api/inventory?orgId=${user.organizationId}`),
           fetch(`${API_URL}/api/locations?orgId=${user.organizationId}`),
@@ -155,10 +155,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         if (woRes.ok) {
           const woData = await woRes.json();
           setExistingWorkOrders(Array.isArray(woData) ? woData : woData.data || []);
-        }
-        if (teamsRes.ok) {
-          const teamsData = await teamsRes.json();
-          setOrgTeams(Array.isArray(teamsData) ? teamsData : []);
         }
         if (assetsRes.ok) {
           const assetsData = await assetsRes.json();
@@ -202,7 +198,10 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
     if (!customRequestSubject.trim() && !isFullAccess)
       return alert("Please specify the subject/issue of your request.");
 
-    if (!selectedTeamId) return alert("Please select an Operational Team.");
+    // Mandatory attachment validation
+    if (attachedFiles.length === 0) {
+      return alert("Please attach at least one photo or file to the work order.");
+    }
 
     setIsSubmitting(true);
 
@@ -237,7 +236,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         createdBy: user.id,
         assignedTo: selectedAssignees.length > 0 ? selectedAssignees[0].id : null,
         additionalAssigneeEmails: additionalEmails,
-        teamId: selectedTeamId || null,
+        teamId: null, // Operational team removed
         assetId: selectedAssetId || null,
         locationName: finalLocationName,
         startDate: startDate ? new Date(startDate).toISOString() : null,
@@ -281,7 +280,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
         setDueDate("");
         setDuration("");
         setSelectedAssignees([]);
-        setSelectedTeamId("");
         setSelectedParts([]);
         setAttachedFiles([]);
         setTasks([]);
@@ -351,6 +349,16 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
 
   const filteredLocations = Array.isArray(orgLocations)
     ? orgLocations.filter((loc) => loc.name?.toLowerCase().includes(locationSearch.toLowerCase()))
+    : [];
+
+  // Filter assets based on site location for standard site users
+  const filteredAssets = Array.isArray(orgAssets)
+    ? orgAssets.filter((asset) => {
+        if (isFullAccess) return true;
+        const assetLoc = asset.locationName || "";
+        const cleanUserLoc = siteLocation.includes("-") ? siteLocation.split("-")[0].trim() : siteLocation;
+        return assetLoc.toLowerCase().includes(cleanUserLoc.toLowerCase());
+      })
     : [];
 
   return (
@@ -545,12 +553,12 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                       }`}
                     >
                       <option value="">No specific asset</option>
-                      {orgAssets.map((asset) => (
+                      {filteredAssets.map((asset) => (
                         <option key={asset.id} value={asset.id}>
                           {asset.name}
                         </option>
                       ))}
-                      {preSelectedAsset && !orgAssets.some((a) => a.id === preSelectedAsset.id) && (
+                      {preSelectedAsset && !filteredAssets.some((a) => a.id === preSelectedAsset.id) && (
                         <option value={preSelectedAsset.id}>{preSelectedAsset.name}</option>
                       )}
                     </select>
@@ -606,7 +614,7 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
 
                 <SectionHeader title="Assignment" icon={Users} />
                 <div
-                  className={`grid grid-cols-1 gap-5 ${isFullAccess ? "md:grid-cols-3" : "md:grid-cols-2"}`}
+                  className={`grid grid-cols-1 gap-5 ${isFullAccess ? "md:grid-cols-2" : "md:grid-cols-1"}`}
                 >
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
@@ -615,25 +623,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                     <div className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-500 cursor-not-allowed flex items-center">
                       <User className="w-4 h-4 mr-2" /> {user?.firstName} {user?.lastName}
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
-                      Operational Team <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={selectedTeamId}
-                      onChange={(e) => setSelectedTeamId(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white cursor-pointer transition-all"
-                    >
-                      <option value="">Select team...</option>
-                      <option value="NONE">None</option>
-                      {orgTeams.map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
                   </div>
 
                   {isFullAccess && (
@@ -682,18 +671,6 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                                   u.siteLocation
                                     ?.toLowerCase()
                                     .includes(siteLocation.toLowerCase());
-                              if (selectedTeamId) {
-                                const matchesTeamId = u.teamId === selectedTeamId;
-                                const selectedTeamObj = orgTeams.find(
-                                  (t) => t.id === selectedTeamId,
-                                );
-                                const matchesTeamNameInLoc =
-                                  selectedTeamObj?.name &&
-                                  u.siteLocation
-                                    ?.toLowerCase()
-                                    .includes(selectedTeamObj.name.toLowerCase());
-                                isMatch = isMatch && (matchesTeamId || matchesTeamNameInLoc);
-                              }
                               return isMatch;
                             })
                             .map((u) => (
@@ -855,18 +832,28 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
-                      Photos / Files
-                    </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-5 text-center bg-gray-50/50 hover:bg-gray-100 transition-colors relative cursor-pointer group">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-600">
+                        Photos / Files <span className="text-red-500">* (At least 1 required)</span>
+                      </label>
+                    </div>
+                    <div
+                      className={`border-2 border-dashed rounded-xl p-5 text-center transition-colors relative cursor-pointer group ${
+                        attachedFiles.length === 0
+                          ? "border-red-300 bg-red-50/20 hover:bg-red-50/40"
+                          : "border-gray-300 bg-gray-50/50 hover:bg-gray-100"
+                      }`}
+                    >
                       <input
                         type="file"
                         multiple
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         onChange={handleFileSelect}
                       />
-                      <UploadCloud className="w-7 h-7 text-blue-600 mx-auto mb-1.5 group-hover:scale-110 transition-transform" />
-                      <p className="text-xs font-bold text-gray-800">Click to upload files</p>
+                      <UploadCloud className={`w-7 h-7 mx-auto mb-1.5 group-hover:scale-110 transition-transform ${attachedFiles.length === 0 ? "text-red-500" : "text-blue-600"}`} />
+                      <p className={`text-xs font-bold ${attachedFiles.length === 0 ? "text-red-600" : "text-gray-800"}`}>
+                        {attachedFiles.length === 0 ? "Click to upload mandatory photo/file" : "Click to add more files"}
+                      </p>
                     </div>
                     {attachedFiles.length > 0 && (
                       <div className="mt-3 space-y-2">
@@ -961,20 +948,29 @@ const CreateWorkOrderModal = ({ isOpen, onClose, user, onCreated, preSelectedAss
           </div>
         </div>
 
-        <div className="flex justify-end px-6 md:px-8 py-5 bg-white border-t border-gray-200 gap-3 pb-8 md:pb-5">
-          <button
-            onClick={onClose}
-            className="px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting || !category || !selectedTeamId}
-            className="px-8 py-3 text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-50"
-          >
-            {isSubmitting ? "Creating..." : "Create Work Order"}
-          </button>
+        <div className="flex justify-between items-center px-6 md:px-8 py-5 bg-white border-t border-gray-200 gap-3 pb-8 md:pb-5">
+          <div>
+            {attachedFiles.length === 0 && (
+              <span className="text-xs font-bold text-red-500 animate-pulse">
+                * At least one file or photo is required to submit.
+              </span>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !category || attachedFiles.length === 0}
+              className="px-8 py-3 text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Creating..." : "Create Work Order"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

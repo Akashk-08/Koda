@@ -57,7 +57,70 @@ app.use((req, res, next) => {
   next();
 });
 
-// HEALTH CHECK ROUTE (Keeps UptimeRobot Green & Prevents Render Cold Starts)
+// ROOT USER MIDDLEWARE
+export const requireRoot = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const userId = req.headers['x-user-id'] || req.headers['X-User-Id'] || req.query.userId || req.body.userId;
+  
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized. Missing user ID." });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: String(userId) } });
+    if (!user || user.role !== "ROOT") {
+      return res.status(403).json({ error: "Access Denied. Root privileges required." });
+    }
+    // Attach user to request for downstream use if needed
+    (req as any).user = user;
+    next();
+  } catch(e) {
+    res.status(500).json({ error: "Failed to verify root access." });
+  }
+};
+
+// ROOT-LEVEL ROUTES
+
+// Root: Get all users globally with raw PINs exposed
+app.get("/api/root/users", requireRoot, async (req, res) => {
+  try {
+    const allUsers = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        pin: true,
+        organizationId: true,
+        approvalStatus: true
+      }
+    });
+    res.status(200).json(allUsers);
+  } catch(e) {
+    res.status(500).json({ error: "Failed to fetch global users" });
+  }
+});
+
+// Root: Global Audit Trail Viewer
+app.get("/api/root/audit-log", requireRoot, async (req, res) => {
+  try {
+    const auditLogs = await prisma.globalAuditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        actor: {
+          select: { firstName: true, lastName: true, email: true }
+        }
+      },
+      take: 500 // Limit to last 500 actions
+    });
+    res.status(200).json(auditLogs);
+  } catch(e) {
+    res.status(500).json({ error: "Failed to fetch audit logs" });
+  }
+});
+
+// HEALTH CHECK ROUTE (Keeps UptimeRobot Green)
 app.get("/", (req, res) => {
   res.status(200).json({ status: "ok", message: "Pulseworks CMMS backend is active and running!" });
 });
@@ -149,7 +212,6 @@ app.post("/api/auth/signup", async (req, res) => {
 
       const adminEmails = admins.map((admin) => admin.email);
 
-      // Only attempt email delivery if credentials are provided on the server
       if (adminEmails.length > 0 && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
         const mailOptions = {
           from: `"Pulseworks CMMS" <${process.env.EMAIL_USER}>`,
@@ -164,8 +226,6 @@ app.post("/api/auth/signup", async (req, res) => {
         
         await transporter.sendMail(mailOptions);
         logger.info(`Admin notification email sent for new user: ${email}`);
-      } else {
-        logger.warn(`Skipped admin email notification: EMAIL_USER or EMAIL_PASS environment variables are not configured.`);
       }
     } catch (emailErr) {
       logger.error(`Failed to send admin notification email: ${(emailErr as Error).message}`);
@@ -209,6 +269,17 @@ app.post("/api/auth/login", loginLimiter, async (req, res) => {
     }
     if (user.approvalStatus === "REJECTED") {
       return res.status(403).json({ error: "Your account access was denied." });
+    }
+
+    // Capture Root logins in Audit Log
+    if (user.role === "ROOT") {
+      await prisma.globalAuditLog.create({
+         data: {
+           actorId: user.id,
+           actionType: "ROOT_LOGIN",
+           details: `Root user logged into the system.`
+         }
+      });
     }
 
     res.status(200).json({

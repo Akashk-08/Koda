@@ -38,6 +38,7 @@ const TeamProfile = lazy(() => import("./components/TeamProfile.jsx"));
 const Analytics = lazy(() => import("./components/Analytics.tsx"));
 const NotificationsPage = lazy(() => import("./components/NotificationsPage.jsx"));
 const Scheduler = lazy(() => import("./components/Schedular.js"));
+const RootDashboard = lazy(() => import("./components/RootDashboard.tsx"));
 
 import {
   Box,
@@ -51,6 +52,7 @@ import {
   MapPin,
   FolderKanban,
   ShieldCheck,
+  ShieldAlert,
   Inbox,
   Package,
   Layers,
@@ -621,7 +623,7 @@ const DashboardLayout = ({
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user?.role !== "ADMIN" || !user?.organizationId) return;
+    if ((user?.role !== "ADMIN" && user?.role !== "ROOT") || !user?.organizationId) return;
 
     const fetchPendingRequests = async () => {
       try {
@@ -663,6 +665,7 @@ const DashboardLayout = ({
     "/more",
     "/workspace/notifications",
     "/workspace/analytics",
+    "/workspace/root-console",
   ];
   const isRootPage = rootPaths.includes(location.pathname);
 
@@ -696,6 +699,36 @@ const DashboardLayout = ({
         </Link>
 
         <nav className="flex-1 overflow-y-auto py-4 overflow-x-hidden custom-scrollbar">
+          {user.role === "ROOT" && (
+            <div className="mb-6">
+              <div
+                className={`px-3 mb-2 text-[10px] font-black text-purple-600 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
+              >
+                {isSidebarCollapsed ? "..." : "Root Mode"}
+              </div>
+              <ul className="space-y-1 px-3">
+                <li>
+                  <Link
+                    to="/workspace/root-console"
+                    className={
+                      isLinkActive("/workspace/root-console")
+                        ? `flex items-center justify-between px-3 py-2.5 text-sm font-bold rounded-lg text-purple-700 bg-purple-50 transition-colors ${isSidebarCollapsed ? "justify-center" : ""}`
+                        : `flex items-center justify-between px-3 py-2.5 text-sm font-bold rounded-lg text-purple-600 hover:bg-purple-50/50 transition-colors ${isSidebarCollapsed ? "justify-center" : ""}`
+                    }
+                    title={isSidebarCollapsed ? "Root Console" : ""}
+                  >
+                    <div className="flex items-center truncate">
+                      <span className={`text-purple-600 ${isSidebarCollapsed ? "" : "mr-3"} shrink-0`}>
+                        <ShieldAlert className="w-5 h-5" />
+                      </span>
+                      {!isSidebarCollapsed && <span className="truncate">Root Console</span>}
+                    </div>
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          )}
+
           <div
             className={`px-3 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
           >
@@ -760,28 +793,6 @@ const DashboardLayout = ({
             </li>
           </ul>
 
-          {/* <div
-            className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
-          >
-            {isSidebarCollapsed ? "..." : "AI Search"}
-          </div>
-          <ul className="space-y-1 px-3">
-            <li>
-              <Link
-                to="/aisearch/pulseworksAI"
-                className={linkClass("/aisearch/pulseworksAI")}
-                title={isSidebarCollapsed ? "Pulseworks AI" : ""}
-              >
-                <div className="flex items-center truncate">
-                  <span className={iconClass("/aisearch/pulseworksAI")}>
-                    <Sparkles className="w-5 h-5" />
-                  </span>
-                  {!isSidebarCollapsed && <span className="truncate">Pulseworks AI</span>}
-                </div>
-              </Link>
-            </li>
-          </ul> */}
-
           <div
             className={`px-3 mt-8 mb-2 text-[10px] font-black text-gray-400 uppercase tracking-widest ${isSidebarCollapsed ? "text-center" : ""}`}
           >
@@ -838,7 +849,7 @@ const DashboardLayout = ({
                 </div>
               </Link>
             </li>
-            {user.role === "ADMIN" && (
+            {(user.role === "ADMIN" || user.role === "ROOT") && (
               <li>
                 <Link
                   to="/resources/accessrequests"
@@ -971,7 +982,6 @@ const DashboardLayout = ({
           )}
 
           <div className="flex-1">
-            {/* SUSPENSE BOUNDARY WRAPS ALL LAZY LOADED ROUTES */}
             <Suspense
               fallback={
                 <div className="h-full w-full flex items-center justify-center bg-gray-50">
@@ -1001,6 +1011,7 @@ const DashboardLayout = ({
                 <Route path="/resources/projects" element={<Project user={user} />} />
                 <Route path="/resources/accessrequests" element={<AccessRequests user={user} />} />
                 <Route path="/resources/calendar" element={<Calendar user={user} />} />
+                <Route path="/workspace/root-console" element={<RootDashboard user={user} />} />
                 <Route
                   path="/procurement/partsinventory"
                   element={<PartsInventory user={user} />}

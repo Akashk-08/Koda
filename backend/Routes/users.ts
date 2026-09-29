@@ -4,6 +4,18 @@ import logger from "../utils/logger.js";
 
 const router = express.Router();
 
+// Helper for logging audit actions
+async function logGlobalAudit(actorId: string, actionType: string, details: string) {
+  try {
+    if (!actorId) return;
+    await prisma.globalAuditLog.create({
+      data: { actorId, actionType, details },
+    });
+  } catch (error) {
+    console.error("Failed to write global audit log:", error);
+  }
+}
+
 // 1. GET ALL PENDING REQUESTS (ADMIN ONLY)
 router.get("/accessrequests", async (req, res) => {
   const { orgId, requesterId } = req.query;
@@ -15,7 +27,7 @@ router.get("/accessrequests", async (req, res) => {
       where: { id: requesterId as string },
     });
 
-    if (!requester || requester.role !== "ADMIN") {
+    if (!requester || (requester.role !== "ADMIN" && requester.role !== "ROOT")) {
       return res.status(403).json({ error: "Access denied. Admins only." });
     }
 
@@ -23,6 +35,7 @@ router.get("/accessrequests", async (req, res) => {
       where: {
         organizationId: orgId as string,
         approvalStatus: "PENDING",
+        role: { not: "ROOT" }
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -52,10 +65,7 @@ router.get("/profile/:id", async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: String(id) },
-      include: {
-        organization: true,
-        teams: true,
-      },
+      include: { organization: true, teams: true },
     });
 
     if (!user) return res.status(404).json({ error: "User not found" });
@@ -68,7 +78,7 @@ router.get("/profile/:id", async (req, res) => {
   }
 });
 
-// 3. GET ALL USERS IN AN ORG (BULLETPROOF QUERY PARAM ROUTE)
+// 3. GET ALL USERS IN AN ORG
 router.get("/", async (req, res) => {
   try {
     const orgId = req.query.orgId as string;
@@ -78,7 +88,10 @@ router.get("/", async (req, res) => {
     }
 
     const users = await prisma.user.findMany({
-      where: { organizationId: orgId },
+      where: { 
+        organizationId: orgId,
+        role: { not: "ROOT" }
+      },
       include: { teams: true },
     });
 
@@ -90,7 +103,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// 3.5 FALLBACK ROUTE (Just in case old endpoints still call this)
+// 3.5 FALLBACK ROUTE
 router.get("/:orgId", async (req, res) => {
   const { orgId } = req.params;
   try {
@@ -98,6 +111,7 @@ router.get("/:orgId", async (req, res) => {
       where: {
         organizationId: orgId,
         approvalStatus: { not: "REJECTED" },
+        role: { not: "ROOT" }
       },
     });
     res.status(200).json(users);
@@ -135,6 +149,12 @@ router.put("/:id/profile", async (req, res) => {
       include: { organization: true, teams: true },
     });
 
+    await logGlobalAudit(
+      id,
+      "USER_PROFILE_UPDATE",
+      `User ${updatedUser.email} updated their profile info.`
+    );
+
     const { password, ...userWithoutPassword } = updatedUser;
     res.status(200).json(userWithoutPassword);
   } catch (error) {
@@ -143,16 +163,26 @@ router.put("/:id/profile", async (req, res) => {
   }
 });
 
-// 5. APPROVE OR REJECT A USER
+// 5. APPROVE OR REJECT A USER (Intercepted for Audit Log)
 router.put("/:id/approve", async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, adminId } = req.body;
 
   try {
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    
     const updatedUser = await prisma.user.update({
       where: { id },
       data: { approvalStatus: status },
     });
+
+    // Intercept access request resolution in Global Audit Log
+    await logGlobalAudit(
+      adminId || targetUser?.id || "SYSTEM",
+      status === "APPROVED" ? "ACCESS_REQUEST_APPROVED" : "ACCESS_REQUEST_REJECTED",
+      `Access request for ${targetUser?.email || id} was ${status.toLowerCase()} by admin.`
+    );
+
     res.status(200).json({ success: true, status: updatedUser.approvalStatus });
   } catch (error) {
     logger.error(`[Users] Approve User Error: ${(error as Error).message || error}`);
@@ -163,7 +193,7 @@ router.put("/:id/approve", async (req, res) => {
 // 6. ADD PERMISSIONS & ROUTING RULES FOR USERS
 router.put("/:id/permissions", async (req, res) => {
   const { id } = req.params;
-  const { role, locationId, autoAssignCategories } = req.body;
+  const { role, locationId, autoAssignCategories, actorId } = req.body;
 
   try {
     const updatedUser = await prisma.user.update({
@@ -174,6 +204,12 @@ router.put("/:id/permissions", async (req, res) => {
         autoAssignCategories: autoAssignCategories || [],
       },
     });
+
+    await logGlobalAudit(
+      actorId || id,
+      "USER_PERMISSIONS_UPDATED",
+      `Permissions updated for user ${updatedUser.email}: Role set to ${role}`
+    );
 
     const { password, ...userWithoutPassword } = updatedUser;
     res.status(200).json(userWithoutPassword);

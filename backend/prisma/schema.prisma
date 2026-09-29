@@ -10,6 +10,7 @@ datasource db {
 enum UserRole {
   ADMIN
   USER
+  ROOT
 }
 
 enum ApprovalStatus {
@@ -95,6 +96,7 @@ model User {
   uploadedDocs        Document[]
   resetCode           String?   @db.VarChar(10)
   resetCodeExpiry     DateTime?
+  globalAuditLogs     GlobalAuditLog[]
 
   pin                String?    @db.VarChar(4)
 
@@ -469,4 +471,15 @@ model MachineType {
 
   @@unique([organizationId, name])
   @@map("machine_types")
+}
+
+// a Global Audit Log to track EVERYTHING (even deleted items)
+model GlobalAuditLog {
+  id          String   @id @default(uuid())
+  actorId     String
+  actor       User     @relation(fields: [actorId], references: [id])
+  actionType  String   // e.g., "COMMENT_DELETED", "WORKORDER_EDITED"
+  details     String   // Store the exact text that was deleted or changed
+  targetId    String?  // The ID of the workorder or user affected
+  createdAt   DateTime @default(now())
 }
