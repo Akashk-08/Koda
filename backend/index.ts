@@ -43,7 +43,7 @@ const corsOptions = {
     "http://192.168.1.49:5173",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-user-id"],
   credentials: true,
   maxAge: 86400, 
 };
@@ -117,6 +117,56 @@ app.get("/api/root/audit-log", requireRoot, async (req, res) => {
     res.status(200).json(auditLogs);
   } catch(e) {
     res.status(500).json({ error: "Failed to fetch audit logs" });
+  }
+});
+
+// Root: Direct Admin/Root Override of Password & PIN
+app.put("/api/root/users/:id/credentials", requireRoot, async (req, res) => {
+  const { id } = req.params;
+  const { newPassword, newPin, requesterId } = req.body;
+
+  try {
+    const updateData: any = {};
+
+    if (newPassword && typeof newPassword === "string" && newPassword.trim().length >= 6) {
+      const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
+      updateData.password = hashedPassword;
+    }
+
+    if (newPin !== undefined && newPin !== null) {
+      updateData.pin = String(newPin).trim();
+    } else if (newPin === null) {
+      updateData.pin = null;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: String(id) },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        pin: true,
+        organizationId: true,
+        approvalStatus: true,
+      },
+    });
+
+    // Track the emergency override in GlobalAuditLog
+    await prisma.globalAuditLog.create({
+      data: {
+        actorId: requesterId || (req as any).user?.id || "SYSTEM",
+        actionType: "ROOT_CREDENTIAL_OVERRIDE",
+        details: `Emergency credential override executed for ${updatedUser.email}. Password reset: ${Boolean(newPassword)}, PIN updated: ${Boolean(newPin)}`
+      }
+    });
+
+    res.status(200).json({ success: true, user: updatedUser });
+  } catch (error) {
+    logger.error(`[Root] Credential Override Error: ${(error as Error).message || error}`);
+    res.status(500).json({ error: "Failed to override user credentials." });
   }
 });
 

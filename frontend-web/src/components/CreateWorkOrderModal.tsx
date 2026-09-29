@@ -25,11 +25,10 @@ const FULL_CATEGORIES = [
   { label: "None", value: "NONE" },
   { label: "Annual PM", value: "ANNUAL_PREVENTIVE_MAINTENANCE" },
   { label: "Assets", value: "ASSETS" },
-  { label: "Large Damage", value: "LARGE_DAMAGE" },
   { label: "Part Request", value: "PARTS_REQUEST" },
   { label: "Project/Upgrade", value: "PROJECT_UPGRADE" },
   { label: "Six months PM", value: "SIX_MONTH_PREVENTIVE_MAINTENANCE" },
-  { label: "Support Req", value: "SUPPORT_REQUEST" },
+  { label: "Technical Support Request", value: "SUPPORT_REQUEST" },
   { label: "Weekly/monthly/checklists", value: "WEEKLY_MONTHLY_CHECKLISTS" },
 ];
 

@@ -1,10 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Building2, MapPin, Briefcase, Phone } from 'lucide-react';
-import Footer from './Footer';
+import Footer from './Footer.jsx';
 
 const DEFAULT_SITE_LOCATIONS = [
   "Pulseworks Shop",
@@ -25,16 +24,15 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locations, setLocations] = useState([]);
   const [profilePic, setProfilePic] = useState(user?.profilePicUrl || null);
+  const [orgName, setOrgName] = useState("Loading...");
 
-  // Track if the user selected "Other" to type a custom location
   const [isCustomLocation, setIsCustomLocation] = useState(false);
 
-  // Check if this is a Pulseworks user
   const isPulseworks =
     user?.email?.toLowerCase().endsWith('@pulseworks.com') ||
-    user?.organization?.orgName?.toLowerCase().includes('pulseworks') || user?.email?.toLowerCase().endsWith('@pulseworksops.com');
+    user?.organization?.orgName?.toLowerCase().includes('pulseworks') ||
+    user?.email?.toLowerCase().endsWith('@pulseworksops.com');
 
-  // Pre-fill phoneNumber, siteLocation, and designation from existing user object
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -42,38 +40,40 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
     siteLocation: user?.siteLocation || '',
     designation: user?.designation || ''
   });
-  const API_URL = import.meta.env.VITE_API_URL;
-  useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        const orgId = user?.organizationId;
-        const url = orgId
-          ? `${API_URL}/api/locations?orgId=${orgId}`
-          : `${API_URL}/api/assets`;
+  
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8080";
 
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        if (!user?.id) return;
+        const orgId = user?.organizationId;
+        
+        const profileRes = await fetch(`${API_URL}/api/users/profile/${user.id}`);
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          setOrgName(profileData.organization?.orgName || "Pulseworks LLC");
+        }
+
+        const url = orgId ? `${API_URL}/api/locations?orgId=${orgId}` : `${API_URL}/api/assets`;
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
-
-          // ONLY load default locations if the user belongs to Pulseworks
           const locationSet = new Set(isPulseworks ? DEFAULT_SITE_LOCATIONS : []);
-
-          data.forEach(item => {
+          data.forEach((item) => {
             if (item.name) locationSet.add(item.name);
             if (item.locationName) locationSet.add(item.locationName);
           });
-
           setLocations(Array.from(locationSet).sort());
         }
       } catch (err) {
-        console.error("Failed to fetch locations:", err);
+        console.error("Failed to fetch user metadata:", err);
       }
     };
 
-    fetchLocations();
-  }, [user?.organizationId, isPulseworks]);
+    fetchUserData();
+  }, [user?.id, user?.organizationId, isPulseworks]);
 
-  // If a non-Pulseworks user opens the page and has no locations, automatically trigger the custom text box
   useEffect(() => {
     if (!isPulseworks && locations.length === 0) {
       setIsCustomLocation(true);
@@ -99,7 +99,6 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
 
       if (res.ok) {
         const updatedUser = await res.json();
-
         if (updatedUser.approvalStatus === 'PENDING') {
           alert("Profile submitted! Please wait for admin approval to access the workspace.");
           onSignOut();
@@ -122,7 +121,6 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white text-center relative overflow-hidden">
             <div className="relative z-10">
               <h2 className="text-3xl font-extrabold mb-2">Complete Your Profile</h2>
@@ -132,8 +130,6 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 space-y-6">
-
-            {/* Profile Picture Upload */}
             <div className="flex flex-col items-center mb-8">
               <div className="relative group">
                 <div className="w-28 h-28 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center">
@@ -151,15 +147,14 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
               <p className="text-xs text-gray-500 mt-3 font-medium">Upload profile picture</p>
             </div>
 
-            {/* Read-Only Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-gray-100">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> Organization</label>
                 <input
                   type="text"
-                  value={user?.organization?.orgName || "Your Workspace"}
+                  value={orgName}
                   disabled
-                  className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed font-medium text-sm"
+                  className="w-full p-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed font-bold text-sm"
                 />
               </div>
               <div>
@@ -173,7 +168,6 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
               </div>
             </div>
 
-            {/* Editable Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">First Name</label>
@@ -186,11 +180,8 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-              {/* Site Location Logic */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1"><MapPin className="w-3 h-3" /> Site Location</label>
-
                 {!isCustomLocation && locations.length > 0 ? (
                   <select
                     required
@@ -209,6 +200,7 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
                     {locations.map(locName => (
                       <option key={locName} value={locName}>{locName}</option>
                     ))}
+                    <option value="OTHER">Other (Type manually)</option>
                   </select>
                 ) : (
                   <input
@@ -222,27 +214,25 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
                 )}
               </div>
 
-              {/* Designation Logic */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1"><Briefcase className="w-3 h-3" /> Designation</label>
-                {isPulseworks ? (
-                  <select required value={formData.designation} onChange={(e) => setFormData({ ...formData, designation: e.target.value })} className="w-full p-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm font-medium text-gray-800 cursor-pointer">
-                    <option value="">Select designation...</option>
-                    <option value="Site Technician">Site Technician</option>
-                    <option value="Site Manager">Site Manager</option>
-                    <option value="Site Assistant Manager">Site Assistant Manager</option>
-                    <option value="Site Operator">Site Operator</option>
-                  </select>
-                ) : (
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. Facilities Manager"
-                    value={formData.designation}
-                    onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                    className="w-full p-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm font-medium text-gray-800"
-                  />
-                )}
+                <input
+                  required
+                  list="designation-options"
+                  type="text"
+                  placeholder="Select or type designation..."
+                  value={formData.designation}
+                  onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                  className="w-full p-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm font-medium text-gray-800"
+                />
+                <datalist id="designation-options">
+                  <option value="Site Technician" />
+                  <option value="Site Manager" />
+                  <option value="Site Assistant Manager" />
+                  <option value="Site Operator" />
+                  <option value="Facilities Manager" />
+                  <option value="Maintenance Engineer" />
+                </datalist>
               </div>
             </div>
 
@@ -252,18 +242,14 @@ const UserProfile = ({ user, onUpdateUser, onSignOut }) => {
             </div>
 
             <div className="flex justify-end gap-3 pt-6 mt-4 border-t border-gray-100">
-              <button type="button" onClick={() => { onSignOut(); navigate('/login'); }} className="px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
-                Cancel
-              </button>
-              <button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 px-8 py-3 text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50">
+              <button type="button" onClick={() => { onSignOut(); navigate('/login'); }} className="px-6 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Cancel</button>
+              <button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50">
                 {isSubmitting ? 'Submitting...' : 'Submit Request'}
               </button>
             </div>
-
           </form>
         </div>
       </div>
-
       <Footer />
     </div>
   );
